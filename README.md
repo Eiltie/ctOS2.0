@@ -288,3 +288,7 @@ python -X utf8 ctOS2_modules/ctOS2_customer_AI/ctOS2_customer_stream.py
 - 数据库为本地 SQLite 文件，不含账号密码；⚠️ `.db` 文件本身没有访问权限控制，谁拿到谁能读，不要外传。
 - `.gitignore` 已排除 `config/.env`、`*.env`、`venv/`、`__pycache__/`、`*.sql`、`*.sqlite`、`*.db` 等。
 - 若曾误提交密钥，请立即在对应平台轮换（删除文件并不能让密钥失效）。
+
+## 许可证
+
+[MIT License](LICENSE) — 可以自由使用、修改、商用，只需保留版权声明，作者不承担担保责任。
