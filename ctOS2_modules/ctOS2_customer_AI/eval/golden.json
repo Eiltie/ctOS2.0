@@ -1,0 +1,291 @@
+{
+  "_说明": "RAG 检索测评集。expect_keywords 里任意一个出现在前 MAX_HITS 条里就算这题通过。改语料后块编号会变，所以这里只记关键词、不记块号。关键词必须在库里真实存在，且最好有区分度（出现块数少），否则测不出东西。",
+  "_版本": 2,
+  "_注意": "库外类（should_answer=false）测的是「检索层会不会意外撞上答案关键词」。检索层对任何问题都会返回 4 条（设计如此），真正拒答靠提示词，所以这一类的命中率不代表拒答能力。",
+  "cases": [
+    {
+      "id": 1,
+      "category": "原词",
+      "question": "端口怎么改？",
+      "expect_keywords": ["8080"],
+      "should_answer": true
+    },
+    {
+      "id": 2,
+      "category": "原词",
+      "question": "数据库有几张表",
+      "expect_keywords": ["trip_sessions"],
+      "should_answer": true
+    },
+    {
+      "id": 3,
+      "category": "原词",
+      "question": "什么是 MAX_HITS",
+      "expect_keywords": ["MAX_HITS"],
+      "should_answer": true
+    },
+    {
+      "id": 4,
+      "category": "原词",
+      "question": "jieba 和 BM25 是做什么的",
+      "expect_keywords": ["BM25"],
+      "should_answer": true
+    },
+    {
+      "id": 5,
+      "category": "原词",
+      "question": "chromadb 怎么安装",
+      "expect_keywords": ["chromadb"],
+      "should_answer": true
+    },
+    {
+      "id": 6,
+      "category": "原词",
+      "question": "ZHIPU_API_KEY 是什么",
+      "expect_keywords": ["ZHIPU_API_KEY"],
+      "should_answer": true
+    },
+    {
+      "id": 7,
+      "category": "原词",
+      "question": "embedding-3 是多少维",
+      "expect_keywords": ["2048"],
+      "should_answer": true
+    },
+    {
+      "id": 8,
+      "category": "原词",
+      "question": "rag_ingest.py 是做什么的",
+      "expect_keywords": ["rag_ingest"],
+      "should_answer": true
+    },
+    {
+      "id": 9,
+      "category": "原词",
+      "question": "uvicorn.run 在哪里",
+      "expect_keywords": ["uvicorn.run"],
+      "should_answer": true
+    },
+    {
+      "id": 10,
+      "category": "原词",
+      "question": "turn_kind 有哪些值",
+      "expect_keywords": ["turn_kind"],
+      "should_answer": true
+    },
+
+    {
+      "id": 11,
+      "category": "同义改写",
+      "question": "服务在哪个门牌号上跑",
+      "expect_keywords": ["8080"],
+      "should_answer": true,
+      "_备注": "「门牌号」→端口，只有 8080 能做桥梁"
+    },
+    {
+      "id": 12,
+      "category": "同义改写",
+      "question": "我想换个号码访问，要动哪里",
+      "expect_keywords": ["8080"],
+      "should_answer": true
+    },
+    {
+      "id": 13,
+      "category": "同义改写",
+      "question": "聊天记录存在什么地方",
+      "expect_keywords": ["SQLite", "ctOS2_db.db"],
+      "should_answer": true
+    },
+    {
+      "id": 14,
+      "category": "同义改写",
+      "question": "这东西能帮我干什么",
+      "expect_keywords": ["功能一", "功能二", "功能三"],
+      "should_answer": true
+    },
+    {
+      "id": 15,
+      "category": "同义改写",
+      "question": "怎么把它跑起来",
+      "expect_keywords": ["ctOS_chat_api.py"],
+      "should_answer": true
+    },
+    {
+      "id": 16,
+      "category": "同义改写",
+      "question": "为什么要先把文档切碎再存",
+      "expect_keywords": ["MAX_CHUNK_CHARS", "切块"],
+      "should_answer": true
+    },
+    {
+      "id": 17,
+      "category": "同义改写",
+      "question": "回答老是说找不到资料是咋回事",
+      "expect_keywords": ["向量数据库", "rag_ingest.py"],
+      "should_answer": true
+    },
+    {
+      "id": 18,
+      "category": "同义改写",
+      "question": "它怎么保证不胡说八道",
+      "expect_keywords": ["不编造", "不许编造"],
+      "should_answer": true
+    },
+    {
+      "id": 19,
+      "category": "同义改写",
+      "question": "页面的样式和脚本放在哪",
+      "expect_keywords": ["style.css", "static/js"],
+      "should_answer": true
+    },
+    {
+      "id": 20,
+      "category": "同义改写",
+      "question": "哪天走是怎么从话里猜出来的",
+      "expect_keywords": ["start_date", "出发日期"],
+      "should_answer": true
+    },
+
+    {
+      "id": 21,
+      "category": "跨章节",
+      "question": "智能客服用哪几个模型，分别是什么厂商的",
+      "expect_keywords": ["DeepSeek", "智谱"],
+      "should_answer": true
+    },
+    {
+      "id": 22,
+      "category": "跨章节",
+      "question": "改了文档之后要重跑入库，还要做什么才能生效",
+      "expect_keywords": ["重启", "reset_store"],
+      "should_answer": true
+    },
+    {
+      "id": 23,
+      "category": "跨章节",
+      "question": "出行记录里怎么区分这次是真规划还是只是聊天",
+      "expect_keywords": ["turn_kind", "TRAVEL"],
+      "should_answer": true
+    },
+    {
+      "id": 24,
+      "category": "跨章节",
+      "question": "前端为什么不用改端口也能连上后端",
+      "expect_keywords": ["相对路径", "同源", "API.base"],
+      "should_answer": true
+    },
+    {
+      "id": 25,
+      "category": "跨章节",
+      "question": "新增一个模块需要在哪几个地方登记",
+      "expect_keywords": ["create_all_tables"],
+      "should_answer": true
+    },
+    {
+      "id": 26,
+      "category": "跨章节",
+      "question": "为什么智能客服不带历史，而闲聊带",
+      "expect_keywords": ["一问一答", "不带历史"],
+      "should_answer": true
+    },
+    {
+      "id": 27,
+      "category": "跨章节",
+      "question": "向量库文件会不会被提交到仓库",
+      "expect_keywords": ["gitignore"],
+      "should_answer": true
+    },
+    {
+      "id": 28,
+      "category": "跨章节",
+      "question": "客服模块会发哪几种 SSE 事件",
+      "expect_keywords": ["TOKEN", "DONE"],
+      "should_answer": true
+    },
+    {
+      "id": 29,
+      "category": "跨章节",
+      "question": "删掉一条出行记录，它的子表数据会怎样",
+      "expect_keywords": ["CASCADE"],
+      "should_answer": true
+    },
+    {
+      "id": 30,
+      "category": "跨章节",
+      "question": "Python 版本要求和依赖清单",
+      "expect_keywords": ["3.14"],
+      "should_answer": true
+    },
+
+    {
+      "id": 31,
+      "category": "库外",
+      "question": "怎么接入微信支付",
+      "expect_keywords": [],
+      "should_answer": false
+    },
+    {
+      "id": 32,
+      "category": "库外",
+      "question": "今天上证指数多少点",
+      "expect_keywords": [],
+      "should_answer": false
+    },
+    {
+      "id": 33,
+      "category": "库外",
+      "question": "帮我写一个快速排序",
+      "expect_keywords": [],
+      "should_answer": false
+    },
+    {
+      "id": 34,
+      "category": "库外",
+      "question": "你会不会讲笑话",
+      "expect_keywords": [],
+      "should_answer": false
+    },
+    {
+      "id": 35,
+      "category": "库外",
+      "question": "Kubernetes 的 Pod 和 Deployment 有什么区别",
+      "expect_keywords": [],
+      "should_answer": false
+    },
+    {
+      "id": 36,
+      "category": "库外",
+      "question": "推荐一部好看的电影",
+      "expect_keywords": [],
+      "should_answer": false
+    },
+    {
+      "id": 37,
+      "category": "库外",
+      "question": "帮我订明天去上海的高铁票",
+      "expect_keywords": [],
+      "should_answer": false
+    },
+    {
+      "id": 38,
+      "category": "库外",
+      "question": "MySQL 和 PostgreSQL 哪个性能好",
+      "expect_keywords": [],
+      "should_answer": false
+    },
+    {
+      "id": 39,
+      "category": "库外",
+      "question": "怎么用 Docker 部署",
+      "expect_keywords": [],
+      "should_answer": false
+    },
+    {
+      "id": 40,
+      "category": "库外",
+      "question": "什么是 transformer 的自注意力机制",
+      "expect_keywords": [],
+      "should_answer": false
+    }
+  ]
+}

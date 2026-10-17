@@ -1,0 +1,90 @@
+# ============ 密钥 / 配置（绝不入库）============
+# config/.env 里有真实的 DEEPSEEK / TAVILY / AMAP 密钥和 MySQL 密码。
+# 需要配置时，复制 config/YOUR_config.env 为 config/.env 再填自己的值。
+config/.env
+.env
+*.env
+!config/YOUR_config.env
+
+# ============ Python ============
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# 虚拟环境
+venv/
+.venv/
+env/
+ENV/
+
+# 测试 / 类型检查缓存
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ============ 编辑器 / 系统 ============
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ============ 日志 / 临时文件 ============
+*.log
+logs/
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+
+# ============ 本地数据库导出 ============
+*.sql
+*.sqlite
+*.sqlite3
+*.db
+*.mdb
+
+# ============ chroma 向量库（运行产物，不入库）============
+# 由 rag_ingest.py 从 data/docs/ 重新生成，不需要提交。
+# 注意：docs/ 里的 .md 是知识库源文件，必须入库；只有落盘的向量数据不提交。
+ctOS2_modules/ctOS2_customer_AI/data/chroma/
+
+# ============ 测评结果留档（运行产物，不入库）============
+# eval/golden.json 是题库，属于基准，必须入库；
+# eval/runs/ 每次跑测评生成一份，属于产物，不提交。
+ctOS2_modules/ctOS2_customer_AI/eval/runs/
+
+# ============ Jupyter / 数据分析产物 ============
+.ipynb_checkpoints/
+*.ipynb
+
+# ============ 前端（本项目无构建步骤，这行是防御性的）============
+node_modules/
+dist/
+.vite/
+
+# ============ 密钥 / 证书的常见扩展名 ============
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+id_rsa
+id_rsa.pub
+
+# ============ 打包 / 压缩产物 ============
+*.zip
+*.tar.gz
+*.rar
+*.7z
