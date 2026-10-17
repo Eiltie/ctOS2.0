@@ -77,8 +77,7 @@ ctOS2.0/
 │   └── js/
 │       ├── app.js              # 核心：状态、侧边栏、闲聊、模块切换
 │       ├── trip.js             # 智能出行
-│       ├── customer.js         # 智能客服
-│       └── app.js.bak          # 旧版单文件备份（未被页面加载，可删）
+│       └── customer.js         # 智能客服
 ├── screenshots/                # README 用的界面截图
 └── config/
     ├── YOUR_config.env         # 配置模板（入库）
@@ -115,6 +114,24 @@ python ctOS2_databases/ctOS2_db_view.py stats      # 统计
 
 ## 快速开始
 
+> ### ⚠️ 先读这段：这个项目需要你自己的 API 密钥
+>
+> **clone 下来不能直接跑。** 项目本身不含任何密钥，所有功能都要调用外部 API，
+> 你必须自己申请 5 个密钥并填进 `config/.env`，否则启动后各个模块会报错或不可用。
+>
+> | 密钥 | 用途 | 必要性 | 去哪申请 |
+> | --- | --- | --- | --- |
+> | `DEEPSEEK_API_KEY` + `DEEPSEEK_BASE_URL` + `DEEPSEEK_MODEL` | 所有对话和推理 | **必需**，缺了闲聊和出行都不能用 | [platform.deepseek.com](https://platform.deepseek.com/) |
+> | `ZHIPU_API_KEY` | 智能客服的向量化 | **必需**，缺了客服模块启动就报错 | [open.bigmodel.cn](https://open.bigmodel.cn/) |
+> | `TAVILY_API_KEY` | 出行模块联网搜景点 | 出行要用；不填则景点推荐质量变差 | [tavily.com](https://tavily.com/) |
+> | `AMAP_KEY` | 出行模块算路线 | 出行要用；不填则路线会退化为估算 | [lbs.amap.com](https://lbs.amap.com/) |
+>
+> 这些 API **大多需要注册账号，部分需要付费或有免费额度限制**，具体以各家官网当前政策为准。
+> DeepSeek 和智谱按调用量计费，跑一次出行规划会调用十几次模型，请留意自己的余额。
+>
+> **只拿到 DeepSeek 密钥时**：闲聊模块可以正常用，另外两个模块会不可用。
+> 想完整体验三个模块，5 个密钥都要配。
+
 ### 1. 安装依赖
 
 ```bash
@@ -136,15 +153,23 @@ cp config/YOUR_config.env config/.env
 `config/.env` 需要填写：
 
 ```
-DEEPSEEK_API_KEY=      # DeepSeek 密钥
-DEEPSEEK_BASE_URL=     # DeepSeek 接口地址
-DEEPSEEK_MODEL=        # 模型名
+DEEPSEEK_API_KEY=      # DeepSeek 密钥，对话和图上推理都用它
+DEEPSEEK_BASE_URL=     # DeepSeek 接口地址，例如 https://api.deepseek.com
+DEEPSEEK_MODEL=        # 模型名，例如 deepseek-chat
 
 TAVILY_API_KEY=        # Tavily 搜索密钥，智能出行查景点用
 AMAP_KEY=              # 高德地图密钥，智能出行算路线用
 
 ZHIPU_API_KEY=         # 智谱密钥，智能客服 RAG 向量化用（必填，缺失时客服模块启动即报错）
 ```
+
+每一步都能看到效果，可以按需分阶段配置：
+
+| 你想先试哪个模块 | 最少需要配哪些 |
+| --- | --- |
+| 只看闲聊 | `DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL` |
+| 加智能出行 | 再补 `TAVILY_API_KEY`、`AMAP_KEY` |
+| 加智能客服 | 再补 `ZHIPU_API_KEY` |
 
 > `config/.env` 已被 `.gitignore` 忽略，**不要**提交真实密钥。
 
@@ -188,6 +213,23 @@ python src/ctOS_chat_api.py
 > uvicorn src.ctOS_chat_api:app --reload --port 8080
 > ```
 
+## 跑不起来？先看这里
+
+大部分「跑不起来」都是密钥或初始化没做全。按下面顺序自查：
+
+| 现象 | 原因 | 怎么办 |
+| --- | --- | --- |
+| 启动就说「没找到向量数据库」/「没有这个集合」 | 还没跑入库脚本 | `python ctOS2_modules/ctOS2_customer_AI/rag_ingest.py` |
+| 报错 `config/.env 里没有 ZHIPU_API_KEY` | 智谱密钥没配 | 去 [open.bigmodel.cn](https://open.bigmodel.cn/) 申请后填进 `config/.env` |
+| 闲聊一提问就报 401 / 认证失败 | DeepSeek 密钥错或没余额 | 检查 `DEEPSEEK_API_KEY`，并确认账户有余额 |
+| 智能出行一上来就报错 | 没配 `TAVILY_API_KEY` 或 `AMAP_KEY` | 补上对应密钥，或先只用闲聊模块 |
+| 出行模块提示「没能识别出目的地」 | 不是报错，是需求太模糊 | 说具体点，例如「下周想去杭州玩3天」 |
+| 改了 `data/docs/` 但客服回答还是旧的 | 没重新入库，或没重启服务 | 重跑入库脚本 **并且重启** 服务 |
+| 页面打开是白屏 | 后端没启动，或端口不是 8080 | 先确认 `python src/ctOS_chat_api.py` 在跑，访问 <http://127.0.0.1:8080/> |
+
+**说明**：项目不含数据库文件和向量库，这两样都是**第一次运行时自动生成**的，
+所以刚 clone 下来时必须先执行「第 3 步 初始化数据库」和「第 4 步 入库」，否则一定跑不起来。
+
 ## 前端开发
 
 前端**没有任何构建步骤**：改代码保存后刷新浏览器即可生效。
@@ -200,8 +242,6 @@ python src/ctOS_chat_api.py
 | `static/css/style.css` | 全部样式 |
 
 三个 JS 文件按 `app.js → trip.js → customer.js` 的顺序加载，后两个依赖 `app.js` 里的 `$`、`esc`、`md`、`API`、`state` 等全局变量，**调整加载顺序会导致报错**。
-
-`static/js/app.js.bak` 是旧版单文件备份，`index.html` 并未引用它，保留与否不影响运行。
 
 详见 [`static/README.md`](static/README.md)。
 

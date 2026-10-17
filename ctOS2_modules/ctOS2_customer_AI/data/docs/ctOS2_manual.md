@@ -465,6 +465,13 @@ python ctOS2_modules/ctOS2_customer_AI/rag_ingest.py
 
 ### 关于使用
 
+**Q：克隆下来为什么跑不起来？**
+A：因为这个项目**不含任何 API 密钥**，必须自己申请并填进 `config/.env`。
+一共需要 5 个：DeepSeek（对话，必需）、智谱（客服向量化，必需）、Tavily（搜景点）、高德（算路线）。
+另外克隆下来时数据库和向量库都还不存在，要先跑 `ctOS2_databases/ctOS2_db.py` 建表、
+再跑 `rag_ingest.py` 入库，这两个都是一次性的初始化步骤。
+只拿到 DeepSeek 密钥的话，闲聊模块能正常用，出行和客服会不可用。
+
 **Q：怎么启动这个项目？**
 A：三步。① 装依赖 `pip install -r config/requirements.txt`；
 ② 建表 `python ctOS2_databases/ctOS2_db.py`；

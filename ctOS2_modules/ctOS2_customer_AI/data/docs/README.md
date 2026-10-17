@@ -201,6 +201,24 @@ ZHIPU_API_KEY=         # 智谱密钥，智能客服 RAG 向量化用（必填�
 `ZHIPU_API_KEY` 是**必需**的：加载知识库时会先检查它，取不到就直接抛错。
 也就是说没配这个密钥，智能客服模块启动不起来（其它模块不受影响）。
 
+**项目本身不含任何密钥**，clone 下来必须自己申请并填写，否则跑不起来。
+5 个密钥的用途、必要性、申请地址：
+
+| 密钥 | 用途 | 必要性 | 去哪申请 |
+| --- | --- | --- | --- |
+| `DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL` | 所有对话和推理 | 必需，缺了闲聊和出行都不能用 | platform.deepseek.com |
+| `ZHIPU_API_KEY` | 智能客服向量化 | 必需，缺了客服模块启动报错 | open.bigmodel.cn |
+| `TAVILY_API_KEY` | 出行模块联网搜景点 | 出行要用 | tavily.com |
+| `AMAP_KEY` | 出行模块算路线 | 出行要用 | lbs.amap.com |
+
+这些外部 API 大多需要注册账号，部分需要付费或有免费额度限制，具体以各家官网为准。
+
+只想先试一个模块的话，最少需要配：
+
+- 只看闲聊：`DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL`
+- 加智能出行：再补 `TAVILY_API_KEY`、`AMAP_KEY`
+- 加智能客服：再补 `ZHIPU_API_KEY`
+
 > `config/.env` 已被 `.gitignore` 忽略，**不要**提交真实密钥。
 
 ### 3. 初始化数据库
