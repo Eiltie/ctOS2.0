@@ -13,8 +13,6 @@ from pathlib import Path
 
 import chromadb
 
-# 直接运行本文件时（python rag_ingest.py），项目根目录不在搜索路径里，
-# 下面那行包路径就 import 不到。先补一次（被 import 时加的是同一个，重复无害）。
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from ctOS2_modules.ctOS2_customer_AI.get_llm import (

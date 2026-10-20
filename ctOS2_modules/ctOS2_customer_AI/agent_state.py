@@ -9,13 +9,13 @@ from typing import TypedDict
 class AgentState(TypedDict):
     """一张图从头到尾流动的数据。"""
 
-    # ==================== 输入区 ====================
-    user_query: str                 # 用户这一轮的问题（原话，不做任何加工）
+    #输入区
+    user_query: str                 # 用户这一轮的问题
 
-    # ==================== 检索区（retrieve 节点产出）====================
+    #检索区
     keyword_hits: list[str]         # 第一层·关键词检索命中的文本片段
     vector_hits: list[str]          # 第二层·向量检索命中的文本片段
     hybrid_hits: list[str]          # 第三层·混合检索的最终片段（交给 LLM 的就是它）
 
-    # ==================== 输出区（generate 节点产出）====================
+    #输出区
     answer: str                     # 最终回答；检索不到时是「没找到答案」那句话

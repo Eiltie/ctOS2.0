@@ -17,18 +17,14 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from langchain_core.messages import HumanMessage, AIMessage
 
-# 让 ctOS2_modules 这个包能被 import（项目目前无数据库，没有 ctOS2_databases 目录）
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from ctOS_chat_graphOn import run_graph
 
-# 出行模块：流式细节全封在 trip_stream 里（它顺带把 config/.env 读进来）
 from ctOS2_modules.ctOS2_Trip_AI.ctOS2_Trip_stream import trip_stream
 
-# 客服模块：同样只认这一个入口，图内部什么样这里不需要知道
 from ctOS2_modules.ctOS2_customer_AI.ctOS2_customer_stream import customer_stream
 
-# 出行历史：直接读出行库（和闲聊的会话表分开）
 from ctOS2_databases.ctOS2_db_trip import list_trips, get_trip, delete_trip
 
 from ctOS_chat_sessions import (
@@ -41,14 +37,10 @@ from ctOS_chat_sessions import (
     remove_session,
 )
 
-
 app = FastAPI()
 
-# 前端静态资源目录：css / js 等文件由这里对外提供
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
-# 挂载静态目录，让浏览器能直接加载 /static/css/style.css、/static/js/app.js
-# 注意：挂载在 /static 前缀下，不会影响 /chat、/sessions、/ 这些已有路由
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
@@ -61,8 +53,7 @@ class ChatResponse(BaseModel):
     response: str
 
 
-# 模块一：闲聊（/chat）—— 流式纯文本，前端按字追加
-
+# 模块一：闲聊（/chat
 @app.post("/chat")
 async def chat(req: ChatRequest):
     session_id = resolve_session(req.session_id, req.messages)
@@ -87,7 +78,6 @@ async def chat(req: ChatRequest):
 
 
 # 模块二：智能出行（/trip/chat）
-#
 # 这张图有四段产出（天气 / 景点 / 行程 / 路线）、内部还有 ReAct 循环，
 
 class TripRequest(BaseModel):
@@ -140,10 +130,6 @@ async def trip_delete(trip_id: int):
 
 
 # 模块三：智能客服（/customer/chat）
-#
-# 和另外两个模块最大的不同：它是一次性问答，不记会话、不带历史。
-# 用户问一句、拿一个答案就走，所以请求里只有 query，没有 session_id。
-
 class CustomerRequest(BaseModel):
     query: str
 

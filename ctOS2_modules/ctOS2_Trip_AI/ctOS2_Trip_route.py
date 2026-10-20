@@ -7,7 +7,7 @@ def should_continue(state) -> str:
     """景点 Agent 这一轮还想不想调工具。"""
     messages = state["messages"]
 
-    #兜底：消息太多说明循环失控
+    #消息太多说明循环失控
     if len(messages) >= MAX_MESSAGES:
         return END
 

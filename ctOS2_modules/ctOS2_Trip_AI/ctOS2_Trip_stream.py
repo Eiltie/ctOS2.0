@@ -22,7 +22,6 @@ from pathlib import Path
 
 from langchain_core.messages import AIMessageChunk
 
-# 直接运行本文件时，项目根目录不在搜索路径里，补一次（被 import 时重复无害）
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from ctOS2_databases.ctOS2_db_trip import save_trip_turn

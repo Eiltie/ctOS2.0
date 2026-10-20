@@ -10,19 +10,15 @@ from pathlib import Path
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 
-# 本文件在 ctOS2_modules/ctOS2_customer_AI/ 下：
-#   parents[0] = ctOS2_customer_AI   parents[1] = ctOS2_modules   parents[2] = E:\ctOS_prototype\ctOS2.0
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-# 项目所有配置集中在 config/.env
 load_dotenv(_PROJECT_ROOT / "config" / ".env")
 
-# 让本模块能被以包路径 import（ctOS2_modules.ctOS2_customer_AI.xxx）
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 
-# ==================== 路径常量 ====================
+#路径常量
 
 # 模块自己的目录（data/ 就在它下面）
 MODULE_DIR = Path(__file__).resolve().parent
@@ -37,7 +33,7 @@ CHROMA_DIR = MODULE_DIR / "data" / "chroma"
 COLLECTION_NAME = "ctos2_docs"
 
 
-# ==================== 模型常量 ====================
+#模型常量
 
 TEMPERATURE = 0.3          # 生成答案时的随机性，客服场景要稳，取值偏低
 
@@ -48,8 +44,7 @@ EMBEDDING_MODEL = "embedding-3"
 EMBEDDING_BASE_URL = "https://open.bigmodel.cn/api/paas/v4/embeddings"
 
 
-# ==================== 对外函数 ====================
-
+#对外函数
 def get_llm() -> ChatOpenAI:
     """新建一个 DeepSeek 客户端（生成最终回答用）。"""
     return ChatOpenAI(

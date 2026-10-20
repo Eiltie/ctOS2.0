@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 from langchain_core.tools import tool
 from langchain_tavily import TavilySearch
 
-# .env 在项目根目录的 config/ 下：本文件 -> ctOS2_Trip_AI -> ctOS2_modules -> 项目根
 load_dotenv(Path(__file__).resolve().parents[2] / "config" / ".env")
 
 
@@ -107,7 +106,6 @@ def get_weather(city: str, days: int = 3, start_date: str = "") -> str:
 
 #工具二：联网搜索（Tavily）
 
-# 客户端在模块导入时建一次，之后每次调用复用。
 # max_results=3：够 LLM 判断了，多给反而灌水；include_answer=True 让 Tavily 先给一段结论。
 _tavily = TavilySearch(max_results=3, include_answer=True, search_depth="basic")
 

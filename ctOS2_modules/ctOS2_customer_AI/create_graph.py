@@ -11,7 +11,6 @@ generate：根据混合检索到的资料生成回答
 import sys
 from pathlib import Path
 
-# 直接运行本文件时项目根目录不在搜索路径里，先补一次（被 import 时重复无害）。
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from langgraph.graph import END, START, StateGraph
@@ -33,7 +32,7 @@ def build_graph():
     """组装并编译客服图。"""
     graph = StateGraph(AgentState)
 
-    # 挂两个节点
+   
     graph.add_node("retrieve", retrieve_node)    # 三层检索
     graph.add_node("generate", generate_node)    # 生成回答
 
@@ -46,5 +45,4 @@ def build_graph():
 
 
 if __name__ == "__main__":
-    # 打印图结构（Mermaid 文本，方便直观确认连线对不对）
     print(build_graph().get_graph().draw_mermaid())

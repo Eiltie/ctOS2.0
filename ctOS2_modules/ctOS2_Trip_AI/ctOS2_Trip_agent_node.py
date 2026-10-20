@@ -34,8 +34,7 @@ def weather_node(state: AgentState) -> dict:
               .replace("{weekday}", "一二三四五六日"[today.weekday()])
               .replace("{tomorrow}", str(today + timedelta(days=1)))
               .replace("{user_query}", user_query))
-    # tags=["internal"]：本意是让这次产出不逐字流给用户。
-    # 实测本版本组合下流元信息里没有 tags，这道过滤在 API 层无效，处理办法待 API 关再定（详见 temp 细节文件）
+    
     raw = llm.with_config(tags=["internal"]).invoke(prompt).content.strip()
     # 容错：LLM 常把 JSON 裹在 ```json ... ``` 代码块里
     raw = raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
@@ -58,7 +57,7 @@ def weather_node(state: AgentState) -> dict:
         "city": destination, "days": days, "start_date": start_date,
     })
 
-    #天气数据写成给人看的总结
+    #天气数据写成总结
     prompt = (WEATHER_SUMMARY_PROMPT
               .replace("{weather_data}", weather_data)
               .replace("{user_query}", user_query))
@@ -79,7 +78,7 @@ def spots_agent_node(state: AgentState) -> dict:
     """返回 messages / spots（会被反复执行，直到不再调工具）。"""
     history = state["messages"]
 
-    #第一轮才拼开场白：System 是规矩，Human 是任务书
+    #第一轮才拼开场白：System是提示词，Human是任务书
     opening = []
     if not history:
         opening = [
@@ -114,7 +113,7 @@ def _count_searches(messages: list) -> int:
     return sum(len(m.tool_calls) for m in messages if getattr(m, "tool_calls", None))
 
 
-#节点三：安排行程（纯推理）
+#节点三：安排行程（推理）
 
 def planner_node(state: AgentState) -> dict:
     """返回 itinerary。"""

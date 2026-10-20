@@ -20,14 +20,14 @@ def build_graph():
     """组装并编译出行助手流程图。"""
     graph = StateGraph(AgentState)
 
-    #挂节点（名字随意起，但 api 那层的「节点名 → 前端段落」表要靠这些名字认人）
+    
     graph.add_node("weather", weather_node)
     graph.add_node("spots_agent", spots_agent_node)
     graph.add_node("tools", tools_node)
     graph.add_node("planner", planner_node)
     graph.add_node("route_agent", route_agent_node)
 
-    #连边：普通边写死走向，条件边看 state 现算
+    
     graph.add_edge(START, "weather")            # 起点 → 天气
     graph.add_edge("weather", "spots_agent")    # 天气 → 景点
     graph.add_conditional_edges("spots_agent", should_continue)   # 景点 → 去搜 / 去排期

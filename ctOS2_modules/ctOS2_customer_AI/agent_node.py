@@ -6,7 +6,6 @@
 import sys
 from pathlib import Path
 
-# 直接运行本文件时项目根目录不在搜索路径里，先补一次（被 import 时重复无害）。
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from ctOS2_modules.ctOS2_customer_AI.agent_state import AgentState

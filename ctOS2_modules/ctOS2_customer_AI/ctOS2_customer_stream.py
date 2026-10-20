@@ -27,7 +27,6 @@ from pathlib import Path
 
 from langchain_core.messages import AIMessageChunk
 
-# 直接运行本文件时项目根目录不在搜索路径里，先补一次（被 import 时重复无害）。
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from ctOS2_modules.ctOS2_customer_AI.create_graph import INITIAL_STATE, build_graph

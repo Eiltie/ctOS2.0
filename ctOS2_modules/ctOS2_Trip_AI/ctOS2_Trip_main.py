@@ -1,8 +1,6 @@
 import sys
 from pathlib import Path
 
-# 直接运行本文件时（python ctOS2_Trip_main.py），"E:\\ctOS2.0" 不在搜索路径里，
-# 包路径 ctOS2_modules.xxx 就 import 不到。在这里补一次（被 import 时加的是同一个，重复无害）。
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from ctOS2_modules.ctOS2_Trip_AI.ctOS2_Trip_create_graph import build_graph
@@ -11,7 +9,6 @@ from ctOS2_modules.ctOS2_Trip_AI.ctOS2_Trip_prompts import UNDERSTAND_QUERY_PROM
 
 EXIT_WORDS = {"exit", "quit", "q", "退出"}
 
-# 节点名 → 展示用中文标签（spots_agent 会出现多次——是循环里反复搜，不是出错）
 NODE_LABELS = {
     "weather": "查询天气",
     "spots_agent": "推荐景点",
@@ -68,7 +65,7 @@ def main() -> None:
         if kind == "CHAT":
             print(f"\n助手：{content}")
             history.append(query)
-            continue                # 闲聊不跑图，直接等下一句
+            continue                # 闲聊直接等下一句
 
         ##print(f"（理解为：{content}）")
         print("\n正在规划中…")
