@@ -1,19 +1,3 @@
-/* ============================================================
-   智能出行模块（前端）
-
-   后端契约:
-       POST /trip/chat     { query, history }  ->  text/event-stream
-       GET  /trip/list                         ->  出行记录列表
-       GET  /trip/{id}                         ->  单条完整记录
-       DELETE /trip/{id}                       ->  删除
-
-   事件: START / STEP / TOKEN / DONE / CHAT / ERROR
-
-   依赖（由 app.js 提供）：
-       $  esc  md  API  state  sessionList
-       send  renderSessions  syncTitle  newAbortSignal
-   ============================================================ */
-
 const TRIP_SECTIONS = [
   { key: "weather",    label: "天气" },
   { key: "spots",      label: "景点推荐" },
@@ -21,356 +5,626 @@ const TRIP_SECTIONS = [
   { key: "route_plan", label: "详细路线" }
 ];
 
-const tripHistory = [];   // 用户说过的话，用于多轮合并（刷新即清空）
+const STEP_KEYS = ["weather", "spots", "itinerary", "route_plan"];
+const FLOW_LABELS = ["查询天气", "推荐景点", "安排行程", "规划路线"];
 
-// 点一下就能问的示例（空的引导区用；点击即发送）
 const TRIP_EXAMPLES = [
   { q: "下周想去杭州玩3天，带老人", meta: "3 天 · 带老人 · 雨天偏好室内" },
   { q: "成都4天，带小孩",           meta: "4 天 · 带小孩 · 节奏放缓" },
   { q: "三亚周末游，两个人",         meta: "2 天 · 情侣 · 看海为主" }
 ];
 
-// 四个环节的流程条（和这张图的执行顺序一致）
-const TRIP_FLOW = ["查询天气", "推荐景点", "安排行程", "规划路线"];
+let tripBusy = false;
+let tripHistory = [];
+let tripRecords = [];
+let activeTripId = null;
 
-/* ---------- 空状态引导 ---------- */
-function tripIntroHTML(){
-  const steps = TRIP_FLOW
-    .map((s, i) => `${i ? '<span class="flow-arrow">→</span>' : ""}` +
-                   `<span class="flow-node"><b>${String(i + 1).padStart(2, "0")}</b>${esc(s)}</span>`)
-    .join("");
-  const cards = TRIP_EXAMPLES
-    .map((e) => `<div class="tw-card" data-q="${esc(e.q)}">` +
-                `<div class="tc-q">${esc(e.q)}</div>` +
-                `<div class="tc-meta">${esc(e.meta)}</div></div>`)
-    .join("");
-  return `<div class="trip-welcome">` +
-         `<h3>想去哪儿玩？交给我安排。</h3>` +
-         `<div class="trip-flow">${steps}</div>` +
-         `<div class="tw-label">试试这些</div>` +
-         `<div class="tw-cards">${cards}</div>` +
-         `</div>`;
+let tripT0 = 0;
+let tripClock = null;
+
+
+function tripCardsHTML(){
+  return TRIP_EXAMPLES.map((e) =>
+    `<div class="trip-card" data-q="${esc(e.q)}"><h4>${esc(e.q)}</h4><p>${esc(e.meta)}</p></div>`
+  ).join("");
 }
 
-function tripReset(){
-  const out = $("tripOut");
-  out.innerHTML = tripIntroHTML();
-  out.querySelectorAll(".tw-card").forEach((c) => {
-    c.onclick = () => send(c.dataset.q);
-  });
-  // 回到空状态：取消"当前打开哪条记录"的高亮
-  activeTripId = null;
-  if (state.mode === "trip") renderTripSessions();
+function tripCardsShow(show){
+  const box = $("trip-fixed");
+  const cards = box && box.querySelector(".trip-cards");
+  if (!cards) return;
+  cards.style.display = show ? "" : "none";
+  if (typeof syncStickyHeads === "function") syncStickyHeads();
 }
 
-// 第一条用户消息一到，就把引导区收起来
-function tripDropIntro(){
-  const w = $("tripOut").querySelector(".trip-welcome");
-  if (w) w.remove();
-}
+function tripRenderShell(){
+  const box = $("trip-fixed");
+  if (!box) return;
 
-/* ---------- 出行历史列表 ----------
-   出行记录和闲聊会话是两套数据（出行存在 trip_* 表，闲聊存在 sessions 表），
-   所以出行模式下左侧换成出行记录，点开时恢复四段卡片。 */
+  const steps = STEP_KEYS.map((key, i) =>
+    `<div class="process-step" data-step="${key}" data-state="wait">` +
+    `<span class="step-num">${String(i + 1).padStart(2, "0")}</span> ${esc(FLOW_LABELS[i])}</div>` +
+    (i < STEP_KEYS.length - 1 ? `<span class="step-arrow"></span>` : "")
+  ).join("");
 
-let tripRecords = [];        // 出行记录列表，来自 GET /trip/list
-let activeTripId = null;     // 当前打开的出行记录 id（后端 trip_sessions.id）
+  box.innerHTML =
+    `<div class="trip-header" data-sticky-head>` +
+      `<h2>输入您的目的地，ctOS 将为您规划</h2>` +
+      `<div class="process-flow">${steps}</div>` +
+      `<div class="trip-cards">${tripCardsHTML()}</div>` +
+    `</div>`;
 
-async function syncTripRecords(){
-  try{
-    const res = await fetch(API.base + "/trip/list");
-    if (!res.ok) return;
-    const list = await res.json();
-    if (Array.isArray(list)) tripRecords = list;
-  }catch(e){
-    // 后端没起就静默跳过
-  }
-}
-
-function renderTripSessions(){
-  if (!tripRecords.length){
-    sessionList.innerHTML =
-      `<div style="padding:14px 10px;color:#6b7280;font-size:13px;line-height:1.6">` +
-      `还没有出行记录。<br>在上面说一句「想去哪儿玩」，规划完就会存进来。</div>`;
-    return;
-  }
-
-  sessionList.innerHTML = tripRecords.map((r) => `
-    <div class="session ${r.id === activeTripId ? "active" : ""}" data-trip="${r.id}">
-      <span class="name">${esc(r.title || "出行记录")}</span>
-      <button class="del" title="删除这条记录" data-deltrip="${r.id}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 6h18"/><path d="M8 6V4h8v2"/>
-          <path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/>
-        </svg>
-      </button>
-    </div>`).join("");
-
-  sessionList.querySelectorAll(".session").forEach((el) => {
-    el.onclick = () => {
-      if (state.busy) return;
-      openTripRecord(Number(el.dataset.trip));
+  box.querySelectorAll(".trip-card").forEach((card) => {
+    card.onclick = () => {
+      const input = $("trip-input");
+      if (!input) return;
+      input.value = card.dataset.q;
+      sendTrip();
     };
   });
 
-  sessionList.querySelectorAll(".del").forEach((btn) => {
-    btn.onclick = (e) => {
-      e.stopPropagation();
-      if (state.busy) return;
-      removeTripRecord(Number(btn.dataset.deltrip));
-    };
+  if (typeof syncStickyHeads === "function") syncStickyHeads();
+}
+
+function tripStepsReset(){
+  const box = $("trip-fixed");
+  if (!box) return;
+  box.classList.remove("is-running");
+  box.querySelectorAll(".process-step").forEach((el) => { el.dataset.state = "wait"; });
+  box.querySelectorAll(".step-arrow").forEach((el) => el.classList.remove("is-active", "is-past"));
+}
+
+function tripStepSet(idx, state){
+  const box = $("trip-fixed");
+  if (!box || idx < 0) return;
+
+  const steps = box.querySelectorAll(".process-step");
+  const arrows = box.querySelectorAll(".step-arrow");
+
+  steps.forEach((el, i) => {
+    if (i < idx){
+      if (state !== "wait" && el.dataset.state !== "done" && el.dataset.state !== "error"){
+        el.dataset.state = "done";
+      }
+    }else if (i === idx){
+      if (state !== "wait" || el.dataset.state === "wait") el.dataset.state = state;
+    }else if (state !== "wait"){
+      if (el.dataset.state !== "done") el.dataset.state = "wait";
+    }
+  });
+
+  arrows.forEach((el, i) => {
+    const from = steps[i] ? steps[i].dataset.state : "wait";
+    const to = steps[i + 1] ? steps[i + 1].dataset.state : "wait";
+    el.classList.toggle("is-past", from === "done" && to !== "wait");
+    el.classList.toggle("is-active", from !== "done" && (from === "busy" || to === "busy"));
+  });
+
+  if (state !== "wait") box.classList.add("is-running");
+}
+
+function tripStepsFinish(hasError){
+  const box = $("trip-fixed");
+  if (!box) return;
+
+  if (!hasError){
+    box.querySelectorAll(".process-step").forEach((el) => { el.dataset.state = "done"; });
+  }
+
+  box.querySelectorAll(".step-arrow").forEach((el) => {
+    el.classList.remove("is-active");
+    el.classList.add("is-past");
   });
 }
 
-// 点开一条出行记录：拉详情，把四段卡片重新画出来
-async function openTripRecord(tripId){
-  let record;
-  try{
-    const res = await fetch(API.base + `/trip/${tripId}`);
-    if (!res.ok) return;
-    record = await res.json();
-  }catch(e){
-    return;
-  }
-
-  activeTripId = tripId;
-  renderTripSessions();
-
-  const out = $("tripOut");
-  out.innerHTML = "";
-  out.appendChild(cloneIntro());
-  tripDropIntro();                       // 有内容了，收起引导区
-
-  tripAppendUser(record.user_query || "");
-
-  const ai = record.ai_output || {};
-
-  // 闲聊分流存下来的记录：只回一句，没有四段卡片
-  if (record.turn_kind === "CHAT"){
-    tripChat(ai.chat_reply || "");
-    return;
-  }
-
-  for (const section of TRIP_SECTIONS){
-    const text = ai[section.key];
-    if (!text) continue;
-    tripSection(section.key);
-    tripFinishSection(section.key, text);
-    tripSetState(section.key, "done", "已完成");
-  }
-  tripScroll();
-}
-
-// 删除一条出行记录
-async function removeTripRecord(tripId){
-  const record = tripRecords.find((r) => r.id === tripId);
-  if (!record) return;
-  if (!confirm(`确定删除出行记录「${record.title}」吗？\n\n删除后无法恢复。`)) return;
-
-  try{
-    const res = await fetch(API.base + `/trip/${tripId}`, { method: "DELETE" });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-  }catch(e){
-    alert("删除失败：" + (e && e.message ? e.message : e) + "\n\n请确认后端已启动。");
-    return;
-  }
-
-  tripRecords = tripRecords.filter((r) => r.id !== tripId);
-  if (activeTripId === tripId){
-    activeTripId = null;
-    tripReset();
-  }
-  renderTripSessions();
-}
-
-// 造一份引导区 DOM（复制一份，避免和模板字符串共享状态）
-function cloneIntro(){
-  const box = document.createElement("div");
-  box.innerHTML = tripIntroHTML();
-  box.querySelectorAll(".tw-card").forEach((c) => {
-    c.onclick = () => send(c.dataset.q);
+function tripStepsInterrupt(){
+  const box = $("trip-fixed");
+  if (!box) return;
+  box.querySelectorAll(".process-step").forEach((el) => {
+    if (el.dataset.state === "busy") el.dataset.state = "error";
   });
-  return box;
+  box.querySelectorAll(".step-arrow").forEach((el) => el.classList.remove("is-active"));
 }
 
-/* ---------- 渲染对话内容 ---------- */
-function tripAppendUser(text){
-  tripDropIntro();
-  const div = document.createElement("div");
-  div.className = "trip-user";
-  div.innerHTML = `<b>${esc(text)}</b>`;
-  $("tripOut").appendChild(div);
-}
 
-// 逐字流：按段把字追加到该段正文里
-function tripAppendToken(key, text){
-  const el = tripSection(key);
-  el.dataset.state = "busy";
-  const body = el.querySelector(".sec-body");
-  body.classList.remove("busy");
-  body.appendChild(document.createTextNode(text));
-  tripScroll();
-}
-
-// 定稿：用整段重渲染，纠正逐字拼接可能的偏差
-function tripFinishSection(key, fullText){
-  const el = tripSection(key);
-  const body = el.querySelector(".sec-body");
-  body.classList.remove("busy");
-  body.innerHTML = md(fullText, false);
-  tripSetState(key, "done");
-  tripScroll();
-}
-
-function tripStep(key, text){
-  const el = tripSection(key);
-  const cur = el.querySelector(".trip-step");
-  if (cur){ cur.textContent = text; return; }
-  const div = document.createElement("div");
-  div.className = "trip-step";
-  div.textContent = text;
-  el.querySelector(".sec-body").appendChild(div);
-  tripScroll();
-}
-
-function tripChat(msg){
-  const div = document.createElement("div");
-  div.className = "trip-chat";
-  div.innerHTML = md(msg, false);
-  $("tripOut").appendChild(div);
-  tripScroll();
-}
-
-function tripError(msg){
-  const div = document.createElement("div");
-  div.className = "trip-err";
-  div.textContent = msg;
-  $("tripOut").appendChild(div);
-  tripScroll();
+function tripFeed(){
+  return $("trip-feed");
 }
 
 function tripScroll(){
-  const p = $("tripPanel");
-  p.scrollTop = p.scrollHeight;
+  const feed = tripFeed();
+  if (feed) scrollDown(feed);
+  tripScrollHintUpdate();
 }
 
-/* ---------- 耗时显示 ----------
-   这张图要跑 5 次以上模型 + 几次联网搜索，通常 1~2 分钟，
-   所以界面上要让人看得见"正在动、已经用了多久"，否则很像卡死。 */
-let tripT0 = 0;
-let tripClockId = null;
+function tripScrollHintUpdate(){
+  const feed = tripFeed();
+  const btn = $("trip-scroll-btn");
+  if (!feed || !btn) return;
+  const gap = feed.scrollHeight - feed.scrollTop - feed.clientHeight;
+  btn.style.display = gap > 200 ? "block" : "none";
+}
+
+let tripScrollBound = false;
+
+function tripBindScrollHint(){
+  const feed = tripFeed();
+  const btn = $("trip-scroll-btn");
+  if (!feed) return;
+
+  if (!tripScrollBound){
+    feed.addEventListener("scroll", tripScrollHintUpdate);
+    tripScrollBound = true;
+  }
+
+  if (btn){
+    btn.onclick = () => {
+      feed.scrollTo({ top: feed.scrollHeight, behavior: "smooth" });
+    };
+  }
+
+  tripScrollHintUpdate();
+}
+
+function tripIntro(){
+  tripRenderShell();
+
+  const feed = tripFeed();
+  if (feed) feed.innerHTML = "";
+
+  tripStepsReset();
+  tripCardsShow(true);
+  activeTripId = null;
+  tripClockStop();
+
+  const btn = $("trip-scroll-btn");
+  if (btn) btn.style.display = "none";
+
+  if (state.view === "trip") renderTripHistory();
+}
+
+
+async function loadTripRecords(){
+  const list = await getJson("/trip/list");
+  if (Array.isArray(list)) tripRecords = list;
+}
+
+let openChatId = null;
+
+function rememberChatId(chatId, turn){
+  const id = Number(chatId);
+  if (!id) return;
+  openChatId = id;
+  if (turn) turn.dataset.chatId = String(id);
+
+  const feed = tripFeed();
+  if (feed){
+    feed.querySelectorAll(".trip-turn").forEach((t) => {
+      if (!t.dataset.chatId) t.dataset.chatId = String(id);
+    });
+  }
+
+  renderTripHistory();
+}
+
+function renderTripHistory(){
+  const box = $("history-trip");
+  if (!box) return;
+
+  if (!tripRecords.length){
+    box.innerHTML = `<div class="empty-history">还没有出行记录。<br>在上面说一句「想去哪儿玩」，规划完就会存进来。</div>`;
+    return;
+  }
+
+  box.innerHTML = tripRecords.map((r) => {
+    const opened = chatIsOnScreen(r.id);
+    return `
+    <div class="history-item${opened ? " active" : ""}" data-cid="${r.id}">
+      <span class="hi-title">${esc(r.title || "出行会话")}</span>
+      <span class="del" title="删除这个出行会话" data-delchat="${r.id}">🗑</span>
+    </div>`;
+  }).join("");
+
+  box.querySelectorAll(".history-item").forEach((item) => {
+    item.onclick = () => openTripChat(Number(item.dataset.cid));
+  });
+
+  box.querySelectorAll(".del").forEach((el) => {
+    el.onclick = (e) => {
+      e.stopPropagation();
+      removeTripChat(Number(el.dataset.delchat));
+    };
+  });
+}
+
+function chatIsOnScreen(chatId){
+  const feed = tripFeed();
+  if (!feed) return false;
+
+  const turns = feed.querySelectorAll(".trip-turn");
+  if (!turns.length) return false;
+
+  return Number(turns[0].dataset.chatId) === Number(chatId);
+}
+
+async function openTripChat(chatId){
+  if (tripBusy){
+    alert("正在规划中，等这一轮跑完再看历史会话。");
+    return;
+  }
+
+  if (chatIsOnScreen(chatId)) return;
+
+  const record = await getJson(`/trip/${chatId}`);
+  if (!record) return;
+
+  openChatId = Number(chatId);
+  tripCardsShow(false);
+  tripStepsReset();
+
+  const feed = tripFeed();
+  feed.innerHTML = "";
+
+  (record.turns || []).forEach((turnRec) => {
+    renderStoredTurn(feed, turnRec);
+  });
+
+  tripScroll();
+  renderTripHistory();
+
+  tripHistory = (record.turns || []).map((t) => t.user_query).filter(Boolean);
+}
+
+function renderStoredTurn(feed, turnRec){
+  const turn = document.createElement("div");
+  turn.className = "trip-turn";
+  turn.dataset.chatId = String(openChatId);
+  feed.appendChild(turn);
+
+  appendTripUser(turn, turnRec.user_query || "");
+
+  const ai = turnRec.ai_output || {};
+
+  if (turnRec.turn_kind === "CHAT"){
+    appendTripChat(ai.chat_reply || "", turn);
+    return;
+  }
+
+  const wrap = document.createElement("div");
+  wrap.className = "trip-secs";
+
+  TRIP_SECTIONS.forEach((sec) => {
+    const text = ai[sec.key];
+    if (!text) return;
+
+    const el = document.createElement("div");
+    el.className = "trip-sec";
+    el.dataset.sec = sec.key;
+    el.dataset.state = "done";
+    el.innerHTML =
+      `<div class="sec-head"><span class="dot"></span><span>${esc(sec.label)}</span>` +
+      `<span class="sec-state">已完成</span></div>` +
+      `<div class="sec-body">${esc(text)}</div>`;
+    wrap.appendChild(el);
+  });
+
+  if (wrap.childNodes.length) turn.appendChild(wrap);
+}
+
+async function removeTripChat(chatId){
+  const record = tripRecords.find((r) => r.id === chatId);
+  if (!record) return;
+
+  if (!confirm(`确定删除出行会话「${record.title || "出行会话"}」吗？\n\n这个会话的全部对话会一起删除，无法恢复。`)) return;
+
+  const result = await getJson(`/trip/${chatId}`, { method: "DELETE" });
+
+  if (!result){
+    alert("删除失败：请确认后端已启动。");
+    return;
+  }
+
+  tripRecords = tripRecords.filter((r) => r.id !== chatId);
+
+  if (chatIsOnScreen(chatId)){
+    tripIntro();
+    if (tripRecords.length) openTripChat(tripRecords[0].id);
+    return;
+  }
+
+  renderTripHistory();
+}
+
+
+function tripTarget(target){
+  return target || tripFeed();
+}
+
+function appendTripUser(target, text){
+  const feed = tripTarget(target);
+  if (!feed) return;
+
+  const div = document.createElement("div");
+  div.className = "trip-user-msg";
+  div.innerHTML = `<b>${esc(text)}</b>`;
+  feed.appendChild(div);
+  tripScroll();
+}
+
+function appendTripChat(text, target){
+  const feed = tripTarget(target);
+  if (!feed) return;
+
+  const div = document.createElement("div");
+  div.className = "trip-chat";
+  div.textContent = text;
+  feed.appendChild(div);
+  tripScroll();
+}
+
+function appendTripError(text, target){
+  const feed = tripTarget(target);
+  if (!feed) return;
+
+  const div = document.createElement("div");
+  div.className = "trip-err";
+  div.textContent = text;
+  feed.appendChild(div);
+  tripScroll();
+}
+
+
+function createSections(target){
+  const feed = tripTarget(target);
+  const wrap = document.createElement("div");
+  wrap.className = "trip-secs";
+  feed.appendChild(wrap);
+
+  const parts = {};
+
+  function stepIndex(key){
+    const i = STEP_KEYS.indexOf(key);
+    return i < 0 ? -1 : i;
+  }
+
+  function ensure(key){
+    if (parts[key]) return parts[key];
+
+    const idx = stepIndex(key);
+    const meta = TRIP_SECTIONS.find((s) => s.key === key) || { key, label: key };
+
+    const el = document.createElement("div");
+    el.className = "trip-sec";
+    el.dataset.sec = key;
+    el.dataset.state = "busy";
+    el.innerHTML =
+      `<div class="sec-head"><span class="dot"></span><span>${esc(meta.label)}</span>` +
+      `<span class="sec-state">进行中</span></div>` +
+      `<div class="sec-body"></div>`;
+    wrap.appendChild(el);
+
+    const body = el.querySelector(".sec-body");
+
+    const hint = document.createElement("div");
+    hint.className = "trip-step";
+    body.appendChild(hint);
+
+    const typer = createTyper(feed, body);
+
+    parts[key] = { el, body, hint, typer, idx };
+    tripStepSet(idx, "busy");
+    return parts[key];
+  }
+
+  function setState(key, s, note){
+    const p = parts[key];
+    if (!p) return;
+    p.el.dataset.state = s;
+    const st = p.el.querySelector(".sec-state");
+    if (st) st.textContent = note;
+  }
+
+  return {
+    step(key, text){
+      const p = ensure(key);
+      if (!p.typer.untouched()){ setState(key, "busy", "进行中"); return; }
+      p.hint.textContent = text;
+      setState(key, "busy", "进行中");
+      tripScroll();
+    },
+    token(key, text){
+      const p = ensure(key);
+      if (!text) return;
+      p.typer.push(text);
+      setState(key, "busy", "进行中");
+    },
+    done(key, text){
+      const p = ensure(key);
+      p.typer.cut();
+      p.typer.renderFinal(text);
+      setState(key, "done", "已完成");
+      tripStepSet(p.idx, "done");
+      tripScroll();
+    }
+  };
+}
+
 
 function tripSeconds(){
-  return Math.round((Date.now() - tripT0) / 1000);
-}
-
-function tripClockStart(){
-  tripT0 = Date.now();
-  if (tripClockId) clearInterval(tripClockId);
-  tripClockId = setInterval(() => {
-    $("hintLeft").textContent = `规划中 ${tripSeconds()}s`;
-  }, 1000);
-}
-
-function tripClockStop(){
-  if (tripClockId){ clearInterval(tripClockId); tripClockId = null; }
+  if (!tripT0) return 0;
+  return Math.max(0, Math.round((Date.now() - tripT0) / 1000));
 }
 
 function fmtSec(s){
   return s >= 60 ? `${Math.floor(s / 60)}分${String(s % 60).padStart(2, "0")}秒` : `${s} 秒`;
 }
 
-/* ---------- 四段卡片 ---------- */
+function tripClockStart(){
+  tripT0 = Date.now();
+  clearInterval(tripClock);
 
-// 请求刚发出时先建"天气"卡片并挂上"理解需求中"，让界面立刻有反馈
-function tripPendingPhase(){
-  tripStep("weather", "正在理解你的需求…");
+  const status = $("trip-status");
+  tripClock = setInterval(() => {
+    if (status) status.textContent = `规划中 ${tripSeconds()}s`;
+  }, 1000);
 }
 
-function tripSection(key){
-  let el = $("tripOut").querySelector(`[data-sec="${key}"]`);
-  if (el) return el;
-  const meta = TRIP_SECTIONS.find((s) => s.key === key);
-  el = document.createElement("div");
-  el.className = "trip-sec";
-  el.dataset.sec = key;
-  el.dataset.state = "busy";
-  el.innerHTML =
-    `<div class="sec-head"><span class="dot"></span><span>${esc(meta ? meta.label : key)}</span>` +
-    `<span class="sec-state"></span></div><div class="sec-body"></div>`;
-  $("tripOut").appendChild(el);
-  return el;
+function tripClockStop(finalText){
+  clearInterval(tripClock);
+  tripClock = null;
+
+  const status = $("trip-status");
+  if (status) status.textContent = finalText || "TRIP AGENT";
 }
 
-function tripSetState(key, state, note){
-  const el = tripSection(key);
-  el.dataset.state = state;
-  const st = el.querySelector(".sec-state");
-  if (!st) return;
-  // 已经记过耗时就别覆盖（TOKEN 流会反复调用本函数把状态打回"进行中"）
-  if (st.textContent.startsWith("已完成 ·")) return;
-  st.textContent = note || (state === "done" ? "已完成" : state === "busy" ? "进行中" : "等待");
-}
 
-// 定稿：记下这一段花了多久
-function tripMarkDone(key){
-  const st = tripSection(key).querySelector(".sec-state");
-  if (st) st.textContent = `已完成 · ${fmtSec(tripSeconds())}`;
-}
+async function sendTrip(){
+  const input = $("trip-input");
+  const feed = tripFeed();
+  if (!input || !feed || tripBusy) return;
 
-/* ---------- 发送 ---------- */
-async function sendTrip(content){
-  tripAppendUser(content);
-  tripClockStart();            // 立刻开始计时，前端不再"毫无反馈"
-  tripPendingPhase();          // 先亮出"正在理解你的需求…"
+  const text = input.value.trim();
+  if (!text) return;
 
-  const res = await fetch(API.base + "/trip/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query: content, history: tripHistory }),
-    signal: newAbortSignal()          // 供"停止生成"掐断
-  });
-  if (!res.ok) throw new Error("HTTP " + res.status + " " + res.statusText);
-  if (!res.body) throw new Error("当前浏览器不支持流式读取");
+  tripBusy = true;
+  activeTripId = null;
+  input.value = "";
 
-  tripHistory.push(content);
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder("utf-8");
-  let buf = "";
+  tripCardsShow(false);
+  tripStepsReset();
 
-  const handle = (ev) => {
-    switch (ev.kind){
-      case "START":
-        // 计时已在提交时启动；这里不回显合并后的需求，用户只看到自己发的那句
-        break;
-      case "STEP":      tripStep(ev.key, ev.text); break;
-      case "TOKEN":     tripAppendToken(ev.key, ev.text); break;
-      case "DONE":      tripFinishSection(ev.key, ev.text); tripMarkDone(ev.key); break;
-      case "CHAT":      tripChat(ev.message); tripClockStop(); break;
-      case "ERROR":     tripError(ev.message); break;
-    }
-  };
+  const turn = document.createElement("div");
+  turn.className = "trip-turn";
+  turn.dataset.chatId = openChatId == null ? "" : String(openChatId);
+  feed.appendChild(turn);
+  appendTripUser(turn, text);
 
-  while (true){
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (!value) continue;
-    buf += decoder.decode(value, { stream: true });
+  tripClockStart();
 
-    // SSE：一条事件以空行结束；一行以 "data: " 开头
-    let idx;
-    while ((idx = buf.indexOf("\n\n")) >= 0){
-      const raw = buf.slice(0, idx);
-      buf = buf.slice(idx + 2);
-      for (const line of raw.split("\n")){
-        if (!line.startsWith("data: ")) continue;
-        try { handle(JSON.parse(line.slice(6))); } catch (e) { /* 半截事件，忽略 */ }
+  const sections = createSections(turn);
+  const ctl = newAbortController();
+
+  let failed = null;
+  let chatTurn = false;
+  let touched = false;
+  let stepError = -1;
+
+  try{
+    const res = await fetch(API.base + "/trip/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
+      body: JSON.stringify({ query: text, history: tripHistory, chat_id: openChatId }),
+      signal: ctl.signal
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    if (!res.body) throw new Error("当前浏览器不支持流式读取（res.body 为空）");
+
+    tripHistory.push(text);
+
+    const parser = createSseParser((ev) => {
+      switch (ev.kind){
+        case "START":
+          touched = true;
+          tripStepSet(0, "busy");
+          break;
+
+        case "STEP": {
+          const idx = STEP_KEYS.indexOf(ev.key);
+          if (idx >= 0){ touched = true; tripStepSet(idx, "busy"); }
+          sections.step(ev.key, ev.text);
+          break;
+        }
+
+        case "TOKEN":
+          touched = true;
+          sections.token(ev.key, ev.text);
+          break;
+
+        case "DONE":
+          touched = true;
+          sections.done(ev.key, ev.text);
+          break;
+
+        case "CHAT":
+          chatTurn = true;
+          if (ev.chat_id) rememberChatId(ev.chat_id, turn);
+          appendTripChat(ev.message || "", turn);
+          break;
+
+        case "SAVED":
+          if (ev.chat_id) rememberChatId(ev.chat_id, turn);
+          break;
+
+        case "ERROR": {
+          stepError = 0;
+          appendTripError(ev.message || "出行模块出错了", turn);
+          break;
+        }
       }
-    }
-  }
+    });
 
-  // 这一轮已经存进数据库了，刷新左边的出行记录列表
-  await syncTripRecords();
-  renderTripSessions();
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+
+    while (true){
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      parser.push(decoder.decode(value, { stream: true }));
+    }
+
+    parser.push(decoder.decode());
+    parser.end();
+  }catch(err){
+    if (!(err && err.name === "AbortError")){
+      failed = err;
+      appendTripError(
+        "请求失败：" + (err && err.message ? err.message : err) +
+        "\n请确认后端已启动：python src/ctOS_chat_api.py", turn);
+    }
+  }finally{
+    finishAbort(ctl);
+    tripBusy = false;
+    tripClockStop(failed ? "FAILED" : `用时 ${fmtSec(tripSeconds())}`);
+
+    if (!failed && stepError < 0 && touched && !chatTurn) tripStepsFinish(false);
+    else if (failed || stepError >= 0) tripStepsInterrupt();
+
+    tripScroll();
+
+    await loadTripRecords();
+    if (state.view === "trip") renderTripHistory();
+
+    const inp = $("trip-input");
+    if (inp) inp.focus();
+  }
+}
+
+
+function tripNewSession(){
+  setTimeout(() => {
+    if (state.view !== "trip") return;
+    abortCurrent();
+    tripBusy = false;
+    tripHistory = [];
+    openChatId = null;
+    tripIntro();
+  }, 300);
+}
+
+function tripInit(){
+  tripRenderShell();
+
+  const feed = tripFeed();
+  if (feed) feed.innerHTML = "";
+
+  tripStepsReset();
+  tripBindScrollHint();
+  openChatId = null;
+
+  loadTripRecords().then(() => {
+    if (state.view === "trip") renderTripHistory();
+    if (tripRecords.length) openTripChat(tripRecords[0].id);
+  });
 }

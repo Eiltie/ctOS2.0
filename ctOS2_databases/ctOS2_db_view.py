@@ -1,25 +1,11 @@
-"""查看数据库内容的小工具。
-
-用法（在项目根目录运行）：
-    venv\\Scripts\\python.exe -X utf8 ctOS2_databases\\ctOS2_db_view.py
-
-不带参数 = 列出所有会话概览。
-
-带参数：
-    sessions              列出所有会话（和默认一样）
-    show 会话id           看某个会话的完整对话
-    search 关键词         在所有消息里搜内容
-    export 会话id         把某个会话导出成 txt 文件
-    stats                 统计信息（多少会话、多少消息）
-"""
-
 import sys
 from pathlib import Path
 
-# 直接运行本文件时，项目根目录不在搜索路径里，补一次
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from ctOS2_databases.ctOS2_db import open_database, DATABASE_FILE
+
+# 命令行小工具：查看、搜索、导出现有数据，不参与 Web 服务
 
 
 def line(char="=", width=60):
@@ -28,7 +14,7 @@ def line(char="=", width=60):
 
 
 def list_sessions():
-    """列出所有会话。"""
+    """列出所有会话，带消息数和最后更新时间。"""
     database = open_database()
     try:
         sessions = database.execute(
@@ -104,7 +90,7 @@ def show_session(session_id):
 
 
 def search(keyword):
-    """在消息内容里搜关键词。"""
+    """在所有消息内容里搜关键词。"""
     database = open_database()
     try:
         found_rows = database.execute(
@@ -138,7 +124,7 @@ def search(keyword):
 
 
 def export_session(session_id):
-    """把某个会话导出成 txt 文件。"""
+    """把某个会话导出成 txt，放在数据库目录下。"""
     database = open_database()
     try:
         session_row = database.execute(
@@ -176,7 +162,7 @@ def export_session(session_id):
 
 
 def show_stats():
-    """打印统计信息。"""
+    """打印会话数、消息数、孤儿数据等统计信息。"""
     database = open_database()
     try:
         session_count = database.execute("SELECT COUNT(*) FROM `sessions`").fetchone()[0]
@@ -202,7 +188,6 @@ def show_stats():
                 "SELECT SUM(LENGTH(`content`)) FROM `messages`").fetchone()[0] or 0
             print(f"  总字数：    {total_chars:,}")
 
-        # 检查有没有孤儿数据
         orphan_count = database.execute(
             "SELECT COUNT(*) FROM `messages` "
             "WHERE `session_id` NOT IN (SELECT `id` FROM `sessions`)"
@@ -215,10 +200,12 @@ def show_stats():
 
 def print_help():
     """打印用法。"""
+    # 用法就是模块 docstring，改参数时记得同步
     print(__doc__)
 
 
 def main():
+    """按命令行参数分派到对应子命令。"""
     arguments = sys.argv[1:]
 
     if not arguments:

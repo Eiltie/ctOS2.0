@@ -1,8 +1,3 @@
-"""LLM 与公共配置。
-
-本模块所有文件都从这里 import 配置，不再各自读一遍 .env。
-"""
-
 import os
 import sys
 from pathlib import Path
@@ -17,36 +12,25 @@ load_dotenv(_PROJECT_ROOT / "config" / ".env")
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
+# 路径与模型参数：客服模块的所有文件都从这里读配置
 
-#路径常量
-
-# 模块自己的目录（data/ 就在它下面）
 MODULE_DIR = Path(__file__).resolve().parent
 
-# 知识库原始文档目录（要入库的 Markdown 都放这里）
 DOCS_DIR = MODULE_DIR / "data" / "docs"
 
-# Chroma 向量库落盘目录
 CHROMA_DIR = MODULE_DIR / "data" / "chroma"
 
-# Chroma 集合名（一个集合 = 一份知识库）
 COLLECTION_NAME = "ctos2_docs"
 
+TEMPERATURE = 0.3
 
-#模型常量
-
-TEMPERATURE = 0.3          # 生成答案时的随机性，客服场景要稳，取值偏低
-
-# 智谱 embedding 模型名：输出 2048 维向量
 EMBEDDING_MODEL = "embedding-3"
 
-# 智谱 embedding 接口地址
 EMBEDDING_BASE_URL = "https://open.bigmodel.cn/api/paas/v4/embeddings"
 
 
-#对外函数
 def get_llm() -> ChatOpenAI:
-    """新建一个 DeepSeek 客户端（生成最终回答用）。"""
+    """新建一个 DeepSeek 客户端，生成最终回答用。"""
     return ChatOpenAI(
         api_key=os.getenv("DEEPSEEK_API_KEY"),
         base_url=os.getenv("DEEPSEEK_BASE_URL"),
@@ -56,7 +40,7 @@ def get_llm() -> ChatOpenAI:
 
 
 def get_zhipu_api_key() -> str:
-    """取智谱密钥（向量化用）。缺了就报错，避免后面报个看不懂的 401。"""
+    """取智谱密钥；缺了直接报错，避免后面冒出看不懂的 401。"""
     api_key = os.getenv("ZHIPU_API_KEY")
     if not api_key:
         raise RuntimeError("config/.env 里没有 ZHIPU_API_KEY，向量检索无法工作")

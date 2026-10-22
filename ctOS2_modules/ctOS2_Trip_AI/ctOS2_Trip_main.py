@@ -7,6 +7,8 @@ from ctOS2_modules.ctOS2_Trip_AI.ctOS2_Trip_create_graph import build_graph
 from ctOS2_modules.ctOS2_Trip_AI.ctOS2_Trip_llm import get_llm
 from ctOS2_modules.ctOS2_Trip_AI.ctOS2_Trip_prompts import UNDERSTAND_QUERY_PROMPT
 
+# 出行模块的终端入口：开发调试用，不参与 Web 服务
+
 EXIT_WORDS = {"exit", "quit", "q", "退出"}
 
 NODE_LABELS = {
@@ -19,24 +21,24 @@ NODE_LABELS = {
 
 
 def understand_query(history: list[str], query: str) -> tuple[str, str]:
-    """判定这一句是出行需求（TRAVEL，内容是合并后的完整需求）还是闲聊（CHAT，内容是回复）。"""
+    """判定这句是出行需求（返回合并后的需求）还是闲聊（返回回复）。"""
+    # 约定：回复第一行只写 TRAVEL 或 CHAT，第二行起是正文，解析失败按出行处理
     prompt = (UNDERSTAND_QUERY_PROMPT
               .replace("{history}", "\n".join(history) or "（还没聊过）")
               .replace("{query}", query))
-    reply = get_llm().invoke(prompt).content.strip()
+    raw_reply = get_llm().invoke(prompt).content.strip()
 
-    # 约定：第一行只写 TRAVEL 或 CHAT，第二行开始是正文
-    lines = reply.split("\n", 1)
+    lines = raw_reply.split("\n", 1)
     kind = lines[0].strip().upper()
     body = lines[1].strip() if len(lines) > 1 else ""
 
     if kind.startswith("CHAT"):
         return "CHAT", body
-    return "TRAVEL", body or reply      # 模型没守格式时按出行需求处理，避免卡住
+    return "TRAVEL", body or raw_reply
 
 
 def show(result: dict) -> None:
-    """打印这一轮的产出：目的地信息 + 天气 / 景点 / 行程 / 路线 四段。"""
+    """打印这一轮的产出：目的地信息加天气/景点/行程/路线四段。"""
     print("\n" + "=" * 56)
     print(f"目的地：{result['destination']}    天数：{result['days']}    出发：{result['start_date']}")
     print("=" * 56)
@@ -49,7 +51,7 @@ def show(result: dict) -> None:
 def main() -> None:
     """终端主循环：读一句话 → 分流 → 跑图 → 打印。"""
     app = build_graph()
-    history = []                        # 用户说过的话，一句一条
+    history = []
 
     print("ctOS2.0-智能出行（输入 exit 退出）")
 
@@ -65,21 +67,19 @@ def main() -> None:
         if kind == "CHAT":
             print(f"\n助手：{content}")
             history.append(query)
-            continue                # 闲聊直接等下一句
+            continue
 
-        ##print(f"（理解为：{content}）")
         print("\n正在规划中…")
 
         try:
             result = {}
-            # 用 stream 而非 invoke：每跑完一个节点就吐一次，可逐行报告进度
             for chunk in app.stream({
                 "user_query": content,
                 "destination": "",
                 "days": 0,
                 "start_date": "",
                 "weather": "",
-                "messages": [],      # ReAct 循环的中间消息，初始为空，由景点节点填充
+                "messages": [],
                 "spots": "",
                 "itinerary": "",
                 "route_plan": "",
@@ -90,7 +90,6 @@ def main() -> None:
                     result.update(update)
             show(result)
         except Exception as e:
-            # 兜底：万一哪一步出了意外，也别让程序退出，下一句还能接着聊
             print(f"\n（这次没跑通：{e}）")
             print("换个说法再试试？比如「下周想去杭州玩3天」")
 

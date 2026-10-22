@@ -9,13 +9,12 @@ from langchain_tavily import TavilySearch
 
 load_dotenv(Path(__file__).resolve().parents[2] / "config" / ".env")
 
-
-#工具一：天气（Open-Meteo）
-
+# 出行图的三个工具：天气（Open-Meteo）、搜索（Tavily）、路线（高德）
+# 天气：地名接口和预报接口
 GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search"
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 
-#WMO 天气码 -> 中文
+# WMO 天气码 -> 中文
 WMO_CODE = {
     0: "晴", 1: "基本晴朗", 2: "部分多云", 3: "阴", 45: "有雾", 48: "冻雾",
     51: "小毛毛雨", 53: "毛毛雨", 55: "大毛毛雨", 56: "冻毛毛雨", 57: "强冻毛毛雨",
@@ -37,10 +36,9 @@ def get_weather(city: str, days: int = 3, start_date: str = "") -> str:
     """
     days = max(1, min(int(days), 16))
 
-    #候选名依次试：原名、"去掉市"、"加上市"（dict.fromkeys 去重又保序）
+    # 依次试原名、去掉「市」、加上「市」（去重又保序）
     name_candidates = dict.fromkeys([city, city.removesuffix("市"), city + "市"])
 
-    #给了起始日期就查该日期起 N 天，否则查今天起 N 天
     date_params = {"forecast_days": days}
     if start_date:
         try:
@@ -66,11 +64,11 @@ def get_weather(city: str, days: int = 3, start_date: str = "") -> str:
         if not geo:
             return f"未找到城市「{city}」，请换一个城市名重试。"
 
-        # 同名地点可能有好几个（浙江、四川都有"杭州"），取人口最多的那个
+        # 同名地点可能有好几个，取人口最多的
         geo.sort(key=lambda p: p.get("population") or 0, reverse=True)
         place = geo[0]
 
-        # 匹配到山脉、湖泊这类非人口聚居地 -> 城市名写错了，把候选交回给 LLM 判断
+        # 匹配到山脉、湖泊这类非聚居地，说明城市名写错了
         if not str(place.get("feature_code", "")).startswith("PPL"):
             options = "、".join(f"{p['name']}（{p.get('country') or '?'}）" for p in geo[:5])
             return f"没找到城市「{city}」，最接近的是：{options}。请确认为城市名后重试。"
@@ -104,9 +102,7 @@ def get_weather(city: str, days: int = 3, start_date: str = "") -> str:
     return "\n".join(lines)
 
 
-#工具二：联网搜索（Tavily）
-
-# max_results=3：够 LLM 判断了，多给反而灌水；include_answer=True 让 Tavily 先给一段结论。
+# max_results=3：够模型判断了；include_answer 让 Tavily 先给一段结论
 _tavily = TavilySearch(max_results=3, include_answer=True, search_depth="basic")
 
 
@@ -118,7 +114,6 @@ def web_search(query: str) -> str:
         query: 搜索关键词，例如"杭州西湖 游玩攻略 门票"。
     """
     result = _tavily.invoke(query)
-    #结论给 LLM 直接用，来源让它能核对细节
     answer = result.get("answer") or ""
     snippets = "\n".join(
         f"- {r.get('title', '')}：{(r.get('content') or '')[:200]}"
@@ -127,30 +122,25 @@ def web_search(query: str) -> str:
     return f"{answer}\n\n参考来源：\n{snippets}".strip()
 
 
-#工具三：路线规划（高德地图 Web 服务）
-
 AMAP_KEY = os.getenv("AMAP_KEY")
 
-AMAP_GEOCODE_URL = "https://restapi.amap.com/v3/geocode/geo"        # 地名 → 经纬度
-AMAP_DIRECTION_URL = {                                              # 经纬度 → 路线
-    "driving": "https://restapi.amap.com/v3/direction/driving",     # 驾车/打车
-    "walking": "https://restapi.amap.com/v3/direction/walking",     # 步行
+AMAP_GEOCODE_URL = "https://restapi.amap.com/v3/geocode/geo"
+
+# 经纬度 -> 路线，键就是工具的 mode 参数取值
+AMAP_DIRECTION_URL = {
+    "driving": "https://restapi.amap.com/v3/direction/driving",
+    "walking": "https://restapi.amap.com/v3/direction/walking",
 }
 
 
 def _geocode(address: str, city: str) -> tuple[str, str]:
-    """地名 → (经纬度, 匹配到的完整地址)。
-
-    高德的路径规划接口只认经纬度、不认地名，所以查询前必须先转换一次。
-    查不到就抛 ValueError，由调用方转成给人看的错误文本。
-    单独抽成函数是因为一次 get_directions 要转两个地名（起点和终点）。
-    """
+    """地名转经纬度，返回（经纬度, 完整地址）；查不到抛 ValueError。"""
+    # 高德的路径规划只认经纬度，查询前必须先转一次
     r = httpx.get(AMAP_GEOCODE_URL, timeout=15, params={
         "address": address, "city": city, "key": AMAP_KEY,
     }).json()
     geocodes = r.get("geocodes") or []
     if r.get("status") != "1" or not geocodes:
-        #错误文本里直接写好"下一步怎么办"——LLM 读到就知道该换名字重试还是放弃
         raise ValueError(
             f"查询「{address}」没能拿到结果（{r.get('info') or '无匹配结果'}）。"
             f"请先换个更具体的名字重试一次；如果还是同样的错误，"
@@ -173,15 +163,14 @@ def get_directions(origin: str, destination: str, city: str, mode: str = "drivin
     if not AMAP_KEY:
         return "没有配置 AMAP_KEY，请检查项目根目录的 config/.env 文件。"
 
-    if mode not in AMAP_DIRECTION_URL:   #不支持的方式回退驾车，避免流程中断
+    if mode not in AMAP_DIRECTION_URL:
+        # 不支持的方式回退驾车，别让流程中断
         mode = "driving"
 
     try:
-        #两个地名各自转成经纬度（路径规划接口只认经纬度）
         o, o_addr = _geocode(origin, city)
         d, d_addr = _geocode(destination, city)
 
-        #查路线
         r = httpx.get(AMAP_DIRECTION_URL[mode], timeout=15, params={
             "origin": o, "destination": d, "key": AMAP_KEY,
         }).json()
@@ -195,9 +184,9 @@ def get_directions(origin: str, destination: str, city: str, mode: str = "drivin
                     f"请按常识估算这一段并标注（估算）。")
 
         path = paths[0]
-    except ValueError as e:          # 地名查不到这类"能靠改名字解决"的错误，原样说清楚
+    except ValueError as e:
         return str(e)
-    except Exception as e:           # 网络、超时等意外，避免程序崩溃
+    except Exception as e:
         return (f"这个查询没成功（{e}）。可以换个名字再试一次；"
                 f"再失败就按常识估算并标注（估算）。")
 
@@ -205,7 +194,7 @@ def get_directions(origin: str, destination: str, city: str, mode: str = "drivin
     minutes = int(path["duration"]) // 60
     label = "驾车/打车" if mode == "driving" else "步行"
 
-    # 把"起点匹配 / 终点匹配"一起返回：路线 Agent 靠这两行判断高德有没有认错地方
+    # 带上起终点匹配到的真实地址，路线 Agent 靠它判断高德有没有认错地方
     return (f"【路线】{origin} → {destination}（{label}）\n"
             f"起点匹配：{o_addr}\n"
             f"终点匹配：{d_addr}\n"

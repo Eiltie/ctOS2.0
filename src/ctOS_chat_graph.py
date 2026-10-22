@@ -4,7 +4,11 @@ from ctOS_chat_state import AgentState
 
 import time
 
+# 对话图结构：START → chat_node → END
+
+
 def create_graph():
+    """组装并编译对话图：START → chat_node → END。"""
     graph = StateGraph(AgentState)
 
     graph.add_node("chat_node", ctOS_chat_node)
@@ -15,13 +19,14 @@ def create_graph():
 
     return app
 
+
 if __name__ == "__main__":
     app = create_graph()
 
     print("构建智能图已完成", end="", flush=True)
     time.sleep(0.5)
     print(".", end="", flush=True)
-    time.sleep(0.5)   
-    print(".", end="", flush=True)  
-    time.sleep(0.5) 
-    print(".")  
+    time.sleep(0.5)
+    print(".", end="", flush=True)
+    time.sleep(0.5)
+    print(".")

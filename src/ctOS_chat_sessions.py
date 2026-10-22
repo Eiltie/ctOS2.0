@@ -1,19 +1,8 @@
-"""会话读写。
-
-数据库层在 ctOS2_databases/ 下（连接层 ctOS2_db.py，闲聊表 ctOS2_db_chat.py），
-本文件只负责：
-    · 把数据库的错误兜住，不让它拖垮聊天
-    · 把数据库的行转成前端/模型要的格式
-
-对外函数名和签名保持不变，所以 src/ctOS_chat_api.py 不需要改。
-"""
-
 import sys
 from pathlib import Path
 
 from langchain_core.messages import AIMessage, HumanMessage
 
-# 让 ctOS2_databases 这个包能被 import
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from ctOS2_databases.ctOS2_db_chat import (
@@ -25,15 +14,16 @@ from ctOS2_databases.ctOS2_db_chat import (
     list_sessions,
 )
 
-# 会话标题取用户第一句话的前多少个字
+# 闲聊会话的读写层：在数据库之上包一层，出错不拖垮聊天
+# 会话列表里显示的标题长度
 TITLE_LIMIT = 14
 
-# 给模型回看的历史条数上限
+# 喂给模型的多轮上下文条数
 HISTORY_LIMIT = 10
 
 
 def load_history(session_id) -> list:
-    """取某个会话的历史消息，给模型当多轮上下文。读失败时返回空列表。"""
+    """取最近 HISTORY_LIMIT 条消息，转成模型可用的消息列表；读失败返回空列表。"""
     history_messages = []
 
     if session_id is None:
@@ -52,7 +42,7 @@ def load_history(session_id) -> list:
 
 
 def resolve_session(session_id, first_message):
-    """确定本轮用哪个会话 id。传了就用传的，没传就新建一个。"""
+    """本轮用哪个会话：传了就用传的，没传就新建一个；建失败返回 None。"""
     if session_id is not None:
         return session_id
 
@@ -64,7 +54,7 @@ def resolve_session(session_id, first_message):
 
 
 def save_ai_reply(session_id, content):
-    """把 AI 的回复存进会话。存失败只打印，不影响已经返回给用户的内容。"""
+    """存一条 AI 回复，失败只打印，不影响已返回的内容。"""
     if session_id is None or not content:
         return
 
@@ -75,11 +65,8 @@ def save_ai_reply(session_id, content):
 
 
 def save_user_message(session_id, content):
-    """把用户说的话存进会话。
-
-    注意：必须在 load_history() 之后调用。
-    若先存后读，本轮这句话会出现在历史里，再拼一次就重复了。
-    """
+    """存一条用户消息，失败只打印。"""
+    # 必须晚于 load_history()：先存会让本轮问题重复进历史
     if session_id is None or not content:
         return
 
@@ -90,7 +77,7 @@ def save_user_message(session_id, content):
 
 
 def all_sessions() -> list:
-    """列出所有会话，最近活跃的排在前面。出错时返回空列表。"""
+    """列出所有会话，读取失败返回空列表。"""
     try:
         return list_sessions()
     except Exception as e:
@@ -99,10 +86,8 @@ def all_sessions() -> list:
 
 
 def session_messages(session_id) -> list:
-    """取某个会话的全部消息（给前端画历史用）。
-
-    只返回前端需要的字段，datetime 之类的没法直接转 JSON。
-    """
+    """取会话全部消息，只保留前端要的 role / content。"""
+    # 时间戳之类的字段没法直接转 JSON
     if session_id is None:
         return []
 
@@ -112,15 +97,11 @@ def session_messages(session_id) -> list:
         print(f"[数据库] 读取会话消息失败：{e}")
         return []
 
-    # 只挑前端要的两个字段，时间戳之类的没法直接转 JSON
     return [{"role": row["role"], "content": row["content"]} for row in found_rows]
 
 
 def remove_session(session_id) -> bool:
-    """删除一个会话（它的消息会被外键级联一起删掉）。
-
-    返回 True 表示确实删掉了一条，False 表示不存在或出错。
-    """
+    """删除会话及其消息，返回是否真的删掉了。"""
     if session_id is None:
         return False
 

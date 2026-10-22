@@ -16,27 +16,28 @@ from ctOS2_modules.ctOS2_Trip_AI.ctOS2_Trip_prompts import (
 )
 from ctOS2_modules.ctOS2_Trip_AI.ctOS2_Trip_state import AgentState
 
-MAX_SEARCH = 3          # 景点 Agent 最多搜几轮
-MAX_ROUTE_ROUNDS = 8    # 路线 Agent 最多问几轮
+# 出行图的四个节点：天气 → 景点 → 行程 → 路线
+# 循环次数上限
+# 景点 Agent 最多搜几轮
+MAX_SEARCH = 3
 
+# 路线 Agent 最多问几轮
+MAX_ROUTE_ROUNDS = 8
 
-#节点一：查询天气
 
 def weather_node(state: AgentState) -> dict:
-    """返回 destination / days / start_date / weather。"""
+    """节点一：解析需求、查真实天气、写成总结，返回目的地/天数/日期/天气。"""
     llm = get_llm()
     user_query = state["user_query"]
 
-    #解析需求（日期占位符由代码算好，模型只做认字）
     today = date.today()
     prompt = (PARSE_QUERY_PROMPT
               .replace("{today}", str(today))
               .replace("{weekday}", "一二三四五六日"[today.weekday()])
               .replace("{tomorrow}", str(today + timedelta(days=1)))
               .replace("{user_query}", user_query))
-    
+
     raw = llm.with_config(tags=["internal"]).invoke(prompt).content.strip()
-    # 容错：LLM 常把 JSON 裹在 ```json ... ``` 代码块里
     raw = raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
 
     try:
@@ -52,12 +53,10 @@ def weather_node(state: AgentState) -> dict:
     days = int(parsed["days"])
     start_date = parsed["start_date"]
 
-    #查真实天气（直接调工具，不经 LLM）
     weather_data = get_weather.invoke({
         "city": destination, "days": days, "start_date": start_date,
     })
 
-    #天气数据写成总结
     prompt = (WEATHER_SUMMARY_PROMPT
               .replace("{weather_data}", weather_data)
               .replace("{user_query}", user_query))
@@ -72,13 +71,10 @@ def weather_node(state: AgentState) -> dict:
     }
 
 
-#节点二：推荐景点(图级 ReAct)
-
 def spots_agent_node(state: AgentState) -> dict:
-    """返回 messages / spots（会被反复执行，直到不再调工具）。"""
+    """节点二：景点 ReAct 循环，没调工具时返回最终景点清单。"""
     history = state["messages"]
 
-    #第一轮才拼开场白：System是提示词，Human是任务书
     opening = []
     if not history:
         opening = [
@@ -92,15 +88,14 @@ def spots_agent_node(state: AgentState) -> dict:
         ]
         history = opening
 
-    #搜够次数就不给工具，逼它直接出清单（刹车踩在"给不给工具"上，而不是在路由里直接 END——
-    #否则模型没有机会输出最终清单，spots 会是空的）
     llm = get_llm()
+
+    # 搜够次数就不给工具，逼它直接出清单；在路由里 END 会让 spots 为空
     if _count_searches(history) < MAX_SEARCH:
         llm = llm.bind_tools([web_search])
 
     ai = llm.invoke(history)
 
-    #没调工具 = 这条就是最终清单
     result = {"messages": opening + [ai], "node_path": ["spots_agent"]}
     if not ai.tool_calls:
         result["spots"] = ai.content or "（本次没能生成景点推荐，请重试）"
@@ -109,15 +104,12 @@ def spots_agent_node(state: AgentState) -> dict:
 
 
 def _count_searches(messages: list) -> int:
-    """数已经搜过几次：把每条 AI 消息里的 tool_calls 加起来。"""
+    """数已经搜过几次工具。"""
     return sum(len(m.tool_calls) for m in messages if getattr(m, "tool_calls", None))
 
 
-#节点三：安排行程（推理）
-
 def planner_node(state: AgentState) -> dict:
-    """返回 itinerary。"""
-    #原料都在 state 里，不调工具：填提示词 → 调一次 LLM → 交结果
+    """节点三：把景点排成逐日行程，返回 itinerary。"""
     prompt = (PLANNER_PROMPT
               .replace("{destination}", state["destination"])
               .replace("{days}", str(state["days"]))
@@ -131,10 +123,8 @@ def planner_node(state: AgentState) -> dict:
     return {"itinerary": itinerary or "（本次没能生成行程安排，请重试）", "node_path": ["planner"]}
 
 
-#节点四：规划路线（节点内 ReAct）
-
 def route_agent_node(state: AgentState) -> dict:
-    """返回 route_plan。"""
+    """节点四：带工具查路线的循环，返回 route_plan。"""
     messages = [
         SystemMessage(content=ROUTE_PROMPT),
         HumanMessage(content=ROUTE_TASK_PROMPT
@@ -145,10 +135,9 @@ def route_agent_node(state: AgentState) -> dict:
                      .replace("{itinerary}", state["itinerary"])),
     ]
 
-    #把查路线的工具交给它（循环藏在本函数内部，图上只是个普通节点）
     llm = get_llm().bind_tools([get_directions])
 
-    #循环：它要查路线就替它查，查完接回消息再来一轮；它不再调工具就收工
+    # 循环藏在这个函数里：要查路线就替它查，查完接回消息再来一轮，不调工具就收工
     ai = None
     for _ in range(MAX_ROUTE_ROUNDS):
         ai = llm.invoke(messages)
@@ -158,11 +147,11 @@ def route_agent_node(state: AgentState) -> dict:
         for call in ai.tool_calls:
             try:
                 result = get_directions.invoke(call["args"])
-            except Exception as e:      # 参数传错（比如漏了 city）也别让程序崩
+            except Exception as e:
                 result = f"这个查询没成功（{e}），请检查参数后重试。"
             messages.append(ToolMessage(content=result, tool_call_id=call["id"]))
 
-    #轮次用完还在要工具：不给工具，让它用手上信息直接写路线
+    # 轮次用完还在要工具：不给工具，让它用手上信息直接写路线
     if ai.tool_calls:
         ai = get_llm().invoke(messages)
 

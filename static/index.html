@@ -1,114 +1,114 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<!-- 内联 SVG 图标，避免浏览器请求 /favicon.ico 产生 404 -->
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><text y='19' font-size='19'>%E2%9A%A1</text></svg>" />
-<title>ctOS 2.0 · 智能处理单元</title>
-<!-- 样式与脚本拆分为独立文件，由后端 /static 挂载提供 -->
-<link rel="stylesheet" href="/static/css/style.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ctOS 2.0</title>
+
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><text y='19' font-size='19'>%E2%9A%A1</text></svg>" />
+
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/modules.css">
 </head>
 <body>
-<div class="scanline"></div>
 
-<div class="app">
-  <!-- ========== 侧边栏 ========== -->
-  <aside class="sidebar">
-    <div class="brand">
-      <div class="logo">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-             stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2 4 6.5v7C4 18 7.5 21.3 12 22c4.5-.7 8-4 8-8.5v-7L12 2Z"/>
-          <path d="M12 8v5"/><circle cx="12" cy="16" r=".6" fill="currentColor"/>
-        </svg>
-      </div>
-      <div class="brand-txt">
-        <h1>ctOS 2.0</h1>
-        <span>Super Intelligence Unit</span>
-      </div>
-    </div>
+    <div id="cursor-aura"></div>
 
-    <div class="side-label">会话记录</div>
-    <div class="session-list" id="sessionList"></div>
-
-    <div class="side-foot">
-      <div class="foot-row">
-        <span>状态</span>
-        <span class="status"><i class="pulse"></i><b>在线</b></span>
-      </div>
-      <div class="foot-row"><span>模型</span><b id="footModel">deepseek-chat</b></div>
-      <div class="foot-row"><span>端点</span><b>POST /chat</b></div>
-    </div>
-  </aside>
-
-  <!-- ========== 主区 ========== -->
-  <main class="main">
-    <header class="topbar">
-      <div class="topbar-l">
-        <div class="modes" id="modes">
-          <button class="mode-btn on" data-mode="chat">闲聊</button>
-          <button class="mode-btn" data-mode="trip">智能出行</button>
-          <button class="mode-btn" data-mode="customer">智能客服</button>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-icon">i</div>
+            <div class="logo-text">
+                <h1>ctOS 2.0</h1>
+                <p>SUPER INTELLIGENCE UNIT</p>
+            </div>
         </div>
-        <h2 id="barTitle">新对话</h2>
-        <span class="tag" id="barTag">LANGGRAPH · READY</span>
-      </div>
-      <div class="topbar-r">
-        <button class="btn" id="btnNew">新会话</button>
-      </div>
-    </header>
 
-    <div class="stream" id="stream"></div>
+        <div class="history-section custom-scroll">
+            <div class="history-title">会话记录</div>
 
-    <!-- 智能出行模块：四段产出分块展示（与 /chat 共用外壳，互不干扰）
-         空状态引导由 app.js 的 tripReset() 渲染 -->
-    <div class="trip-panel" id="tripPanel" data-trip-panel>
-      <div class="trip-inner">
-        <div id="tripOut"></div>
-      </div>
+            <div id="history-chat" class="view-section active"></div>
+            <div id="history-trip" class="view-section"></div>
+            <div id="history-customer" class="view-section"></div>
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="status-row"><span>状态</span><span class="status-online"><span class="status-dot"></span> 在线</span></div>
+            <div class="status-row"><span>模型</span><span class="status-value" id="foot-model">deepseek-v4-flash</span></div>
+            <div class="status-row"><span>端点</span><span class="status-value" id="foot-endpoint">POST /chat</span></div>
+        </div>
     </div>
 
-    <!-- 智能客服模块：一问一答，不记会话、不带历史（一次性的问答）
-         空状态引导由 app.js 的 customerReset() 渲染 -->
-    <div class="customer-panel" id="customerPanel">
-      <div class="customer-inner">
-        <div id="customerOut"></div>
-      </div>
+    <div class="main-content">
+        <div class="top-nav">
+            <div class="nav-tabs">
+                <div class="nav-tab active" onclick="switchView('chat')">闲聊</div>
+                <div class="nav-tab" onclick="switchView('trip')">智能出行</div>
+                <div class="nav-tab" onclick="switchView('customer')">智能客服</div>
+            </div>
+            <div class="nav-status">
+                <div id="status-chat" class="tag-status view-section active">LANGGRAPH · READY</div>
+                <div id="status-trip" class="tag-status view-section">TRIP AGENT · READY</div>
+                <div id="status-customer" class="tag-status view-section">RAG · READY</div>
+                <button class="new-session-btn" onclick="triggerHologram()">新会话</button>
+            </div>
+        </div>
+
+        <div id="view-chat" class="view-section active">
+            <div id="hologram-overlay" class="hologram-reset"></div>
+
+            <div class="chat-area custom-scroll" id="chat-feed"></div>
+
+            <div class="bottom-section">
+                <div class="quick-prompts">
+                    <button class="prompt-btn">你好，介绍一下你自己</button>
+                    <button class="prompt-btn">帮我梳理今天的待办事项</button>
+                </div>
+                <div class="input-wrapper">
+                    <div class="b-left"></div><div class="b-right"></div>
+                    <input type="text" id="chat-input" placeholder="向 ctOS 发送指令... (Enter 发送)">
+                    <button class="send-btn" onclick="sendChat()">➤</button>
+                </div>
+                <div class="bottom-status"><span>READY</span><span id="char-count">0 字符</span></div>
+            </div>
+        </div>
+
+        <div id="view-trip" class="view-section">
+            <div class="trip-scroll-wrap">
+                <div class="trip-fixed" id="trip-fixed"></div>
+                <div class="trip-stream custom-scroll" id="trip-feed"></div>
+                <button class="trip-scroll-btn" id="trip-scroll-btn" style="display:none">回到最新 ↓</button>
+            </div>
+            <div class="bottom-section">
+                <div class="input-wrapper">
+                    <div class="b-left"></div><div class="b-right"></div>
+                    <input type="text" id="trip-input" placeholder="告诉我想去哪儿玩...">
+                    <button class="send-btn" onclick="sendTrip()">➤</button>
+                </div>
+                <div class="bottom-status"><span>READY</span><span id="trip-status">TRIP AGENT</span></div>
+            </div>
+        </div>
+
+        <div id="view-customer" class="view-section">
+            <div class="chat-area custom-scroll" id="customer-feed">
+                <div class="customer-welcome">
+                    <div class="radar-wrap">
+                        <div style="color: var(--cyan); font-weight: bold; font-size: 18px;">R</div>
+                    </div>
+                    <h2>ctOS 智能客服</h2>
+                </div>
+            </div>
+            <div class="bottom-section">
+                <div class="input-wrapper">
+                    <div class="b-left"></div><div class="b-right"></div>
+                    <input type="text" id="customer-input" placeholder="问一个关于本项目的问题...">
+                    <button class="send-btn" onclick="sendCustomer()">➤</button>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div class="composer">
-      <div class="quick" id="quick"></div>
-      <div class="input-wrap">
-        <textarea id="input" rows="1" placeholder="向 ctOS 发送指令…  (Enter 发送 · Shift+Enter 换行)"></textarea>
-        <button class="send" id="send" title="发送">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round">
-            <path d="M22 2 11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7Z"/>
-          </svg>
-        </button>
-        <!-- 停止生成：只在跑图期间显示（平时由 CSS 隐藏） -->
-        <button class="stop" id="stop" title="停止生成">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <rect x="7" y="7" width="10" height="10" rx="1.5"/>
-          </svg>
-        </button>
-      </div>
-      <div class="hint">
-        <span id="hintLeft">READY</span>
-        <span id="hintRight">0 字符</span>
-      </div>
-    </div>
-  </main>
-</div>
-
-<!-- 按依赖顺序加载：
-     app.js       核心（状态、侧边栏、闲聊、模块切换、初始化）
-     trip.js      智能出行
-     customer.js  智能客服
-     后两个依赖 app.js 里的 $、esc、md、API、state 等全局变量，所以必须排在后面 -->
-<script src="/static/js/app.js"></script>
-<script src="/static/js/trip.js"></script>
-<script src="/static/js/customer.js"></script>
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/trip.js"></script>
+    <script src="/static/js/customer.js"></script>
 </body>
 </html>

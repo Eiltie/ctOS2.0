@@ -1,45 +1,21 @@
-"""RAG 检索测评脚本：量出「检索的边界在哪」。
-
-用法（在项目根目录运行）：
-
-    python -X utf8 ctOS2_modules/ctOS2_customer_AI/rag_eval.py
-    python -X utf8 ctOS2_modules/ctOS2_customer_AI/rag_eval.py -v      # 打印每题的命中详情
-    python -X utf8 ctOS2_modules/ctOS2_customer_AI/rag_eval.py -c 库外  # 只跑某一类
-    python -X utf8 ctOS2_modules/ctOS2_customer_AI/rag_eval.py --fails  # 只看失败的题
-
-它做什么：
-    读 eval/golden.json 里的题目，逐题调 hybrid_search()，
-    看前 MAX_HITS 条里有没有出现期望关键词，然后按类别统计命中率。
-
-    只读调用检索层，【不修改任何东西】——不改语料、不改集合、不写库。
-
-怎么看结果：
-    原词类应该接近 100%。如果这一档就掉，说明检索本身有问题。
-    同义改写类明显低于原词类，说明「换个说法就问不出来」是当前边界。
-    跨章节类低，说明按 ## 切块导致「答案分散在两块」的场景天然吃亏。
-    库外类看的是拒答率：库里没有的问题，检索层仍会返回 4 条（这是设计如此），
-    真正拦住它的是提示词。所以这一档在【检索层】测不出拒答，
-    脚本只报告「有没有撞上期望关键词」，撞不上就算「正确未命中」。
-"""
-
 import argparse
 import json
 import sys
 from pathlib import Path
 
-# 直接运行本文件时项目根目录不在搜索路径里，先补一次（被 import 时重复无害）
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from ctOS2_modules.ctOS2_customer_AI.rag_hybrid import MAX_HITS, hybrid_search
 from ctOS2_modules.ctOS2_customer_AI.rag_store import load_store
 
-# 题目文件放在 eval/ 目录下（和 data/ 同级，数据归数据、代码归代码）
+# 检索测评脚本：按题库跑一遍，统计各层命中率
+# 题库与结果存放位置
 EVAL_DIR = Path(__file__).resolve().parent / "eval"
 GOLDEN_FILE = EVAL_DIR / "golden.json"
 
 
 def _read_golden():
-    """读题目文件。文件不存在时说清楚该放哪。"""
+    """读题库文件；不存在就说清楚该放哪。"""
     if not GOLDEN_FILE.exists():
         raise SystemExit(
             f"没找到题库：{GOLDEN_FILE}\n"
@@ -49,7 +25,7 @@ def _read_golden():
 
 
 def load_cases(category=None):
-    """读题目。category 不为空就只留那一类。"""
+    """读题目，给了 category 就只留那一类。"""
     data = _read_golden()
     cases = data["cases"]
     if category:
@@ -63,26 +39,10 @@ def load_version():
 
 
 def judge(case, hits):
-    """判一题过没过，并给出命中在第几名。
-
-    返回 (是否通过, 命中的关键词列表, 最好命中名次)。
-
-    为什么除了「命中」还要记名次：
-        只看「4 条里有没有」太宽松。比如问「数据库有几张表」，
-        只要第 4 条碰巧含 trip_sessions 也算过，但模型看到的头两条全是无关内容，
-        实际答不对。名次越靠前，材料越可能被好好用上。
-        名次用 1 起算，没命中记 0。
-
-    有期望关键词的题（should_answer=true）：
-        前 MAX_HITS 条里任意一条包含任意一个关键词 -> 通过
-    没有期望关键词的题（should_answer=false）：
-        检索层必然返回几条（设计如此），所以这里只看「有没有意外撞上」，
-        撞上了记为「意外命中」，提醒你这条可能被误答。
-    """
+    """判一题过没过，返回（是否通过, 命中关键词, 最好名次）。"""
     keywords = case.get("expect_keywords") or []
 
     if not keywords:
-        # 库外题：不要求命中，撞上关键词反而说明有风险
         return True, [], 0
 
     matched = []
@@ -98,8 +58,8 @@ def judge(case, hits):
 
 
 def run(cases, verbose=False):
-    """跑全部题，返回统计结果。"""
-    load_store()                     # 先把知识库加载好，后面逐题只查不建
+    """跑全部题，返回每题的结果、命中和名次。"""
+    load_store()
 
     results = []
     for case in cases:
@@ -123,14 +83,7 @@ def run(cases, verbose=False):
 
 
 def report(results):
-    """按类别打印命中率表，并给出最差的几题。
-
-    同时给出两个指标：
-        命中率@4  —— 前 4 条里有没有。宽松，代表「材料进没进视野」。
-        命中率@1  —— 第一条里有没有。严格，代表「材料排没排在第一位」。
-    两者差距越大，说明正确答案被无关片段压得越靠后，模型越可能答偏。
-    """
-    # 按类别聚合，保持 JSON 里的出现顺序
+    """按类别打印命中率表，并列出名次靠后和未命中的题。"""
     order = []
     stat = {}
     for r in results:
@@ -165,7 +118,6 @@ def report(results):
     print(f"  {'总计':<12}{total:>6}{passed_all:>8}{o4:>9.0f}%{top1_all:>8}{o1:>9.0f}%")
     print("=" * 70)
 
-    # 排名靠后的题：这类最值得看，它们是「检索到了但排得太靠后」
     late = [r for r in results if r["passed"] and r["rank"] >= 3]
     if late:
         print(f"\n名次靠后（第 3 名及以后），模型容易看漏的 {len(late)} 题：")
@@ -173,7 +125,6 @@ def report(results):
             c = r["case"]
             print(f"  #{c['id']:<2} [{c['category']}] {c['question']}  -> 第{r['rank']}名")
 
-    # 失败清单
     fails = [r for r in results if not r["passed"]]
     if fails:
         print(f"\n完全未命中 {len(fails)} 题：")
@@ -188,12 +139,7 @@ def report(results):
 
 
 def save_result(results, version):
-    """把这次结果存成 eval/runs/ 下的一个 txt，方便以后对比。
-
-    文件名带日期时间和题库版本，例如 2026-10-17_1430_v2.txt。
-    为什么留档：过一周回头看「到底比上次好了没」，
-    靠印象是不准的，靠文件才准。
-    """
+    """把这次结果存进 eval/runs/，文件名带时间和题库版本。"""
     from datetime import datetime
 
     run_dir = EVAL_DIR / "runs"
@@ -202,7 +148,6 @@ def save_result(results, version):
     stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
     out_file = run_dir / f"{stamp}_v{version}.txt"
 
-    # 按类别汇总
     order, stat = [], {}
     for r in results:
         cat = r["case"]["category"]
@@ -223,7 +168,9 @@ def save_result(results, version):
     total = passed = top1 = 0
     for cat in order:
         s = stat[cat]
-        total += s["total"]; passed += s["passed"]; top1 += s["top1"]
+        total += s["total"]
+        passed += s["passed"]
+        top1 += s["top1"]
         lines.append(
             f"{cat:<12}{s['total']:>6}{s['passed']:>8}"
             f"{s['passed']/s['total']*100:>9.0f}%{s['top1']:>8}{s['top1']/s['total']*100:>9.0f}%"
@@ -244,6 +191,7 @@ def save_result(results, version):
 
 
 def main():
+    """解析命令行参数，跑题、输出报告，需要时存档。"""
     parser = argparse.ArgumentParser(description="RAG 检索测评")
     parser.add_argument("-v", "--verbose", action="store_true", help="打印每题的命中详情")
     parser.add_argument("-c", "--category", help="只跑某一类，例如 原词 / 同义改写 / 跨章节 / 库外")

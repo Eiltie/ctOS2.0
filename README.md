@@ -67,7 +67,7 @@ ctOS2.0/
 ├── ctOS2_databases/            # SQLite 数据库层
 │   ├── ctOS2_db.py             # ★ 连接层 + 统一建表入口
 │   ├── ctOS2_db_chat.py        # 闲聊表：sessions / messages
-│   ├── ctOS2_db_trip.py        # 出行表：trip_sessions / trip_user_inputs / trip_ai_outputs
+│   ├── ctOS2_db_trip.py        # 出行表：trip_chats / trip_sessions / trip_user_inputs / trip_ai_outputs
 │   ├── ctOS2_db_view.py        # 命令行查看工具
 │   └── ctOS2_db.db             # 数据库文件（自动生成，不入库）
 ├── static/                     # 前端（无构建步骤）
@@ -87,13 +87,14 @@ ctOS2.0/
 
 ## 数据存储
 
-所有业务数据存在同一个 SQLite 文件 `ctOS2_databases/ctOS2_db.db` 里，共 5 张表：
+所有业务数据存在同一个 SQLite 文件 `ctOS2_databases/ctOS2_db.db` 里，共 6 张表：
 
 | 表 | 所属模块 | 说明 |
 | --- | --- | --- |
 | `sessions` | 闲聊 | 一次会话，主键 `id` |
 | `messages` | 闲聊 | 会话里的消息，外键 `session_id` → `sessions.id` |
-| `trip_sessions` | 出行 | 一轮出行规划，主键 `id` |
+| `trip_chats` | 出行 | 一次出行会话（左侧列表一行），主键 `id` |
+| `trip_sessions` | 出行 | 会话里的一轮对话，外键 `chat_id` → `trip_chats.id` |
 | `trip_user_inputs` | 出行 | 用户输入，外键 `trip_id` → `trip_sessions.id` |
 | `trip_ai_outputs` | 出行 | AI 四段产出，外键 `trip_id` → `trip_sessions.id` |
 
