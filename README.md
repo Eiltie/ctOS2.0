@@ -1,6 +1,6 @@
 # ctOS 2.0
 
-一个 FastAPI + LangGraph 搭建的多模块 AI 应用。同一个 FastAPI app 挂载多个能力模块，共用一套静态资源与会话接口。
+一个 FastAPI + LangGraph 搭建的多模块 超级AI 应用。同一个 FastAPI app 挂载多个能力模块，共用一套静态资源与会话接口。
 
 ## 模块
 
