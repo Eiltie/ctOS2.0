@@ -1,295 +1,257 @@
 # ctOS 2.0
 
-一个 FastAPI + LangGraph 搭建的多模块 超级AI 应用。同一个 FastAPI app 挂载多个能力模块，共用一套静态资源与会话接口。
+一个 FastAPI + LangGraph 搭建的多模块 AI 应用：同一个服务里挂载「闲聊对话」「智能出行规划」「RAG 智能客服」三种能力，共用一个端口、一套前端页面和一套 SQLite 数据库。
 
-## 模块
+## 它解决什么问题
 
-| 模块 | 路由 | 说明 |
-| --- | --- | --- |
-| 闲聊 / 对话 | `/chat` | 基于 LangGraph 的对话图，流式返回纯文本 |
-| 智能出行 | `/trip/chat` | 旅行规划 agent（天气 → 景点推荐 → 行程 → 路线），SSE 事件流 |
-| 智能客服 | `/customer/chat` | RAG 三层检索问答（关键词 → 向量 → 混合），SSE 事件流 |
+把几种性质完全不同的 AI 能力放到同一条产品外壳下：
 
-三个模块不是独立的 app，它们是 ctOS 的能力。
+- **闲聊**证明长对话能跑通（有会话记忆、能翻历史）
+- **智能出行**证明 Agent 能真正调工具干活（查天气、搜景点、算路线），不是只会说话
+- **智能客服**证明 RAG 能让模型只照着资料回答，而不是凭空编造
 
-闲聊和出行会把我说的内容存进数据库，左侧栏能翻到历史记录；智能客服是一问一答、不记会话、不写数据库。
-
-## 界面预览
-
-**闲聊模式**（`/chat`）——流式纯文本对话：
-
-![闲聊模式](screenshots/chat.png)
-
-**智能出行**（`/trip/chat`）——查询天气 → 推荐景点 → 安排行程 → 规划路线：
-
-![智能出行](screenshots/trip.png)
-
-## 目录结构
-
-```
-ctOS2.0/
-├── src/                        # 后端主服务
-│   ├── ctOS_chat_api.py        # ★ FastAPI 入口（app 在这里）
-│   ├── ctOS_chat_graph.py      # 对话图
-│   ├── ctOS_chat_graphOn.py    # 对话图对外入口 run_graph
-│   ├── ctOS_chat_agent_node.py # 图节点
-│   ├── ctOS_chat_llm.py        # LLM 初始化
-│   ├── ctOS_chat_promtps.py    # 提示词
-│   ├── ctOS_chat_sessions.py   # 会话读写
-│   └── ctOS_chat_state.py      # 图状态定义
-├── ctOS2_modules/
-│   ├── ctOS2_Trip_AI/          # 智能出行模块
-│   │   ├── ctOS2_Trip_main.py      # 终端调试入口
-│   │   ├── ctOS2_Trip_stream.py    # 流式细节（读取 config/.env）
-│   │   ├── ctOS2_Trip_create_graph.py
-│   │   ├── ctOS2_Trip_agent_node.py
-│   │   ├── ctOS2_Trip_agent_tools.py
-│   │   ├── ctOS2_Trip_route.py
-│   │   ├── ctOS2_Trip_prompts.py
-│   │   ├── ctOS2_Trip_llm.py
-│   │   └── ctOS2_Trip_state.py
-│   └── ctOS2_customer_AI/      # 智能客服模块（RAG）
-│       ├── main.py                 # 终端调试入口
-│       ├── ctOS2_customer_stream.py # 流式封装（对外唯一入口）
-│       ├── create_graph.py         # 组装图
-│       ├── agent_node.py           # 图节点（检索、生成）
-│       ├── agent_state.py          # 图状态定义
-│       ├── get_llm.py              # 读配置、模型客户端、路径常量
-│       ├── promtps.py              # 提示词
-│       ├── rag_store.py            # 知识库加载与复用
-│       ├── rag_ingest.py           # 一次性入库脚本
-│       ├── rag_keyword.py          # 第一层：关键词检索
-│       ├── rag_vector.py           # 第二层：向量检索
-│       ├── rag_hybrid.py           # 第三层：混合检索
-│       └── data/
-│           ├── docs/               # 知识库原始文档
-│           └── chroma/             # 向量库落盘目录（由入库脚本生成）
-├── ctOS2_databases/            # SQLite 数据库层
-│   ├── ctOS2_db.py             # ★ 连接层 + 统一建表入口
-│   ├── ctOS2_db_chat.py        # 闲聊表：sessions / messages
-│   ├── ctOS2_db_trip.py        # 出行表：trip_chats / trip_sessions / trip_user_inputs / trip_ai_outputs
-│   ├── ctOS2_db_view.py        # 命令行查看工具
-│   └── ctOS2_db.db             # 数据库文件（自动生成，不入库）
-├── static/                     # 前端（无构建步骤）
-│   ├── index.html
-│   ├── README.md               # 前端文件说明
-│   ├── css/style.css
-│   └── js/
-│       ├── app.js              # 核心：状态、侧边栏、闲聊、模块切换
-│       ├── trip.js             # 智能出行
-│       └── customer.js         # 智能客服
-├── screenshots/                # README 用的界面截图
-└── config/
-    ├── YOUR_config.env         # 配置模板（入库）
-    ├── .env                    # 真实密钥（已 gitignore，不入库）
-    └── requirements.txt
-```
-
-## 数据存储
-
-所有业务数据存在同一个 SQLite 文件 `ctOS2_databases/ctOS2_db.db` 里，共 6 张表：
-
-| 表 | 所属模块 | 说明 |
-| --- | --- | --- |
-| `sessions` | 闲聊 | 一次会话，主键 `id` |
-| `messages` | 闲聊 | 会话里的消息，外键 `session_id` → `sessions.id` |
-| `trip_chats` | 出行 | 一次出行会话（左侧列表一行），主键 `id` |
-| `trip_sessions` | 出行 | 会话里的一轮对话，外键 `chat_id` → `trip_chats.id` |
-| `trip_user_inputs` | 出行 | 用户输入，外键 `trip_id` → `trip_sessions.id` |
-| `trip_ai_outputs` | 出行 | AI 四段产出，外键 `trip_id` → `trip_sessions.id` |
-
-两个外键都设了 `ON DELETE CASCADE`：删掉主记录，子记录自动跟着删。
-智能客服是一问一答，**不写数据库**，所以没有自己的表。
-
-查看数据库内容（不用装任何工具）：
-
-```bash
-python ctOS2_databases/ctOS2_db_view.py            # 列出所有会话
-python ctOS2_databases/ctOS2_db_view.py show 3     # 看某个会话的完整对话
-python ctOS2_databases/ctOS2_db_view.py search 杭州 # 搜内容
-python ctOS2_databases/ctOS2_db_view.py export 3   # 导出某个会话为 txt
-python ctOS2_databases/ctOS2_db_view.py stats      # 统计
-```
-
-> `ctOS2_db_view.py` 只查闲聊的两张表（`sessions` / `messages`），看不到出行记录。
+三者共用的部分——FastAPI 应用、会话存储、流式输出、前端静态资源——是这个项目的骨架；各模块只负责自己的图和提示词。
 
 ## 快速开始
 
-> ### ⚠️ 先读这段：这个项目需要你自己的 API 密钥
->
-> **clone 下来不能直接跑。** 项目本身不含任何密钥，所有功能都要调用外部 API，
-> 你必须自己申请 5 个密钥并填进 `config/.env`，否则启动后各个模块会报错或不可用。
->
-> | 密钥 | 用途 | 必要性 | 去哪申请 |
-> | --- | --- | --- | --- |
-> | `DEEPSEEK_API_KEY` + `DEEPSEEK_BASE_URL` + `DEEPSEEK_MODEL` | 所有对话和推理 | **必需**，缺了闲聊和出行都不能用 | [platform.deepseek.com](https://platform.deepseek.com/) |
-> | `ZHIPU_API_KEY` | 智能客服的向量化 | **必需**，缺了客服模块启动就报错 | [open.bigmodel.cn](https://open.bigmodel.cn/) |
-> | `TAVILY_API_KEY` | 出行模块联网搜景点 | 出行要用；不填则景点推荐质量变差 | [tavily.com](https://tavily.com/) |
-> | `AMAP_KEY` | 出行模块算路线 | 出行要用；不填则路线会退化为估算 | [lbs.amap.com](https://lbs.amap.com/) |
->
-> 这些 API **大多需要注册账号，部分需要付费或有免费额度限制**，具体以各家官网当前政策为准。
-> DeepSeek 和智谱按调用量计费，跑一次出行规划会调用十几次模型，请留意自己的余额。
->
-> **只拿到 DeepSeek 密钥时**：闲聊模块可以正常用，另外两个模块会不可用。
-> 想完整体验三个模块，5 个密钥都要配。
-
-### 1. 安装依赖
+### 1. 装依赖
 
 ```bash
 python -m venv venv
-venv\Scripts\activate          # Windows
-# source venv/bin/activate     # macOS / Linux
-
+venv\Scripts\activate
 pip install -r config/requirements.txt
 ```
 
-### 2. 配置环境变量
-
-复制模板并填入自己的值：
+### 2. 填密钥
 
 ```bash
 cp config/YOUR_config.env config/.env
 ```
 
-`config/.env` 需要填写：
+然后编辑 `config/.env`，至少填下面三个（只跑闲聊的话，这三个就够了）：
 
 ```
-DEEPSEEK_API_KEY=      # DeepSeek 密钥，对话和图上推理都用它
-DEEPSEEK_BASE_URL=     # DeepSeek 接口地址，例如 https://api.deepseek.com
-DEEPSEEK_MODEL=        # 模型名，例如 deepseek-chat
-
-TAVILY_API_KEY=        # Tavily 搜索密钥，智能出行查景点用
-AMAP_KEY=              # 高德地图密钥，智能出行算路线用
-
-ZHIPU_API_KEY=         # 智谱密钥，智能客服 RAG 向量化用（必填，缺失时客服模块启动即报错）
+DEEPSEEK_API_KEY=你的密钥
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-chat
 ```
 
-每一步都能看到效果，可以按需分阶段配置：
-
-| 你想先试哪个模块 | 最少需要配哪些 |
-| --- | --- |
-| 只看闲聊 | `DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL` |
-| 加智能出行 | 再补 `TAVILY_API_KEY`、`AMAP_KEY` |
-| 加智能客服 | 再补 `ZHIPU_API_KEY` |
-
-> `config/.env` 已被 `.gitignore` 忽略，**不要**提交真实密钥。
-
-### 3. 初始化数据库
+### 3. 初始化并启动
 
 ```bash
 python ctOS2_databases/ctOS2_db.py
+python src/ctOS_chat_api.py
 ```
 
-会建好全部 5 张表（已存在则跳过，不会动已有数据）。
+浏览器打开 <http://127.0.0.1:8080/>。
 
-### 4. 智能客服入库（第一次使用前跑一次）
+> 想用智能客服，还要额外配 `ZHIPU_API_KEY` 并跑一次入库脚本（见下方「常见用法示例」）。
 
-智能客服依赖本地向量库，需要先把 `data/docs/` 里的文档切块、向量化、入库：
+## 架构
 
-```bash
-python ctOS2_modules/ctOS2_customer_AI/rag_ingest.py
+### 三个模块，一个 app
+
+| 模块 | 路由 | 输出方式 |
+| --- | --- | --- |
+| 闲聊 | `POST /chat` | 纯文本流 |
+| 智能出行 | `POST /trip/chat` | SSE 事件流 |
+| 智能客服 | `POST /customer/chat` | SSE 事件流 |
+
+入口统一在 `src/ctOS_chat_api.py`。每个模块对外只暴露一个流式函数，Web 层不关心图内部长什么样：
+
+- 闲聊：`ctOS2_modules` 之外的 `src/ctOS_chat_graphOn.py` → `run_graph()`
+- 出行：`ctOS2_modules/ctOS2_Trip_AI/ctOS2_Trip_stream.py` → `trip_stream()`
+- 客服：`ctOS2_modules/ctOS2_customer_AI/ctOS2_customer_stream.py` → `customer_stream()`
+
+### 三张 LangGraph 图
+
+**闲聊**（单直线）：
+
+```
+START → chat_node → END
 ```
 
-**改了 `data/docs/` 里的文档后要重新跑一次**，否则检索到的还是旧内容。
+**客服**（单直线）：
 
-注意两点：
+```
+START → retrieve → generate → END
+```
 
-- 入库用的是智谱接口，`ZHIPU_API_KEY` 必须先配好。
-- 入库脚本只处理 `data/docs/` 下的 `*.md` 文件，按 Markdown 的 `## ` 二级标题切块。
+**出行**（带条件分支和搜索循环）：
 
-### 5. 启动服务
+```
+START → weather → spots_agent ─┬─→ tools ─┐   （还想搜就回 spots_agent）
+                               │  ↑──────┘
+                               └─→ planner → route_agent → END
+```
+
+### 出行模块的完整链路
+
+在 `POST /trip/chat` 中：
+
+1. **分流**：用模型判断这句话是出行需求还是闲聊，出行需求会先把多轮对话合并成一句完整需求
+2. **跑图**：图内部依次产出天气 / 景点 / 行程 / 路线四段
+3. **流式回传**：逐字推送 + 每段完成时推整段
+4. **存库**：图跑完才存，出错的那一轮不存
+
+### RAG 三层检索
+
+客服模块每一轮问题依次经过：
+
+| 层 | 实现 | 用途 |
+| --- | --- | --- |
+| 第一层 | jieba 分词 + BM25 | 对专有名词（如 `MAX_HITS`、`rag_ingest`）最准 |
+| 第二层 | Chroma 向量库 + 智谱 embedding | 换个说法也能命中 |
+| 第三层 | 按名次加权合并 | 两层都命中的片段分数相加，最终交给模型最多 4 条 |
+
+三层都跑是为了方便调试，但**真正交给模型写答案的只有第三层**。
+
+## 配置说明
+
+所有配置从 `config/.env` 读取，代码里不写死密钥。
+
+| 变量 | 用途 | 是否必需 |
+| --- | --- | --- |
+| `DEEPSEEK_API_KEY` | 所有对话和推理 | **必需** |
+| `DEEPSEEK_BASE_URL` | 接口地址 | **必需** |
+| `DEEPSEEK_MODEL` | 模型名 | **必需** |
+| `ZHIPU_API_KEY` | 客服的向量化 | 用客服就必需；缺了客服模块启动即报错 |
+| `TAVILY_API_KEY` | 出行模块联网搜景点 | 用出行建议配，缺失时景点推荐质量变差 |
+| `AMAP_KEY` | 出行的路线计算 | 用出行建议配，缺失时路线退化为文字提示 |
+
+### 写死在代码里的参数
+
+| 位置 | 值 | 含义 |
+| --- | --- | --- |
+| `src/ctOS_chat_api.py` | `port=8080` | 服务端口，改这里即可换端口 |
+| `src/ctOS_chat_llm.py` | `TEMPERATURE = 0.7` | 闲聊的随机性 |
+| `ctOS2_modules/ctOS2_Trip_AI/ctOS2_Trip_llm.py` | `TEMPERATURE = 0.3` | 出行的随机性 |
+| `customer_AI/get_llm.py` | `TEMPERATURE = 0.3` | 客服的随机性 |
+| `customer_AI/get_llm.py` | `EMBEDDING_MODEL = "embedding-3"` | 智谱向量模型 |
+| `rag_ingest.py` | `MAX_CHUNK_CHARS = 600` | 单块字符上限 |
+| `rag_ingest.py` | `MAX_EMBED_BATCH = 64` | 智谱接口单次上限，超了返回 400，所以必须分批 |
+| `rag_hybrid.py` | `MAX_HITS = 4` | 最终交给模型的片段数 |
+| `ctOS2_modules/ctOS2_Trip_AI/ctOS2_Trip_agent_node.py` | `MAX_SEARCH = 3` / `MAX_ROUTE_ROUNDS = 8` | 景点最多搜几次 / 路线最多问几轮 |
+| `ctOS2_modules/ctOS2_Trip_AI/ctOS2_Trip_route.py` | `MAX_MESSAGES = 20` | 防工具反复失败时循环失控 |
+
+## 常见用法示例
+
+### 启动服务
 
 ```bash
 python src/ctOS_chat_api.py
 ```
 
-打开 <http://127.0.0.1:8080/> 即为前端页面。
-
-> 端口 8080 写死在 `src/ctOS_chat_api.py` 末尾的 `uvicorn.run(app, host="127.0.0.1", port=8080)`，
-> 前端用相对路径请求后端（同源），所以换端口只改这一处即可。
->
-> 也可以用 uvicorn 命令启动，但**端口必须和 8080 保持一致**：
->
-> ```bash
-> uvicorn src.ctOS_chat_api:app --reload --port 8080
-> ```
-
-## 跑不起来？先看这里
-
-大部分「跑不起来」都是密钥或初始化没做全。按下面顺序自查：
-
-| 现象 | 原因 | 怎么办 |
-| --- | --- | --- |
-| 启动就说「没找到向量数据库」/「没有这个集合」 | 还没跑入库脚本 | `python ctOS2_modules/ctOS2_customer_AI/rag_ingest.py` |
-| 报错 `config/.env 里没有 ZHIPU_API_KEY` | 智谱密钥没配 | 去 [open.bigmodel.cn](https://open.bigmodel.cn/) 申请后填进 `config/.env` |
-| 闲聊一提问就报 401 / 认证失败 | DeepSeek 密钥错或没余额 | 检查 `DEEPSEEK_API_KEY`，并确认账户有余额 |
-| 智能出行一上来就报错 | 没配 `TAVILY_API_KEY` 或 `AMAP_KEY` | 补上对应密钥，或先只用闲聊模块 |
-| 出行模块提示「没能识别出目的地」 | 不是报错，是需求太模糊 | 说具体点，例如「下周想去杭州玩3天」 |
-| 改了 `data/docs/` 但客服回答还是旧的 | 没重新入库，或没重启服务 | 重跑入库脚本 **并且重启** 服务 |
-| 页面打开是白屏 | 后端没启动，或端口不是 8080 | 先确认 `python src/ctOS_chat_api.py` 在跑，访问 <http://127.0.0.1:8080/> |
-
-**说明**：项目不含数据库文件和向量库，这两样都是**第一次运行时自动生成**的，
-所以刚 clone 下来时必须先执行「第 3 步 初始化数据库」和「第 4 步 入库」，否则一定跑不起来。
-
-## 前端开发
-
-前端**没有任何构建步骤**：改代码保存后刷新浏览器即可生效。
-
-| 文件 | 负责 |
-| --- | --- |
-| `static/js/app.js` | 核心状态、侧边栏、闲聊、模块切换 |
-| `static/js/trip.js` | 智能出行（四段卡片、出行历史） |
-| `static/js/customer.js` | 智能客服（问答渲染） |
-| `static/css/style.css` | 全部样式 |
-
-三个 JS 文件按 `app.js → trip.js → customer.js` 的顺序加载，后两个依赖 `app.js` 里的 `$`、`esc`、`md`、`API`、`state` 等全局变量，**调整加载顺序会导致报错**。
-
-详见 [`static/README.md`](static/README.md)。
-
-## 单独调试各模块
-
-出行模块可以脱离 Web 服务在终端直接跑：
+### 用 curl 调三个模块
 
 ```bash
-python ctOS2_modules/ctOS2_Trip_AI/ctOS2_Trip_main.py
+# 闲聊（纯文本流）
+curl -N -X POST http://127.0.0.1:8080/chat \
+  -H "Content-Type: application/json" \
+  -d "{\"messages\": \"你好\"}"
+
+# 智能出行（SSE 事件流）
+curl -N -X POST http://127.0.0.1:8080/trip/chat \
+  -H "Content-Type: application/json" \
+  -d "{\"query\": \"下周想去杭州玩3天\", \"history\": []}"
+
+# 智能客服（SSE 事件流）
+curl -N -X POST http://127.0.0.1:8080/customer/chat \
+  -H "Content-Type: application/json" \
+  -d "{\"query\": \"端口怎么改？\"}"
 ```
 
-客服模块同样可以，每轮会打印三层检索各命中了什么，方便调检索效果：
+### 智能客服：先入库再用
 
 ```bash
+python -X utf8 ctOS2_modules/ctOS2_customer_AI/rag_ingest.py
+```
+
+文档放 `ctOS2_modules/ctOS2_customer_AI/data/docs/*.md`，按 `## ` 二级标题切块。**改了文档要重跑这个脚本，并重启服务。**
+
+### 单独在终端调试模块（不走 Web）
+
+```bash
+python -X utf8 ctOS2_modules/ctOS2_Trip_AI/ctOS2_Trip_main.py
 python -X utf8 ctOS2_modules/ctOS2_customer_AI/main.py
 ```
 
-> Windows 控制台默认 GBK，不加 `-X utf8` 中文可能乱码。
+Windows 控制台默认 GBK，不加 `-X utf8` 中文会乱码。
 
-单独检查知识库是否就绪（不启动对话）：
-
-```bash
-python -X utf8 ctOS2_modules/ctOS2_customer_AI/rag_store.py
-```
-
-单独跑一遍客服的流式封装（用一条固定问题验证 SSE 事件能正常吐出）：
+### 查看数据库内容
 
 ```bash
-python -X utf8 ctOS2_modules/ctOS2_customer_AI/ctOS2_customer_stream.py
+python -X utf8 ctOS2_databases/ctOS2_db_view.py            # 列出会话
+python -X utf8 ctOS2_databases/ctOS2_db_view.py show 3     # 看某个会话
+python -X utf8 ctOS2_databases/ctOS2_db_view.py stats      # 统计
 ```
 
-## 技术栈
+### 跑检索测评
 
-- **Web**：FastAPI、Uvicorn、Pydantic
-- **编排**：LangGraph、LangChain、langchain-openai
-- **工具**：Tavily 搜索、高德地图、Open-Meteo 天气
-- **存储**：SQLite（Python 标准库 `sqlite3`）存会话与出行记录；Chroma 存 RAG 向量
-- **检索**：智谱 embedding-3、jieba + rank-bm25
-- **配置**：python-dotenv
+```bash
+python -X utf8 ctOS2_modules/ctOS2_customer_AI/rag_eval.py
+python -X utf8 ctOS2_modules/ctOS2_customer_AI/rag_eval.py --fails     # 只看未命中
+python -X utf8 ctOS2_modules/ctOS2_customer_AI/rag_eval.py --save      # 结果存到 eval/runs/
+```
 
-## 安全说明
+题库是 `ctOS2_modules/ctOS2_customer_AI/eval/golden.json`，共 40 题，分「原词 / 同义改写 / 跨章节 / 库外」四类。
 
-- 所有密钥均从 `config/.env` 读取，代码中不写死任何凭据。
-- 数据库为本地 SQLite 文件，不含账号密码；⚠️ `.db` 文件本身没有访问权限控制，谁拿到谁能读，不要外传。
-- `.gitignore` 已排除 `config/.env`、`*.env`、`venv/`、`__pycache__/`、`*.sql`、`*.sqlite`、`*.db` 等。
-- 若曾误提交密钥，请立即在对应平台轮换（删除文件并不能让密钥失效）。
+### 直接调模块函数
 
-## 许可证
+```python
+import sys
+sys.path.insert(0, r"D:\ctOS2.0")
 
-[MIT License](LICENSE) — 可以自由使用、修改、商用，只需保留版权声明，作者不承担担保责任。
+from ctOS2_modules.ctOS2_Trip_AI.ctOS2_Trip_main import understand_query
+
+kind, merged_query = understand_query(["下周想去杭州玩3天"], "那换成5天呢")
+print(kind, merged_query)
+```
+
+## 已知限制 / 注意事项
+
+**数据与存储**
+
+- SQLite 是本地单文件，`.db` 本身没有访问控制，拿到文件就能读，**不要外传**
+- `ctOS2_databases/ctOS2_db_view.py` 只查闲聊的两张表，看不到出行记录
+- 智能客服不写数据库，没有会话历史；刷新页面即清空
+- 数据库文件和 Chroma 向量库都是**运行时生成**的，新环境必须依次执行建表和入库脚本
+
+**外部依赖**
+
+- 三个模块全部依赖外部 API，DeepSeek 密钥缺失时闲聊和出行都用不了
+- 出行一次规划会调用十几次模型，请注意额度
+- 高德/天气接口失败时，Agent 被要求「按常识估算并标注（估算）」，此时路线不是真实数据
+- 天气预报最多可查未来 16 天（起始日起），超出会直接返回提示
+
+**功能边界**
+
+- 闲聊没有检索能力，问项目相关问题它可能直接编
+- 客服查不到资料时只会回「抱歉，我在知识库里没有找到相关答案」，不会自己找答案
+- 出行模块只做了驾车/步行两种方式，没有公交、地铁
+
+**工程质量**
+
+- **项目没有任何自动化测试**。`rag_eval.py` 只是手工跑的检索测评分，不属于测试套件
+- 检索测评依赖真实 embedding 接口，离线跑不了
+- 出行图的条件分支用元组作返回值，导出的 mermaid 图里画不出这三条条件边
+
+**前端**
+
+- 没有构建步骤，改完刷新即可，但三个 JS 必须按 `app.js → trip.js → customer.js` 顺序加载，后两个依赖前一个定义的全局变量
+
+## 如何贡献 / 如何跑测试
+
+项目目前没有测试套件，也没有 `pytest` 依赖。如果要开始补：
+
+**可以放心测的**（纯函数，不碰外部接口）：`_keep()` 的四道过滤、`understand_query()` 的格式解析（把模型换成假的）、`split_markdown()` 的切块边界、`rank_score()` 与 `judge()`。
+
+**不要写自动化测试的**：`/trip/chat` 完整链路、任何需要真实模型的路径、前端渲染。
+
+**改动的验证方式**：
+
+- 改检索相关：跑 `rag_eval.py`，看四类命中率有没有变
+- 改出行图：在终端跑 `ctOS2_modules/ctOS2_Trip_AI/ctOS2_Trip_main.py`，看四段产出是否齐全
+- 改接口：启动服务后打开 <http://127.0.0.1:8080/>，三个 tab 各发一句话
+
+**提交前检查**：`config/.env` 和 `*.db` 已被 `.gitignore` 排除，不要提交真实密钥或本地数据库。
