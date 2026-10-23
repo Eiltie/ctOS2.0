@@ -357,10 +357,12 @@ function renderHistory(){
   const box = $("history-chat");
   if (!box) return;
 
+  /*
   if (!state.sessions.length){
     box.innerHTML = `<div class="empty-history">还没有会话记录。<br>在右边发一句话，会话就会存进来。</div>`;
     return;
   }
+  */
 
   box.innerHTML = state.sessions.map((s) => `
     <div class="history-item${s.id === state.activeId ? " active" : ""}" data-sid="${s.id}">

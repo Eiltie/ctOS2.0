@@ -211,10 +211,12 @@ function renderTripHistory(){
   const box = $("history-trip");
   if (!box) return;
 
+  /*
   if (!tripRecords.length){
     box.innerHTML = `<div class="empty-history">还没有出行记录。<br>在上面说一句「想去哪儿玩」，规划完就会存进来。</div>`;
     return;
   }
+  */
 
   box.innerHTML = tripRecords.map((r) => {
     const opened = chatIsOnScreen(r.id);
