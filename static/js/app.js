@@ -350,6 +350,106 @@ function renderChat(){
 }
 
 
+// ===== 会话列表的多选模式 =====
+// 闲聊和出行共用一套。进入后标题变成"选择对话"，每行前面出现圆形勾选圈。
+
+let historySelectMode = false;    // 是否处在多选模式
+let historyPicked = new Set();    // 被勾选的 id
+
+// 图标：三横线 + 圆圈，表示"列表多选"
+const ICON_SELECT = `<svg viewBox="0 0 16 16" width="15" height="15" fill="none"
+    stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+    <circle cx="3" cy="4" r="1.1" fill="currentColor" stroke="none"/>
+    <circle cx="3" cy="8" r="1.1" fill="currentColor" stroke="none"/>
+    <circle cx="3" cy="12" r="1.1" fill="currentColor" stroke="none"/>
+    <line x1="6.5" y1="4" x2="14" y2="4"/>
+    <line x1="6.5" y1="8" x2="14" y2="8"/>
+    <line x1="6.5" y1="12" x2="14" y2="12"/>
+  </svg>`;
+
+// 图标：叉号，表示"退出多选"
+const ICON_CLOSE = `<svg viewBox="0 0 16 16" width="15" height="15" fill="none"
+    stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+    <line x1="4" y1="4" x2="12" y2="12"/>
+    <line x1="12" y1="4" x2="4" y2="12"/>
+  </svg>`;
+
+// 当前模块支不支持多选：客服不支持
+function historySelectable(){
+  return state.view === "chat" || state.view === "trip";
+}
+
+// 更新标题行：文字 + 右上角按钮
+function renderHistoryTitle(){
+  const text = $("history-title-text");
+  const btn = $("history-select-btn");
+  if (!text || !btn) return;
+
+  text.textContent = historySelectMode ? "选择对话" : "会话记录";
+
+  // 客服页没有会话列表，按钮一直藏着
+  btn.style.display = historySelectable() ? "" : "none";
+  btn.innerHTML = historySelectMode ? ICON_CLOSE : ICON_SELECT;
+  btn.title = historySelectMode ? "退出多选" : "多选";
+  btn.onclick = () => {
+    historySelectMode = !historySelectMode;
+    historyPicked.clear();
+    renderHistory();
+  };
+}
+
+// 生成一行的勾选圈。多选模式才输出，平时返回空字符串。
+function pickDotHTML(id){
+  if (!historySelectMode) return "";
+  const on = historyPicked.has(Number(id)) ? " on" : "";
+  return `<span class="pick-dot${on}" data-pick="${id}"></span>`;
+}
+
+// 给列表里的勾选圈绑定点击
+function bindPickDots(box, repaint){
+  box.querySelectorAll(".pick-dot").forEach((dot) => {
+    dot.onclick = (e) => {
+      e.stopPropagation();               // 别触发打开会话
+      const id = Number(dot.dataset.pick);
+      if (historyPicked.has(id)) historyPicked.delete(id);
+      else historyPicked.add(id);
+      repaint();
+    };
+  });
+}
+
+// 多选模式下底部的操作条
+function selectBarHTML(){
+  if (!historySelectMode) return "";
+  const n = historyPicked.size;
+  return `<div class="history-select-bar">` +
+           `<span class="hsb-link" data-hsb="all">${n} 项已选</span>` +
+           `<span class="hsb-del${n ? "" : " disabled"}" data-hsb="del">删除</span>` +
+         `</div>`;
+}
+
+// 给底部操作条绑定点击
+//   total     总条数，用来判断"全选"还是"清空"
+//   onPickAll 全选时怎么填 historyPicked
+//   onDelete  点删除时调什么
+//   repaint   重画列表的函数（闲聊和出行各自的）
+function bindSelectBar(box, total, onPickAll, onDelete, repaint){
+  const all = box.querySelector('[data-hsb="all"]');
+  if (all){
+    all.onclick = () => {
+      if (total && historyPicked.size === total) historyPicked.clear();
+      else onPickAll();
+      repaint();
+    };
+  }
+
+  const del = box.querySelector('[data-hsb="del"]');
+  if (del && historyPicked.size){
+    del.onclick = () => onDelete([...historyPicked]);
+  }
+}
+
+
 function renderHistory(){
   if (state.view === "trip"){ renderTripHistory(); return; }
   if (state.view === "customer"){ renderCustomerHistory(); return; }
@@ -357,21 +457,26 @@ function renderHistory(){
   const box = $("history-chat");
   if (!box) return;
 
-  /*
-  if (!state.sessions.length){
-    box.innerHTML = `<div class="empty-history">还没有会话记录。<br>在右边发一句话，会话就会存进来。</div>`;
-    return;
-  }
-  */
+  renderHistoryTitle();
 
-  box.innerHTML = state.sessions.map((s) => `
-    <div class="history-item${s.id === state.activeId ? " active" : ""}" data-sid="${s.id}">
-      <span>${esc(s.title || "新对话")}</span>
+  // 清掉已经不存在的勾选
+  const alive = new Set(state.sessions.map((s) => Number(s.id)));
+  historyPicked = new Set([...historyPicked].filter((id) => alive.has(id)));
+
+  const rows = state.sessions.map((s) => `
+    <div class="history-item${s.id === state.activeId && !historySelectMode ? " active" : ""}" data-sid="${s.id}">
+      ${pickDotHTML(s.id)}
+      <span class="hi-title">${esc(s.title || "新对话")}</span>
       <span class="del" title="删除会话" data-del="${s.id}">🗑</span>
     </div>`).join("");
 
+  box.innerHTML = rows + selectBarHTML();
+
   box.querySelectorAll(".history-item").forEach((item) => {
-    item.onclick = () => openSession(Number(item.dataset.sid));
+    item.onclick = () => {
+      if (historySelectMode) return;      // 多选模式下不打开会话
+      openSession(Number(item.dataset.sid));
+    };
   });
 
   box.querySelectorAll(".del").forEach((el) => {
@@ -380,6 +485,46 @@ function renderHistory(){
       removeSession(Number(el.dataset.del));
     };
   });
+
+  bindPickDots(box, renderHistory);
+  bindSelectBar(
+    box,
+    state.sessions.length,
+    () => { historyPicked = new Set(state.sessions.map((s) => Number(s.id))); },
+    removeSessionsPicked,
+    renderHistory,
+  );
+}
+
+
+async function removeSessionsPicked(ids){
+  if (!ids.length) return;
+
+  if (!confirm(`确定删除选中的 ${ids.length} 个对话吗？\n\n这些对话的全部消息会一起删除，无法恢复。`)) return;
+
+  let failed = 0;
+  for (const id of ids){
+    const result = await getJson(`${API.sessions}/${id}`, { method: "DELETE" });
+    if (!result){ failed += 1; continue; }
+
+    state.sessions = state.sessions.filter((x) => x.id !== id);
+    state.loaded.delete(id);
+  }
+
+  if (failed){
+    alert(`有 ${failed} 个对话删除失败，请确认后端已启动。`);
+  }
+
+  // 当前打开的对话被删了就换一个
+  if (ids.includes(state.activeId)){
+    state.activeId = state.sessions.length ? state.sessions[0].id : null;
+    if (state.activeId) await openSession(state.activeId);
+    else renderChat();
+  }
+
+  historyPicked.clear();
+  historySelectMode = false;
+  renderHistory();
 }
 
 async function loadSessions(){
@@ -594,6 +739,13 @@ function switchView(viewName){
   const input = $("view-" + viewName + " input");
   if (input) input.placeholder = meta.ph;
 
+  // 换模块时退出多选，避免勾选状态带到另一个列表上
+  if (historySelectMode){
+    historySelectMode = false;
+    historyPicked.clear();
+  }
+  renderHistoryTitle();     // 客服页没有会话列表，这里会把图标藏起来
+
   if (viewName === "trip"){
     renderTripHistory();
     loadTripRecords().then(renderTripHistory);
@@ -679,6 +831,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   if (model) model.textContent = API.model;
 
   bindEnter("trip-input", () => sendTrip());
+  bindEnter("trip-input-hero", () => sendTrip());
   bindEnter("customer-input", () => sendCustomer());
 
   if (typeof tripInit === "function") tripInit();

@@ -24,7 +24,10 @@
         </div>
 
         <div class="history-section custom-scroll">
-            <div class="history-title">会话记录</div>
+            <div class="history-title">
+                <span id="history-title-text">会话记录</span>
+                <button id="history-select-btn" class="history-select-btn" title="多选" style="display:none"></button>
+            </div>
 
             <div id="history-chat" class="view-section active"></div>
             <div id="history-trip" class="view-section"></div>
@@ -73,12 +76,28 @@
         </div>
 
         <div id="view-trip" class="view-section">
-            <div class="trip-scroll-wrap">
+            <!-- 开场态：还没开始聊时，欢迎语和输入框居中显示 -->
+            <div id="trip-hero" class="trip-hero">
+                <div class="hero-greeting">
+                    <img class="hero-icon" src="/static/image/CTOS.webp" alt="">
+                    <!-- 这句会被 tripRefreshGreeting() 按当前时间替换掉，这里只是加载前占位 -->
+                    <span id="trip-greeting">有什么我能帮你的吗？</span>
+                </div>
+
+                <div class="hero-input">
+                    <div class="b-left"></div><div class="b-right"></div>
+                    <input type="text" id="trip-input-hero" placeholder="告诉我想去哪儿玩...">
+                    <button class="send-btn" onclick="sendTrip()">➤</button>
+                </div>
+            </div>
+
+            <!-- 对话态：聊开之后输入框落到底部，内容往上排 -->
+            <div class="trip-scroll-wrap" id="trip-chat-pane" style="display:none">
                 <div class="trip-fixed" id="trip-fixed"></div>
                 <div class="trip-stream custom-scroll" id="trip-feed"></div>
                 <button class="trip-scroll-btn" id="trip-scroll-btn" style="display:none">回到最新 ↓</button>
             </div>
-            <div class="bottom-section">
+            <div class="bottom-section" id="trip-bottom" style="display:none">
                 <div class="input-wrapper">
                     <div class="b-left"></div><div class="b-right"></div>
                     <input type="text" id="trip-input" placeholder="告诉我想去哪儿玩...">

@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from ctOS_chat_graphOn import run_graph
 from ctOS2_modules.ctOS2_Trip_AI.ctOS2_Trip_stream import trip_stream
 from ctOS2_modules.ctOS2_customer_AI.ctOS2_customer_stream import customer_stream
-from ctOS2_databases.ctOS2_db_trip import list_trips, get_trip, delete_trip
+from ctOS2_databases.ctOS2_db_trip import list_trips, get_trip, delete_trip, delete_trips
 from ctOS_chat_sessions import (
     resolve_session,
     save_ai_reply,
@@ -114,6 +114,21 @@ async def trip_delete(trip_id: int):
     """删除一个出行会话及其全部轮次。"""
     deleted = delete_trip(trip_id)
     return {"deleted": deleted > 0}
+
+
+class TripDeleteBatch(BaseModel):
+    """批量删除的请求体：要删的会话 id 列表。"""
+    ids: list[int] = []
+
+
+@app.post("/trip/delete-batch")
+async def trip_delete_batch(req: TripDeleteBatch):
+    """批量删除出行会话，返回真正删掉的个数。
+
+    用 POST 而不是 DELETE：DELETE 带请求体不规范，
+    这里要传一串 id，用 POST 传 JSON 更省事。
+    """
+    return {"deleted": delete_trips(req.ids)}
 
 
 @app.get("/customer/ping")

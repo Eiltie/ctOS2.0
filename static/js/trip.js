@@ -19,6 +19,9 @@ let tripHistory = [];
 let tripRecords = [];
 let activeTripId = null;
 
+// 多选状态由 app.js 里的 historySelectMode / historyPicked 统一管理，
+// 这里不再单独维护一份。
+
 let tripT0 = 0;
 let tripClock = null;
 
@@ -47,9 +50,9 @@ function tripRenderShell(){
     (i < STEP_KEYS.length - 1 ? `<span class="step-arrow"></span>` : "")
   ).join("");
 
+  // 顶部只留进度条。开场态已经有居中的欢迎语了，不需要再放一个大标题。
   box.innerHTML =
     `<div class="trip-header" data-sticky-head>` +
-      `<h2>输入您的目的地，ctOS 将为您规划</h2>` +
       `<div class="process-flow">${steps}</div>` +
       `<div class="trip-cards">${tripCardsHTML()}</div>` +
     `</div>`;
@@ -166,11 +169,70 @@ function tripBindScrollHint(){
   tripScrollHintUpdate();
 }
 
-function tripIntro(){
-  tripRenderShell();
+// ===== 开场态 / 对话态 =====
+// 开场态：欢迎语和输入框居中，像首页。
+// 对话态：内容区 + 底部输入框。
+
+function tripHeroVisible(){
+  const hero = $("trip-hero");
+  return !!hero && hero.style.display !== "none";
+}
+
+// 按当前时间给一句问候
+function tripGreetingText(){
+  const h = new Date().getHours();
+  if (h >= 5 && h < 11) return "早上好，有什么我能帮你的吗？";
+  if (h >= 11 && h < 13) return "中午好，有什么我能帮你的吗？";
+  if (h >= 13 && h < 18) return "下午好，有什么我能帮你的吗？";
+  if (h >= 18 && h < 23) return "晚上好，有什么我能帮你的吗？";
+  return "夜深了，有什么我能帮你的吗？";
+}
+
+function tripRefreshGreeting(){
+  const el = $("trip-greeting");
+  if (el) el.textContent = tripGreetingText();
+}
+
+// 切到开场态：清空内容，输入框回到中间
+//   focusInput 只有用户主动开新会话时才传 true，
+//   页面初始化不抢焦点，免得用户在别的输入框打字时被打断
+function tripShowHero(focusInput = false){
+  const hero = $("trip-hero");
+  const pane = $("trip-chat-pane");
+  const bottom = $("trip-bottom");
+
+  if (hero) hero.style.display = "";
+  if (pane) pane.style.display = "none";
+  if (bottom) bottom.style.display = "none";
 
   const feed = tripFeed();
   if (feed) feed.innerHTML = "";
+
+  tripRefreshGreeting();
+
+  if (focusInput){
+    const input = $("trip-input-hero");
+    if (input) input.focus();
+  }
+}
+
+// 切到对话态：收起开场页，显示内容区和底部输入框
+function tripShowChatPane(){
+  const hero = $("trip-hero");
+  const pane = $("trip-chat-pane");
+  const bottom = $("trip-bottom");
+
+  if (hero) hero.style.display = "none";
+  if (pane) pane.style.display = "";
+  if (bottom) bottom.style.display = "";
+
+  const input = $("trip-input");
+  if (input) input.focus();
+}
+
+
+function tripIntro(){
+  tripRenderShell();
 
   tripStepsReset();
   tripCardsShow(true);
@@ -179,6 +241,9 @@ function tripIntro(){
 
   const btn = $("trip-scroll-btn");
   if (btn) btn.style.display = "none";
+
+  // 空白会话 = 开场态
+  tripShowHero();
 
   if (state.view === "trip") renderTripHistory();
 }
@@ -211,24 +276,33 @@ function renderTripHistory(){
   const box = $("history-trip");
   if (!box) return;
 
-  /*
-  if (!tripRecords.length){
-    box.innerHTML = `<div class="empty-history">还没有出行记录。<br>在上面说一句「想去哪儿玩」，规划完就会存进来。</div>`;
-    return;
-  }
-  */
+  // 标题行和图标按钮由 app.js 里共用的 renderHistoryTitle 统一处理
+  renderHistoryTitle();
 
-  box.innerHTML = tripRecords.map((r) => {
+  // 切换列表内容时，先把已经不存在的勾选清掉，避免删完留下幽灵 id
+  const aliveIds = new Set(tripRecords.map((r) => Number(r.id)));
+  historyPicked = new Set([...historyPicked].filter((id) => aliveIds.has(id)));
+
+  // 每一行：多选模式下前面出现圆形勾选圈
+  const rows = tripRecords.map((r) => {
     const opened = chatIsOnScreen(r.id);
+
     return `
-    <div class="history-item${opened ? " active" : ""}" data-cid="${r.id}">
+    <div class="history-item${opened && !historySelectMode ? " active" : ""}" data-cid="${r.id}">
+      ${pickDotHTML(r.id)}
       <span class="hi-title">${esc(r.title || "出行会话")}</span>
       <span class="del" title="删除这个出行会话" data-delchat="${r.id}">🗑</span>
     </div>`;
   }).join("");
 
+  box.innerHTML = rows + selectBarHTML();
+
+  // 多选模式下点整行不再打开会话，避免和勾选冲突
   box.querySelectorAll(".history-item").forEach((item) => {
-    item.onclick = () => openTripChat(Number(item.dataset.cid));
+    item.onclick = () => {
+      if (historySelectMode) return;
+      openTripChat(Number(item.dataset.cid));
+    };
   });
 
   box.querySelectorAll(".del").forEach((el) => {
@@ -237,6 +311,64 @@ function renderTripHistory(){
       removeTripChat(Number(el.dataset.delchat));
     };
   });
+
+  bindPickDots(box, renderTripHistory);
+  bindSelectBar(
+    box,
+    tripRecords.length,
+    () => { historyPicked = new Set(tripRecords.map((r) => Number(r.id))); },
+    removeTripPicked,
+    renderTripHistory,
+  );
+}
+
+
+async function removeTripPicked(){
+  const ids = [...historyPicked];
+  if (!ids.length) return;
+
+  if (!confirm(`确定删除选中的 ${ids.length} 个出行会话吗？\n\n这些会话的全部对话会一起删除，无法恢复。`)) {
+    return;
+  }
+
+  const result = await getJson("/trip/delete-batch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids }),
+  });
+
+  if (!result){
+    alert("批量删除失败：请确认后端已启动。");
+    return;
+  }
+
+  // 从本地列表里移除，不等服务器重新拉一次
+  tripRecords = tripRecords.filter((r) => !ids.includes(Number(r.id)));
+
+  // 如果当前屏幕上的会话被删了，回到空白的新会话
+  const onScreenId = currentOnScreenChatId();
+  if (onScreenId !== null && ids.includes(onScreenId)){
+    tripHistory = [];
+    openChatId = null;
+    tripIntro();
+  }
+
+  historyPicked.clear();
+  historySelectMode = false;
+  await loadTripRecords();
+  renderTripHistory();
+}
+
+
+function currentOnScreenChatId(){
+  const feed = tripFeed();
+  if (!feed) return null;
+
+  const turns = feed.querySelectorAll(".trip-turn");
+  if (!turns.length) return null;
+
+  const raw = turns[0].dataset.chatId;
+  return raw ? Number(raw) : null;
 }
 
 function chatIsOnScreen(chatId){
@@ -263,6 +395,9 @@ async function openTripChat(chatId){
   openChatId = Number(chatId);
   tripCardsShow(false);
   tripStepsReset();
+
+  // 打开历史会话 = 对话态
+  tripShowChatPane();
 
   const feed = tripFeed();
   feed.innerHTML = "";
@@ -428,6 +563,19 @@ function createFlow(target){
     status(text){
       if (!text) return;
       statusLine.textContent = text;
+      statusLine.dataset.state = "running";
+      tripScroll();
+    },
+
+    // 这轮结束：状态行换成结果，避免一直停在"正在理解你的需求"
+    finish(text, failed){
+      if (failed){
+        statusLine.textContent = text || "已完成，但有错误";
+        statusLine.dataset.state = "error";
+      }else{
+        statusLine.textContent = text || "已完成";
+        statusLine.dataset.state = "done";
+      }
       tripScroll();
     },
 
@@ -478,7 +626,10 @@ function tripClockStop(finalText){
 
 
 async function sendTrip(){
-  const input = $("trip-input");
+  // 两个输入框：开场态用中间那个，对话态用底部那个
+  const heroInput = $("trip-input-hero");
+  const bottomInput = $("trip-input");
+  const input = tripHeroVisible() ? heroInput : bottomInput;
   const feed = tripFeed();
   if (!input || !feed || tripBusy) return;
 
@@ -489,8 +640,18 @@ async function sendTrip(){
   activeTripId = null;
   input.value = "";
 
+  // 从开场态切到对话态：输入框落到下方，内容区显示出来
+  tripShowChatPane();
+
   tripCardsShow(false);
   tripStepsReset();
+
+  // 兜底：没有打开任何会话时，历史必须是空的。
+  // 万一别处的逻辑又把旧对话塞了进来，这里直接清掉，
+  // 保证新会话的第一句话不会被旧城市带偏。
+  if (openChatId == null){
+    tripHistory = [];
+  }
 
   const turn = document.createElement("div");
   turn.className = "trip-turn";
@@ -596,6 +757,15 @@ async function sendTrip(){
     if (!failed && stepError < 0 && touched && !chatTurn) tripStepsFinish(false);
     else if (failed || stepError >= 0) tripStepsInterrupt();
 
+    // 状态行收尾：把它从"正在理解你的需求"改成这轮的真实结果
+    if (chatTurn){
+      flow.finish("CTOS任务完成", false);
+    }else if (failed || stepError >= 0){
+      flow.finish("CTOS任务失败", true);
+    }else if (touched){
+      flow.finish(`CTOS规划结束 · 用时 ${fmtSec(tripSeconds())}`, false);
+    }
+
     tripScroll();
 
     await loadTripRecords();
@@ -608,14 +778,19 @@ async function sendTrip(){
 
 
 function tripNewSession(){
-  setTimeout(() => {
-    if (state.view !== "trip") return;
-    abortCurrent();
-    tripBusy = false;
-    tripHistory = [];
-    openChatId = null;
-    tripIntro();
-  }, 300);
+  // 立刻清空，不要放到 setTimeout 里。
+  // 之前延迟 300 毫秒，用户点完马上打字的话，历史还没清就被发出去了，
+  // 新会话里会带上旧对话，模型就会说出上一个城市。
+  abortCurrent();
+  tripBusy = false;
+  tripHistory = [];
+  openChatId = null;
+  tripIntro();
+
+  // 用户主动开新会话，把光标放到输入框里
+  tripShowHero(true);
+
+  if (state.view === "trip") renderTripHistory();
 }
 
 function tripInit(){
@@ -626,10 +801,18 @@ function tripInit(){
 
   tripStepsReset();
   tripBindScrollHint();
+
+  // 初始化时一律从空白新会话开始，不自动打开最近的会话。
+  // 以前这里会自动打开第一条记录并读进 tripHistory，
+  // 结果刷新页面或切回出行模块后，明明是新对话却带着旧历史。
+  tripHistory = [];
   openChatId = null;
+
+  // 进开场态。顺带把问候语换成当前时间对应的那句话，
+  // 不然页面上会一直是 HTML 里写死的那句"你好"。
+  tripShowHero();
 
   loadTripRecords().then(() => {
     if (state.view === "trip") renderTripHistory();
-    if (tripRecords.length) openTripChat(tripRecords[0].id);
   });
 }

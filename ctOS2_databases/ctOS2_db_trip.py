@@ -239,3 +239,19 @@ def delete_trip(chat_id):
             return delete_result.rowcount
     finally:
         database.close()
+
+
+def delete_trips(chat_ids):
+    """批量删除多个会话，返回真正删掉的个数。
+
+    一个会话删失败不影响其他会话，逐个删，最后只报成功数量。
+    """
+    deleted = 0
+    for chat_id in chat_ids:
+        try:
+            if delete_trip(chat_id) > 0:
+                deleted += 1
+        except Exception as e:
+            print(f"[数据库] 删除出行会话 {chat_id} 失败：{e}")
+
+    return deleted
