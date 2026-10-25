@@ -292,25 +292,20 @@ function renderStoredTurn(feed, turnRec){
     return;
   }
 
-  const wrap = document.createElement("div");
-  wrap.className = "trip-secs";
+  // 历史记录也渲染成连贯的一段：按顺序把四段拼起来，每段带小标题
+  const flow = document.createElement("div");
+  flow.className = "trip-flow";
 
   TRIP_SECTIONS.forEach((sec) => {
     const text = ai[sec.key];
     if (!text) return;
 
-    const el = document.createElement("div");
-    el.className = "trip-sec";
-    el.dataset.sec = sec.key;
-    el.dataset.state = "done";
-    el.innerHTML =
-      `<div class="sec-head"><span class="dot"></span><span>${esc(sec.label)}</span>` +
-      `<span class="sec-state">已完成</span></div>` +
-      `<div class="sec-body">${esc(text)}</div>`;
-    wrap.appendChild(el);
+    const made = makeTripBlock(sec.label);
+    made.body.textContent = text;
+    flow.appendChild(made.block);
   });
 
-  if (wrap.childNodes.length) turn.appendChild(wrap);
+  if (flow.childNodes.length) turn.appendChild(flow);
 }
 
 async function removeTripChat(chatId){
@@ -376,76 +371,78 @@ function appendTripError(text, target){
 }
 
 
-function createSections(target){
+// 造一个「小标题 + 正文」的段。实时输出和历史记录都用它，保证两边长得一样。
+function makeTripBlock(label){
+  const block = document.createElement("div");
+  block.className = "trip-block";
+
+  const title = document.createElement("div");
+  title.className = "trip-block-title";
+  title.textContent = label;
+
+  const body = document.createElement("div");
+  body.className = "trip-block-body";
+
+  block.appendChild(title);
+  block.appendChild(body);
+
+  return { block, body };
+}
+
+
+function createFlow(target){
   const feed = tripTarget(target);
-  const wrap = document.createElement("div");
-  wrap.className = "trip-secs";
-  feed.appendChild(wrap);
 
-  const parts = {};
+  // 状态行：一行灰色小字，显示"正在做什么"。新状态会覆盖旧的，不进入正文。
+  const statusLine = document.createElement("div");
+  statusLine.className = "trip-status-line";
+  feed.appendChild(statusLine);
 
-  function stepIndex(key){
-    const i = STEP_KEYS.indexOf(key);
-    return i < 0 ? -1 : i;
-  }
+  // 正文容器：四段内容按到达顺序写进来，读起来是一整篇文档
+  const flow = document.createElement("div");
+  flow.className = "trip-flow";
+  feed.appendChild(flow);
 
-  function ensure(key){
-    if (parts[key]) return parts[key];
+  // 已经建好的段落，键是 weather / spots / itinerary / route_plan
+  const blocks = {};
 
-    const idx = stepIndex(key);
+  function ensureBlock(key){
+    if (blocks[key]) return blocks[key];
+
     const meta = TRIP_SECTIONS.find((s) => s.key === key) || { key, label: key };
+    const made = makeTripBlock(meta.label);
+    flow.appendChild(made.block);
 
-    const el = document.createElement("div");
-    el.className = "trip-sec";
-    el.dataset.sec = key;
-    el.dataset.state = "busy";
-    el.innerHTML =
-      `<div class="sec-head"><span class="dot"></span><span>${esc(meta.label)}</span>` +
-      `<span class="sec-state">进行中</span></div>` +
-      `<div class="sec-body"></div>`;
-    wrap.appendChild(el);
+    // 每段文字用独立的打字机，这样多段可以各自追加，互不干扰
+    const typer = createTyper(feed, made.body);
 
-    const body = el.querySelector(".sec-body");
+    const idx = STEP_KEYS.indexOf(key);
+    if (idx >= 0) tripStepSet(idx, "busy");
 
-    const hint = document.createElement("div");
-    hint.className = "trip-step";
-    body.appendChild(hint);
-
-    const typer = createTyper(feed, body);
-
-    parts[key] = { el, body, hint, typer, idx };
-    tripStepSet(idx, "busy");
-    return parts[key];
-  }
-
-  function setState(key, s, note){
-    const p = parts[key];
-    if (!p) return;
-    p.el.dataset.state = s;
-    const st = p.el.querySelector(".sec-state");
-    if (st) st.textContent = note;
+    blocks[key] = { body: made.body, typer, idx };
+    return blocks[key];
   }
 
   return {
-    step(key, text){
-      const p = ensure(key);
-      if (!p.typer.untouched()){ setState(key, "busy", "进行中"); return; }
-      p.hint.textContent = text;
-      setState(key, "busy", "进行中");
+    // 状态提示：覆盖上一句，让用户知道正在做什么
+    status(text){
+      if (!text) return;
+      statusLine.textContent = text;
       tripScroll();
     },
+
+    // 逐字内容：第一次收到某个 key 的字，就先建出这一段
     token(key, text){
-      const p = ensure(key);
       if (!text) return;
-      p.typer.push(text);
-      setState(key, "busy", "进行中");
+      ensureBlock(key).typer.push(text);
     },
+
+    // 定稿：用完整内容替换这一段，补齐流式过程中可能漏掉的字
     done(key, text){
-      const p = ensure(key);
-      p.typer.cut();
-      p.typer.renderFinal(text);
-      setState(key, "done", "已完成");
-      tripStepSet(p.idx, "done");
+      const part = ensureBlock(key);
+      part.typer.cut();
+      part.typer.renderFinal(text);
+      if (part.idx >= 0) tripStepSet(part.idx, "done");
       tripScroll();
     }
   };
@@ -503,7 +500,7 @@ async function sendTrip(){
 
   tripClockStart();
 
-  const sections = createSections(turn);
+  const flow = createFlow(turn);
   const ctl = newAbortController();
 
   let failed = null;
@@ -526,6 +523,12 @@ async function sendTrip(){
 
     const parser = createSseParser((ev) => {
       switch (ev.kind){
+        case "SAY":
+          // 后端发来的状态说明（正在做什么），显示在顶部状态行，不写进正文
+          touched = true;
+          flow.status(ev.text);
+          break;
+
         case "START":
           touched = true;
           tripStepSet(0, "busy");
@@ -534,18 +537,18 @@ async function sendTrip(){
         case "STEP": {
           const idx = STEP_KEYS.indexOf(ev.key);
           if (idx >= 0){ touched = true; tripStepSet(idx, "busy"); }
-          sections.step(ev.key, ev.text);
+          flow.status(ev.text);
           break;
         }
 
         case "TOKEN":
           touched = true;
-          sections.token(ev.key, ev.text);
+          flow.token(ev.key, ev.text);
           break;
 
         case "DONE":
           touched = true;
-          sections.done(ev.key, ev.text);
+          flow.done(ev.key, ev.text);
           break;
 
         case "CHAT":
