@@ -2,6 +2,31 @@
 
 一个 FastAPI + LangGraph 搭建的多模块 AI 应用：同一个服务里挂载「闲聊对话」「智能出行规划」「RAG 智能客服」三种能力，共用一个端口、一套前端页面和一套 SQLite 数据库。
 
+---
+
+## 界面预览
+
+**智能出行** — 开场页居中输入，像聊天助手那样从一句话开始：
+
+![智能出行 开场页](screenshot/ctOS_trip01.png)
+
+**智能出行** — 规划过程有分步进度，输出是一份连贯的行程文档：
+
+![智能出行 规划结果](screenshot/ctOS_trip02.png)
+
+**闲聊** — 支持多轮记忆、会话切换：
+
+![闲聊对话](screenshot/ctOS_chat.png)
+
+**智能客服** — 基于本地文档的 RAG 问答：
+
+<p>
+  <img src="screenshot/ctOS_customer01.png" width="49%" alt="智能客服 开场页">
+  <img src="screenshot/ctOS_customer02.png" width="49%" alt="智能客服 回答">
+</p>
+
+---
+
 ## 它解决什么问题
 
 把几种性质完全不同的 AI 能力放到同一条产品外壳下：
