@@ -32,7 +32,7 @@ ctOS 2.0 是一个用 FastAPI 加 LangGraph 搭建的多模块 AI 应用。
 
 - **Web 框架**：FastAPI、Uvicorn、Pydantic
 - **编排框架**：LangGraph、LangChain、langchain-openai
-- **外部工具**：Tavily 联网搜索、高德地图路径规划、Open-Meteo 天气
+- **外部工具**：DeepSeek Search 联网搜索、高德地图路径规划、Open-Meteo 天气
 - **存储**：SQLite（Python 标准库 `sqlite3`）存会话与出行记录；Chroma 用于 RAG 向量库
 - **检索**：智谱 embedding-3、jieba + rank-bm25
 - **配置**：python-dotenv
@@ -64,11 +64,10 @@ cp config/YOUR_config.env config/.env
 `config/.env` 需要填写以下内容：
 
 ```
-DEEPSEEK_API_KEY=      # DeepSeek 密钥，对话与出题用
+DEEPSEEK_API_KEY=      # DeepSeek 密钥，对话、出题、联网搜索都用它
 DEEPSEEK_BASE_URL=     # DeepSeek 接口地址
 DEEPSEEK_MODEL=        # 模型名
 
-TAVILY_API_KEY=        # Tavily 搜索密钥，智能出行查景点用
 AMAP_KEY=              # 高德地图密钥，智能出行算路线用
 ```
 
@@ -134,7 +133,7 @@ cp config/YOUR_config.env config/.env
 ```
 
 然后在 `config/.env` 里填好 `DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL`、
-`TAVILY_API_KEY`、`AMAP_KEY`、`ZHIPU_API_KEY`。
+`AMAP_KEY`、`ZHIPU_API_KEY`。
 
 ### 3. 初始化数据库
 
@@ -467,10 +466,10 @@ python ctOS2_modules/ctOS2_customer_AI/rag_ingest.py
 
 **Q：克隆下来为什么跑不起来？**
 A：因为这个项目**不含任何 API 密钥**，必须自己申请并填进 `config/.env`。
-一共需要 5 个：DeepSeek（对话，必需）、智谱（客服向量化，必需）、Tavily（搜景点）、高德（算路线）。
+一共需要 4 个：DeepSeek（对话 + 联网搜索，必需）、智谱（客服向量化，必需）、高德（算路线）。
 另外克隆下来时数据库和向量库都还不存在，要先跑 `ctOS2_databases/ctOS2_db.py` 建表、
 再跑 `rag_ingest.py` 入库，这两个都是一次性的初始化步骤。
-只拿到 DeepSeek 密钥的话，闲聊模块能正常用，出行和客服会不可用。
+只拿到 DeepSeek 密钥的话，闲聊和出行都能用（联网搜索复用同一个密钥），只有客服会不可用。
 
 **Q：怎么启动这个项目？**
 A：三步。① 装依赖 `pip install -r config/requirements.txt`；
@@ -602,7 +601,7 @@ A：说明表达太模糊了。把话说具体一点，比如「下周想去杭�
 
 - Python 3.14（开发环境实测版本：3.14.5）
 - 无需额外安装数据库（SQLite 是 Python 标准库自带的）
-- 能访问外网：需要调用 DeepSeek、智谱、Tavily、高德、Open-Meteo 的接口
+- 能访问外网：需要调用 DeepSeek、智谱、高德、Open-Meteo 的接口
 
 ### 6.2 依赖清单
 
@@ -619,7 +618,6 @@ langgraph-checkpoint-sqlite==3.1.2
 langchain==1.3.14
 langchain-core==1.5.3
 langchain-openai==1.4.2
-langchain-tavily==0.2.18
 openai==2.53.0
 httpx
 # 智能客服模块（RAG 三层检索）用的

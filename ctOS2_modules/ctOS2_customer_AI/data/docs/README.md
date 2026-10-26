@@ -173,7 +173,7 @@ pip install -r config/requirements.txt
 ```
 
 依赖分三组：Web（fastapi / uvicorn / python-dotenv）、
-出行模块（langgraph / langchain 系列 / langchain-tavily / openai / httpx）、
+出行模块（langgraph / langchain 系列 / openai / httpx）、
 客服模块（chromadb / jieba / rank-bm25）。
 其中 `langgraph-checkpoint-sqlite` 虽然列了，但当前代码并没有真的用到它——真正的持久化是自己写的 sqlite3 代码。
 
@@ -188,11 +188,10 @@ cp config/YOUR_config.env config/.env
 `config/.env` 需要填写：
 
 ```
-DEEPSEEK_API_KEY=      # DeepSeek 密钥，对话和图上推理都用它
+DEEPSEEK_API_KEY=      # DeepSeek 密钥，对话、图上推理、联网搜索都用它
 DEEPSEEK_BASE_URL=     # DeepSeek 接口地址
 DEEPSEEK_MODEL=        # 模型名
 
-TAVILY_API_KEY=        # Tavily 搜索密钥，智能出行查景点用
 AMAP_KEY=              # 高德地图密钥，智能出行算路线用
 
 ZHIPU_API_KEY=         # 智谱密钥，智能客服 RAG 向量化用（必填）
@@ -202,13 +201,12 @@ ZHIPU_API_KEY=         # 智谱密钥，智能客服 RAG 向量化用（必填�
 也就是说没配这个密钥，智能客服模块启动不起来（其它模块不受影响）。
 
 **项目本身不含任何密钥**，clone 下来必须自己申请并填写，否则跑不起来。
-5 个密钥的用途、必要性、申请地址：
+4 个密钥的用途、必要性、申请地址：
 
 | 密钥 | 用途 | 必要性 | 去哪申请 |
 | --- | --- | --- | --- |
-| `DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL` | 所有对话和推理 | 必需，缺了闲聊和出行都不能用 | platform.deepseek.com |
+| `DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL` | 所有对话和推理，出行搜景点也复用这个密钥 | 必需，缺了闲聊和出行都不能用 | platform.deepseek.com |
 | `ZHIPU_API_KEY` | 智能客服向量化 | 必需，缺了客服模块启动报错 | open.bigmodel.cn |
-| `TAVILY_API_KEY` | 出行模块联网搜景点 | 出行要用 | tavily.com |
 | `AMAP_KEY` | 出行模块算路线 | 出行要用 | lbs.amap.com |
 
 这些外部 API 大多需要注册账号，部分需要付费或有免费额度限制，具体以各家官网为准。
@@ -216,7 +214,7 @@ ZHIPU_API_KEY=         # 智谱密钥，智能客服 RAG 向量化用（必填�
 只想先试一个模块的话，最少需要配：
 
 - 只看闲聊：`DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL`
-- 加智能出行：再补 `TAVILY_API_KEY`、`AMAP_KEY`
+- 加智能出行：再补 `AMAP_KEY`（联网搜索复用 DeepSeek 密钥，不用另外申请）
 - 加智能客服：再补 `ZHIPU_API_KEY`
 
 > `config/.env` 已被 `.gitignore` 忽略，**不要**提交真实密钥。
@@ -326,7 +324,7 @@ python -X utf8 ctOS2_modules/ctOS2_customer_AI/ctOS2_customer_stream.py
 
 - **Web**：FastAPI、Uvicorn、Pydantic
 - **编排**：LangGraph、LangChain、langchain-openai
-- **工具**：Tavily 搜索、高德地图、Open-Meteo 天气
+- **工具**：DeepSeek Search 联网搜索、高德地图、Open-Meteo 天气
 - **存储**：SQLite（Python 标准库 `sqlite3`）存会话与出行记录；Chroma 存 RAG 向量
 - **检索**：智谱 embedding-3、jieba + rank-bm25
 - **配置**：python-dotenv

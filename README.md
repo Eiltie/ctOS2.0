@@ -137,11 +137,10 @@ START → weather → spots_agent ─┬─→ tools ─┐   （还想搜就回
 
 | 变量 | 用途 | 是否必需 |
 | --- | --- | --- |
-| `DEEPSEEK_API_KEY` | 所有对话和推理 | **必需** |
+| `DEEPSEEK_API_KEY` | 所有对话和推理，出行搜景点也复用这个密钥 | **必需** |
 | `DEEPSEEK_BASE_URL` | 接口地址 | **必需** |
 | `DEEPSEEK_MODEL` | 模型名 | **必需** |
 | `ZHIPU_API_KEY` | 客服的向量化 | 用客服就必需；缺了客服模块启动即报错 |
-| `TAVILY_API_KEY` | 出行模块联网搜景点 | 用出行建议配，缺失时景点推荐质量变差 |
 | `AMAP_KEY` | 出行的路线计算 | 用出行建议配，缺失时路线退化为文字提示 |
 
 ### 写死在代码里的参数

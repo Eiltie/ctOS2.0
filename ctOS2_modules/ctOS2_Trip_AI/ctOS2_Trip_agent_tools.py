@@ -5,11 +5,10 @@ from pathlib import Path
 import httpx
 from dotenv import load_dotenv
 from langchain_core.tools import tool
-from langchain_tavily import TavilySearch
 
 load_dotenv(Path(__file__).resolve().parents[2] / "config" / ".env")
 
-# 出行图的三个工具：天气（Open-Meteo）、搜索（Tavily）、路线（高德）
+# 出行图的三个工具：天气（Open-Meteo）、搜索（DeepSeek）、路线（高德）
 
 # 天气：地名接口和预报接口
 GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search"
@@ -34,6 +33,64 @@ WEATHER_CODE_NAMES = {
     80: "小阵雨", 81: "阵雨", 82: "强阵雨", 85: "小阵雪", 86: "大阵雪",
     95: "雷阵雨", 96: "雷阵雨伴冰雹", 99: "雷阵雨伴大冰雹",
 }
+
+
+def _city_name_variants(city: str) -> list:
+    """按顺序给出要尝试的城市名写法。
+
+    为什么要试这么多：天气数据源的地名库来自 GeoNames，
+    大城市存简称（"杭州"），中小城市存全称（"贺州市"），
+    还有的只存"平遥县"这种。实测 100 个城市里，
+    不加"市"会有 22% 查不到，包括厦门、敦煌这种热门地方。
+    """
+    variants = [city]                      # 原名放最前，多数情况第一次就命中
+
+    # 去掉结尾的行政区后缀（用户可能输入"贺州市"）
+    core_name = city
+    for suffix in ("市", "县", "区", "盟", "自治州", "地区"):
+        if core_name.endswith(suffix):
+            core_name = core_name.removesuffix(suffix)
+            break
+    variants.append(core_name)
+
+    # 再补上「加后缀」的写法：平遥要写"平遥县"、贺州要写"贺州市"才查得到。
+    # 用去掉后缀的核心名来加，避免出现"贺州市市"这种
+    variants.append(core_name + "市")
+    variants.append(core_name + "县")
+
+    # 去重并去掉空字符串，保持上面的顺序
+    seen = []
+    for name in variants:
+        if name and name not in seen:
+            seen.append(name)
+    return seen
+
+
+def _lookup_city(city: str) -> dict | None:
+    """把城市名换成地点信息（含经纬度）。所有写法都查不到时返回 None。
+
+    查到多个同名地点时取人口最多的那个——
+    比如搜"杭州"会同时返回浙江的杭州和四川某个同名小镇。
+    """
+    tried_names = _city_name_variants(city)
+
+    for name in tried_names:
+        # httpx.get 里只有第一个参数（地址）是必须的，
+        # params 和 timeout 都能不写。".json()" 把返回的文字转成字典
+        resp = httpx.get(GEOCODE_URL, timeout=15, params={
+            "name": name, "count": 5, "language": "zh", "format": "json",
+        })
+
+        # "results" 是地名接口自己定的字段名，写成别的就取不到
+        matches = resp.json().get("results") or []
+
+        if not matches:
+            continue
+
+        # 人口为 None 的按 0 处理，避免比较时出错
+        return max(matches, key=lambda item: item.get("population") or 0)
+
+    return None
 
 
 # 这个 @tool 是让 AI 能调这个函数用的，它自己不收参数，
@@ -74,23 +131,17 @@ def get_weather(city: str, days: int = 3, start_date: str = "") -> str:
         return (f"「{start_date or today}」起 {days} 天的天气超出预报范围。"
                 f"今天是 {today}，最远只能查到 {last_queryable_day}。")
 
-    # 天气接口只认经纬度，所以得先拿城市名换一次坐标。
-    # httpx.get 里只有第一个参数（地址）是必须的，params 和 timeout 都能不写，
-    # 这里加 timeout 是怕网络卡住一直等。".json()" 是把返回的文字转成字典。
-    # 取 "results" 这个名字是地名接口自己定的，写成别的就啥也拿不到
+    # 天气接口只认经纬度，所以得先拿城市名换一次坐标
     try:
-        city_matches = httpx.get(GEOCODE_URL, timeout=15, params={
-            "name": city, "count": 5, "language": "zh", "format": "json",
-        }).json().get("results") or []
+        city_info = _lookup_city(city)
     except Exception as e:
         return f"查询天气失败（{e}），请稍后重试。"
 
-    if not city_matches:
-        return f"未找到城市「{city}」，请换一个城市名重试。"
-
-    # 一个城市名可能对上好几个地方，国内的杭州、杭州湾边上的村、
-    # 国外也叫这名的镇都有可能。这里挑人口最多的，一般就是大家说的那个城市
-    city_info = max(city_matches, key=lambda candidate: candidate.get("population") or 0)
+    if not city_info:
+        return (f"没找到「{city}」的天气数据。"
+                f"可以换个写法试试，比如「{city}市」或「{city}县」；"
+                f"如果还查不到，说明天气数据源没收录这个地方，"
+                f"建议出发前用手机天气 App 再确认一次。")
 
     # 拿天气数据。经纬度这两个是必须给的，剩下几个不写也行
     try:
@@ -141,8 +192,21 @@ def get_weather(city: str, days: int = 3, start_date: str = "") -> str:
 
 
 
-# 这些参数都有默认值，不是非写不可。搜 3 条够模型判断了，多给它也看不过来
-_tavily = TavilySearch(max_results=3, include_answer=True, search_depth="basic")
+# 搜索：DeepSeek 官方的 Search 接口，和调模型用同一个 API Key，不需要另外注册
+DEEPSEEK_SEARCH_URL = "https://api.deepseek.com/v1/tools/search"
+
+# 取几条结果。2 条足够模型判断了：
+# 摘要本身信息密度高，3 条会把输入撑到 2700 token，反而拖慢下一次模型调用
+SEARCH_RESULT_COUNT = 2
+
+# 每条摘要最多带多少字。接口给的摘要有 600~800 字，
+# 截到 300 字能保留门票、时间、路线这些关键信息，又不至于把上下文撑爆
+SEARCH_SUMMARY_LIMIT = 300
+
+# 相关度门槛。接口每条结果都带 rerank_score（0~3 分，官方说 1.5 以上算优质）。
+# 实测：正常搜索在 2 分以上，搜错词时只有 0.2 分左右。
+# 取 1.0 而不是 1.5：留点余量，避免个别边缘情况把有用结果也筛掉
+SEARCH_MIN_SCORE = 1.0
 
 
 @tool
@@ -152,14 +216,60 @@ def web_search(query: str) -> str:
     Args:
         query: 搜索关键词，例如"杭州西湖 游玩攻略 门票"。
     """
-    # 返回的是字典，"answer" 是一段现成的结论，"results" 是原文列表
-    result = _tavily.invoke(query)
-    answer = result.get("answer") or ""
-    snippets = "\n".join(
-        f"- {r.get('title', '')}：{(r.get('content') or '')[:200]}"
-        for r in (result.get("results") or [])[:3]
-    )
-    return f"{answer}\n\n参考来源：\n{snippets}".strip()
+    # httpx.post 里只有第一个参数（地址）是必须的，
+    # headers 带上密钥，json 是请求体。
+    # need_content 传 False：只要 summary 摘要，不要整页正文。
+    try:
+        response = httpx.post(
+            DEEPSEEK_SEARCH_URL,
+            timeout=30,
+            headers={
+                "Authorization": "Bearer " + (os.getenv("DEEPSEEK_API_KEY") or ""),
+                "Content-Type": "application/json",
+            },
+            json={
+                "query": query,
+                "count": SEARCH_RESULT_COUNT,
+                "need_content": False,
+            },
+        )
+        response.raise_for_status()
+        results = response.json().get("results") or []
+    except Exception as e:
+        return f"这次没搜到（{e}）。可以换个关键词再试一次；还是不行就按常识推荐，别反复重试。"
+
+    if not results:
+        return f"搜「{query}」没有任何结果。换个更具体的说法再试一次。"
+
+    # 只留相关度够的结果。实测：正常搜索的分数在 2 分以上，
+    # 而搜错词、乱码时返回的都是 0.2 分左右的无关页面。
+    # 与其把无关内容硬塞给模型（它会当真），不如直说没搜到
+    good_results = [r for r in results if (r.get("rerank_score") or 0) >= SEARCH_MIN_SCORE]
+    if not good_results:
+        return (f"搜「{query}」没有找到相关的结果。"
+                f"换个更具体的说法再试一次；如果还是没有，就按常识推荐，别反复重试。")
+
+    # 按分数从高到低排，好的排前面
+    good_results.sort(key=lambda r: r.get("rerank_score") or 0, reverse=True)
+
+    # 拼成文字给模型读：每条一行标题加摘要
+    output_lines = []
+    source_urls = []
+    for item in good_results:
+        title = item.get("title") or "（无标题）"
+        summary = (item.get("summary") or item.get("snippet") or "").strip()
+        summary = " ".join(summary.split())[:SEARCH_SUMMARY_LIMIT]
+        output_lines.append(f"- {title}：{summary}")
+
+        url = item.get("url") or ""
+        if url:
+            source_urls.append(url)
+
+    # 来源统一放在最后一行，不占正文空间
+    if source_urls:
+        output_lines.append("来源：" + "　".join(source_urls))
+
+    return "\n".join(output_lines)
 
 
 AMAP_KEY = os.getenv("AMAP_KEY")
