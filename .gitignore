@@ -58,12 +58,13 @@ logs/
 # ============ chroma 向量库（运行产物，不入库）============
 # 由 rag_ingest.py 从 data/docs/ 重新生成，不需要提交。
 # 注意：docs/ 里的 .md 是知识库源文件，必须入库；只有落盘的向量数据不提交。
-ctOS2_modules/ctOS2_customer_AI/data/chroma/
+modules/customer/data/chroma/
+modules/customer/data/chroma.bak-*/
 
 # ============ 测评结果留档（运行产物，不入库）============
 # eval/golden.json 是题库，属于基准，必须入库；
 # eval/runs/ 每次跑测评生成一份，属于产物，不提交。
-ctOS2_modules/ctOS2_customer_AI/eval/runs/
+modules/customer/eval/runs/
 
 # ============ Jupyter / 数据分析产物 ============
 .ipynb_checkpoints/

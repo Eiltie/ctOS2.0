@@ -501,3 +501,183 @@
     background-color: var(--cyan);
     animation: blink 0.8s infinite;
 }
+
+/* ===== 登录页 ===== */
+
+.login-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg, #0a0e14);
+  z-index: 9999;
+}
+
+.login-box {
+  width: 100%;
+  max-width: 380px;
+  padding: 40px 36px;
+  background: rgba(16, 22, 32, 0.9);
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  border-radius: 12px;
+  box-shadow: 0 0 60px rgba(0, 229, 255, 0.06);
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.login-brand .logo-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #00e5ff, #0077ff);
+  color: #001018;
+  font-weight: bold;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-brand .logo-text h1 {
+  font-size: 16px;
+  margin: 0;
+  letter-spacing: 1px;
+  color: #e6f7ff;
+}
+
+.login-brand .logo-text p {
+  font-size: 9px;
+  margin: 2px 0 0;
+  letter-spacing: 2px;
+  color: #4a6a7a;
+}
+
+.login-title {
+  font-size: 20px;
+  margin: 0 0 6px;
+  color: #e6f7ff;
+  font-weight: 600;
+}
+
+.login-sub {
+  font-size: 12px;
+  color: #6f8b9b;
+  margin: 0 0 24px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.login-label {
+  font-size: 11px;
+  color: #7d96a5;
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+}
+
+.login-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 13px;
+  margin-bottom: 16px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(0, 229, 255, 0.15);
+  border-radius: 7px;
+  color: #e6f7ff;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.login-input:focus {
+  border-color: rgba(0, 229, 255, 0.5);
+}
+
+.login-input::placeholder {
+  color: #3d5262;
+}
+
+.login-error {
+  display: none;
+  font-size: 12px;
+  color: #ff6b6b;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  background: rgba(255, 107, 107, 0.08);
+  border-radius: 5px;
+  border-left: 2px solid #ff6b6b;
+}
+
+.login-btn {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #00e5ff, #0077ff);
+  border: none;
+  border-radius: 7px;
+  color: #001018;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: opacity 0.2s;
+}
+
+.login-btn:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.login-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.login-toggle {
+  margin-top: 16px;
+  background: none;
+  border: none;
+  color: #4a9ebb;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 8px;
+}
+
+.login-toggle:hover {
+  color: #00e5ff;
+}
+
+/* 侧栏底部的退出按钮 */
+.logout-btn {
+  margin-top: 10px;
+  width: 100%;
+  padding: 6px;
+  background: rgba(255, 107, 107, 0.08);
+  border: 1px solid rgba(255, 107, 107, 0.25);
+  border-radius: 5px;
+  color: #ff8080;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.logout-btn:hover {
+  background: rgba(255, 107, 107, 0.16);
+}
+
+/* ===== 应用容器 =====
+   加登录页时用 <div id="app-root"> 包住了 sidebar + main-content。
+   原来 body 是 flex 容器，两个子元素并排；加了这一层之后，
+   body 只有一个子元素，必须让 app-root 自己也是 flex，
+   否则 sidebar 和主内容会上下堆叠。 */
+.app-root {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}

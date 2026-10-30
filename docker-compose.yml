@@ -1,0 +1,91 @@
+# ctOS 2.0 —— 一条命令启动全部服务
+#
+# ⚠ 所有 docker compose 命令都必须带 --env-file config/.env
+#   因为配置只有一份（config/.env），代码和容器都读它，根目录不再放副本。
+#
+# 用法：
+#   docker compose --env-file config/.env up -d        启动（后台）
+#   docker compose --env-file config/.env logs -f app  看应用日志
+#   docker compose --env-file config/.env down         停止（数据保留）
+#   docker compose --env-file config/.env down -v      停止并删除数据（⚠ 慎用）
+#
+# 两个容器：
+#   db    PostgreSQL 17，数据存在 named volume 里
+#   app   你的应用，连 db 容器
+
+services:
+
+  db:
+    image: postgres:17
+    container_name: ctos2-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PG_DBNAME:-ctos2}
+      POSTGRES_USER: ${PG_USER:-ctos_app}
+      # 故意用 :? 强制校验：没带 --env-file 时直接报错并提示正确命令，
+      # 而不是拿空密码起一个连不上的数据库（那种失败很难排查）
+      POSTGRES_PASSWORD: ${PG_PASSWORD:?未设置 PG_PASSWORD，请改用 docker compose --env-file config/.env up -d}
+      # 时区，让数据库时间和日志对得上
+      TZ: Asia/Shanghai
+    volumes:
+      # 命名卷：删容器不丢数据
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      # 映射到本机 5433，避免和本机已装的 PostgreSQL（5432）冲突
+      - "5433:5432"
+    healthcheck:
+      # 等数据库真正就绪，app 才启动
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER:-ctos_app} -d ${PG_DBNAME:-ctos2}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - ctos2-net
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ctos2:latest
+    container_name: ctos2-app
+    restart: unless-stopped
+    # 等 db 健康检查通过再启动
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # ---- 数据库：主机名是服务名 db，不是 127.0.0.1 ----
+      PG_HOST: db
+      PG_PORT: 5432
+      PG_DBNAME: ${PG_DBNAME:-ctos2}
+      PG_USER: ${PG_USER:-ctos_app}
+      PG_PASSWORD: ${PG_PASSWORD}
+
+      # ---- AI 服务的密钥（从宿主机 .env 读，不写进镜像）----
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL}
+      ZHIPU_API_KEY: ${ZHIPU_API_KEY}
+      AMAP_KEY: ${AMAP_KEY}
+
+      # ---- 认证 ----
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+
+      TZ: Asia/Shanghai
+    volumes:
+      # Chroma 向量库挂进来，容器重建不用重新入库
+      - ./modules/customer/data/chroma:/app/modules/customer/data/chroma
+    ports:
+      - "8080:8080"
+    networks:
+      - ctos2-net
+
+volumes:
+  # PG 数据卷，名字带项目前缀，避免和其他项目冲突
+  pgdata:
+    name: ctos2-pgdata
+
+networks:
+  ctos2-net:
+    name: ctos2-net

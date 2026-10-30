@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>前端自检</title>
+<style>
+  body { font-family: ui-monospace, Consolas, monospace; background:#0d1117; color:#c9d1d9; padding:24px; }
+  h1 { font-size:18px; color:#58a6ff; }
+  .ok   { color:#3fb950; }
+  .fail { color:#f85149; }
+  .err  { color:#d29922; }
+  .row  { padding:3px 0; border-bottom:1px solid #21262d; }
+  .name { display:inline-block; width:280px; }
+  .detail { color:#8b949e; font-size:12px; }
+  #summary { margin-top:16px; font-size:16px; font-weight:bold; }
+  iframe { width:1px; height:1px; opacity:0; position:absolute; left:-9999px; }
+</style>
+</head>
+<body>
+<h1>前端自检</h1>
+<p class="detail">这个页面会加载 index.html 里的全部脚本，然后检查各函数是否就绪。</p>
+<div id="out"></div>
+<div id="summary"></div>
+
+<!-- 把真正的页面隐藏加载，让脚本跑起来 -->
+<iframe id="app" src="/"></iframe>
+
+<script>
+const out = document.getElementById("out");
+
+function row(status, name, detail){
+  const div = document.createElement("div");
+  div.className = "row";
+  const cls = status === "OK" ? "ok" : status === "FAIL" ? "fail" : "err";
+  div.innerHTML = `<span class="${cls}">[${status}]</span> `
+                + `<span class="name">${name}</span>`
+                + `<span class="detail">${detail || ""}</span>`;
+  out.appendChild(div);
+}
+
+setTimeout(() => {
+  const w = document.getElementById("app").contentWindow;
+  const results = [];
+
+  const check = (name, fn) => {
+    try {
+      const v = fn();
+      results.push([v === true ? "OK" : "FAIL", name, v === true ? "" : String(v)]);
+    } catch(e){
+      results.push(["ERR", name, e.message]);
+    }
+  };
+
+  // ---- 配置 ----
+  check("API 对象",            () => typeof w.API === "object");
+  check("API.base 是字符串",    () => typeof w.API.base === "string");
+  check("VIEW_ORDER 有 3 项",   () => w.VIEW_ORDER && w.VIEW_ORDER.length === 3);
+  check("VIEW_STATUS 三模块",   () => !!(w.VIEW_STATUS && w.VIEW_STATUS.chat && w.VIEW_STATUS.trip && w.VIEW_STATUS.customer));
+
+  // ---- 工具 ----
+  check("esc() 转义尖括号",     () => w.esc("<b>x</b>") === "&lt;b&gt;x&lt;/b&gt;");
+  check("now() 格式 HH:MM",     () => /^\d{2}:\d{2}$/.test(w.now()));
+  check("$() 存在",             () => typeof w.$ === "function");
+  check("scrollDown() 存在",    () => typeof w.scrollDown === "function");
+
+  // ---- 请求控制 ----
+  check("newAbortController()", () => {
+    const c = w.newAbortController();
+    return c instanceof w.AbortController && !!c.signal;
+  });
+  check("abortCurrent() 存在",  () => typeof w.abortCurrent === "function");
+
+  // ---- SSE 解析 ----
+  check("createSseParser 能解析事件", () => {
+    const got = [];
+    const p = w.createSseParser(e => got.push(e));
+    p.push('data: {"kind":"TOKEN","text":"你好"}\n\n');
+    p.push('data: {"kind":"DONE","text":"完成"}\n\n');
+    return got.length === 2 && got[0].text === "你好" && got[1].kind === "DONE";
+  });
+
+  // ---- 打字机 ----
+  check("createTyper 能定稿", () => {
+    const d = w.document.createElement("div");
+    const b = w.document.createElement("div");
+    d.appendChild(b);
+    w.document.body.appendChild(d);
+    const t = w.createTyper(d, b);
+    t.push("abc");
+    t.renderFinal("xyz");
+    const ok = b.textContent === "xyz";
+    d.remove();
+    return ok;
+  });
+
+  // ---- 多选 ----
+  check("pickDotHTML 非多选时为空", () => w.pickDotHTML(1) === "");
+  check("selectBarHTML 非多选时为空", () => w.selectBarHTML() === "");
+
+  // ---- 状态 ----
+  check("state 对象",           () => w.state && typeof w.state.view === "string");
+
+  // ---- 视图切换 ----
+  check("switchView 存在",       () => typeof w.switchView === "function");
+  check("切到 trip",            () => { w.switchView("trip"); return w.state.view === "trip"; });
+  check("切到 customer",        () => { w.switchView("customer"); return w.state.view === "customer"; });
+  check("切回 chat",            () => { w.switchView("chat"); return w.state.view === "chat"; });
+
+  // ---- 左侧列表显隐（之前的 bug 就在这）----
+  check("chat 视图下 history-chat 可见", () => {
+    w.switchView("chat");
+    return w.document.getElementById("history-chat").classList.contains("active");
+  });
+  check("trip 视图下 history-trip 可见", () => {
+    w.switchView("trip");
+    return w.document.getElementById("history-trip").classList.contains("active");
+  });
+  check("trip 视图下 history-chat 隐藏", () => {
+    w.switchView("trip");
+    return !w.document.getElementById("history-chat").classList.contains("active");
+  });
+  check("customer 视图下 history-customer 可见", () => {
+    w.switchView("customer");
+    return w.document.getElementById("history-customer").classList.contains("active");
+  });
+  check("切回 chat 后 history-trip 隐藏", () => {
+    w.switchView("chat");
+    return !w.document.getElementById("history-trip").classList.contains("active");
+  });
+
+  // ---- 主区域显隐 ----
+  check("trip 视图下 view-trip 可见", () => {
+    w.switchView("trip");
+    return w.document.getElementById("view-trip").classList.contains("active");
+  });
+  check("trip 视图下 view-chat 隐藏", () => {
+    w.switchView("trip");
+    return !w.document.getElementById("view-chat").classList.contains("active");
+  });
+
+  // ---- 输入框提示语 ----
+  check("trip 输入框提示语正确", () => {
+    w.switchView("trip");
+    const ph = w.document.getElementById("trip-input").placeholder;
+    return ph.includes("想去哪儿玩");
+  });
+  check("customer 输入框提示语正确", () => {
+    w.switchView("customer");
+    const ph = w.document.getElementById("customer-input").placeholder;
+    return ph.includes("关于本项目");
+  });
+
+  // 复位到闲聊
+  w.switchView("chat");
+
+  // ---- 三模块入口函数 ----
+  ["sendChat", "sendTrip", "sendCustomer", "triggerHologram",
+   "renderHistory", "renderTripHistory", "renderCustomerHistory",
+   "tripInit", "customerInit"].forEach(fn => {
+    check(fn + " 存在", () => typeof w[fn] === "function");
+  });
+
+  // ---- 输出 ----
+  results.forEach(r => row(r[0], r[1], r[2]));
+  const bad = results.filter(r => r[0] !== "OK");
+  const s = document.getElementById("summary");
+  s.className = bad.length ? "fail" : "ok";
+  s.textContent = `共 ${results.length} 项，失败 ${bad.length} 项`
+                + (bad.length ? "" : " —— 全部通过 ✓");
+}, 1200);
+</script>
+</body>
+</html>

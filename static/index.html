@@ -14,6 +14,45 @@
 
     <div id="cursor-aura"></div>
 
+    <!-- 登录页：没有 token 时显示，主界面隐藏 -->
+    <div id="login-screen" class="login-screen">
+        <div class="login-box">
+            <div class="login-brand">
+                <div class="logo-icon">i</div>
+                <div class="logo-text">
+                    <h1>ctOS 2.0</h1>
+                    <p>SUPER INTELLIGENCE UNIT</p>
+                </div>
+            </div>
+
+            <h2 id="login-title" class="login-title">登录 ctOS</h2>
+            <p id="login-sub" class="login-sub">登录后继续你的对话</p>
+
+            <div class="login-form">
+                <label class="login-label">邮箱</label>
+                <input type="email" id="login-email" class="login-input"
+                       placeholder="you@example.com" autocomplete="username">
+
+                <label class="login-label">密码</label>
+                <input type="password" id="login-password" class="login-input"
+                       placeholder="至少 6 位" autocomplete="current-password">
+
+                <div id="login-error" class="login-error"></div>
+
+                <button id="login-submit" class="login-btn" data-mode="login"
+                        onclick="submitAuth()">登录</button>
+
+                <button id="login-toggle" class="login-toggle" type="button"
+                        onclick="switchLoginMode(document.getElementById('login-submit').dataset.mode === 'register' ? 'login' : 'register')">
+                    还没有账号？去注册
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主界面：登录后才显示 -->
+    <div id="app-root" class="app-root">
+
     <div class="sidebar">
         <div class="sidebar-header">
             <div class="logo-icon">i</div>
@@ -35,9 +74,11 @@
         </div>
 
         <div class="sidebar-footer">
+            <div class="status-row"><span>账号</span><span class="status-value" id="user-email"></span></div>
             <div class="status-row"><span>状态</span><span class="status-online"><span class="status-dot"></span> 在线</span></div>
             <div class="status-row"><span>模型</span><span class="status-value" id="foot-model">deepseek-v4-flash</span></div>
             <div class="status-row"><span>端点</span><span class="status-value" id="foot-endpoint">POST /chat</span></div>
+            <button class="logout-btn" onclick="logout()">退出登录</button>
         </div>
     </div>
 
@@ -125,7 +166,21 @@
             </div>
         </div>
     </div>
+    </div><!-- /#app-root -->
 
+    <!-- 加载顺序不能乱：
+         1. common/ 里都是无状态工具，先加载
+         2. app.js 定义全局 state 和闲聊逻辑
+         3. trip.js / customer.js 依赖 app.js 里的 state 和 common/ 里的工具 -->
+    <script src="/static/js/common/config.js"></script>
+    <script src="/static/js/common/utils.js"></script>
+    <script src="/static/js/common/auth.js"></script>
+    <script src="/static/js/common/abort.js"></script>
+    <script src="/static/js/common/sse.js"></script>
+    <script src="/static/js/common/typer.js"></script>
+    <script src="/static/js/common/selection.js"></script>
+    <script src="/static/js/common/sticky.js"></script>
+    <script src="/static/js/common/aura.js"></script>
     <script src="/static/js/app.js"></script>
     <script src="/static/js/trip.js"></script>
     <script src="/static/js/customer.js"></script>

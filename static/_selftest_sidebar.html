@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>侧栏切换验证</title>
+<style>body{font-family:monospace;background:#0d1117;color:#c9d1d9;padding:20px}
+.ok{color:#3fb950}.fail{color:#f85149}.row{padding:3px 0}</style></head>
+<body>
+<h2>左侧列表切换验证</h2>
+<div id="out"></div>
+<div id="summary" style="margin-top:14px;font-weight:bold"></div>
+<iframe id="app" src="/" style="width:1px;height:1px;opacity:0;position:absolute;left:-9999px"></iframe>
+<script>
+setTimeout(() => {
+  const w = document.getElementById("app").contentWindow;
+  const d = w.document;
+  const out = document.getElementById("out");
+  const res = [];
+
+  function active(id){ return d.getElementById(id).classList.contains("active"); }
+  function check(name, fn){
+    try { res.push([fn() ? "OK" : "FAIL", name]); }
+    catch(e){ res.push(["ERR", name + " : " + e.message]); }
+  }
+
+  // 初始应该在 chat
+  check("初始：history-chat 可见",   () => active("history-chat"));
+  check("初始：history-trip 隐藏",   () => !active("history-trip"));
+  check("初始：history-customer 隐藏",() => !active("history-customer"));
+
+  // 切到出行
+  w.switchView("trip");
+  check("切 trip 后：history-trip 可见", () => active("history-trip"));
+  check("切 trip 后：history-chat 隐藏", () => !active("history-chat"));
+  check("切 trip 后：history-customer 隐藏", () => !active("history-customer"));
+  check("切 trip 后：view-trip 可见",    () => active("view-trip"));
+  check("切 trip 后：view-chat 隐藏",    () => !active("view-chat"));
+
+  // 切到客服
+  w.switchView("customer");
+  check("切 customer 后：history-customer 可见", () => active("history-customer"));
+  check("切 customer 后：history-trip 隐藏",     () => !active("history-trip"));
+  check("切 customer 后：view-customer 可见",    () => active("view-customer"));
+
+  // 切回闲聊
+  w.switchView("chat");
+  check("切回 chat 后：history-chat 可见", () => active("history-chat"));
+  check("切回 chat 后：history-trip 隐藏", () => !active("history-trip"));
+
+  // 数据是否真的渲染进了 history-trip
+  w.switchView("trip");
+  setTimeout(() => {
+    const items = d.querySelectorAll("#history-trip .history-item");
+    check("history-trip 里有出行会话行", () => items.length > 0);
+
+    res.sort((a,b) => (a[0]==="FAIL"?-1:1) - (b[0]==="FAIL"?-1:1));
+    res.forEach(([s, n]) => {
+      const div = document.createElement("div");
+      div.className = "row";
+      div.innerHTML = `<span class="${s==="OK"?"ok":"fail"}">[${s}]</span> ${n}`;
+      out.appendChild(div);
+    });
+    const bad = res.filter(r => r[0] !== "OK").length;
+    const sum = document.getElementById("summary");
+    sum.className = bad ? "fail" : "ok";
+    sum.textContent = `共 ${res.length} 项，失败 ${bad} 项` + (bad ? "" : " —— 全部通过 ✓");
+  }, 1500);
+}, 1500);
+</script>
+</body></html>

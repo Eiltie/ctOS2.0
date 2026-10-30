@@ -1,0 +1,54 @@
+# 构建镜像时排除这些，让镜像更小、构建更快
+
+# 虚拟环境（镜像里会重装依赖）
+venv/
+.venv/
+env/
+ENV/
+
+# Git
+.git/
+.gitignore
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# 密钥（不能打进镜像！）
+config/.env
+.env
+*.env
+!config/requirements.txt
+
+# 数据库文件（运行时挂载）
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Chroma 向量库（运行时生成或挂载）
+modules/customer/data/chroma/
+
+# 测试和评测结果
+modules/customer/eval/runs/
+
+# 文档和截图（不需要进镜像）
+docs/
+screenshot/
+README.md
+*.md
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+
+# 系统
+.DS_Store
+Thumbs.db

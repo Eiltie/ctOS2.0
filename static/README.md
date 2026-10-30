@@ -5,39 +5,74 @@
 
 ```
 static/
-├── index.html        ← 页面结构（DOM 与模板一致，只是把写死的示例数据挪到了 JS 渲染）
-├── README.md         ← 本说明
+├── index.html            ← 页面结构（只有 DOM，数据全部由 JS 渲染）
+├── README.md             ← 本说明
+├── _selftest.html        ← 自检页：打开它检查所有函数是否就绪（见文末）
 ├── css/
-│   ├── style.css     ← 模板原样式：光标光晕、呼吸滚动条、全息光幕、扫描打字机、下沉输入框……
-│   │                   （与设计模板逐字一致，不在这里改）
-│   └── modules.css   ← 模板之外新增的少量类：出行四段卡片、客服问答气泡等
+│   ├── style.css         ← 模板原样式：光标光晕、呼吸滚动条、全息光幕、扫描打字机……
+│   │                        （与设计模板逐字一致，不在这里改）
+│   └── modules.css       ← 模板之外新增的类：出行四段卡片、客服气泡、多选操作条等
 └── js/
-    ├── app.js        ← 闲聊 + 公共工具（SSE 解析、打字机、侧边栏会话、视图切换）
-    ├── trip.js       ← 智能出行（四段卡片、出行记录）
-    └── customer.js   ← 智能客服（一问一答）
+    ├── common/           ← 跨模块公用，与任何业务无关
+    │   ├── config.js     ← API 地址、视图顺序、状态标签、打字机参数
+    │   ├── utils.js      ← $、esc、now、scrollDown、getJson、bindEnter
+    │   ├── abort.js      ← 请求中断控制（同一时刻只跑一个流）
+    │   ├── sse.js        ← SSE 事件解析器
+    │   ├── typer.js      ← 打字机渲染
+    │   ├── selection.js  ← 列表多选删除（闲聊和出行共用）
+    │   ├── sticky.js     ← 吸顶高度同步
+    │   └── aura.js       ← 光标光晕特效
+    ├── app.js            ← 闲聊：会话列表 + 聊天区 + 视图切换 + 启动
+    ├── trip.js           ← 智能出行：四段卡片、进度条、出行记录
+    └── customer.js       ← 智能客服：一问一答
 ```
 
-`index.html` 用下面这几行引用外部文件：
+## 加载顺序不能乱
+
+`index.html` 里的加载顺序是：
 
 ```html
-<link rel="stylesheet" href="/static/css/style.css">
-<link rel="stylesheet" href="/static/css/modules.css">
+<!-- 1. common/ 里都是无状态工具，最先加载 -->
+<script src="/static/js/common/config.js"></script>
+<script src="/static/js/common/utils.js"></script>
+<script src="/static/js/common/abort.js"></script>
+<script src="/static/js/common/sse.js"></script>
+<script src="/static/js/common/typer.js"></script>
+<script src="/static/js/common/selection.js"></script>
+<script src="/static/js/common/sticky.js"></script>
+<script src="/static/js/common/aura.js"></script>
 
+<!-- 2. app.js 定义全局 state 和闲聊逻辑 -->
 <script src="/static/js/app.js"></script>
+
+<!-- 3. 两个模块依赖 app.js 的 state 和 common/ 的工具 -->
 <script src="/static/js/trip.js"></script>
 <script src="/static/js/customer.js"></script>
 ```
 
-## 三个 JS 文件的加载顺序不能乱
+**为什么顺序重要**：这三个文件是普通 script，不是模块（没有 `import`），
+所有函数和变量都挂在全局。后加载的能用先加载的，反过来就报 `undefined`。
 
-必须按 `app.js → trip.js → customer.js` 的顺序加载。
+`common/config.js` 必须排第一：`utils.js` 里的 `getJson()` 要用 `API.base`，
+`selection.js` 里的 `historySelectable()` 要用 `state.view`（后者在 app.js 定义，运行时才读，没问题）。
 
-`trip.js` 和 `customer.js` 里用到的 `$`、`API`、`esc`、`scrollDown`、`createSseParser`、
-`createTyper`、`newAbortController` 等函数和变量都定义在 `app.js` 里。
-如果 `app.js` 排在后面，这两个文件一加载就会报错。
+## 每个文件负责什么
 
-`app.js` 末尾的初始化写在 `DOMContentLoaded` 里，等三个文件都就绪后依次调用
-`tripInit()` / `customerInit()`，再拉会话列表。
+| 文件 | 职责 | 想改什么来这里 |
+| --- | --- | --- |
+| `common/config.js` | 部署地址、视图列表、状态文案 | 换后端地址、改输入框提示 |
+| `common/utils.js` | 转义、时间、滚动、请求封装 | 加通用小工具 |
+| `common/abort.js` | 中断上一个流 | 调并发行为 |
+| `common/sse.js` | 解析 `data: {...}` | 后端换事件格式 |
+| `common/typer.js` | 逐字渲染 | 调打字节奏（`config.js` 里的 CPS） |
+| `common/selection.js` | 多选删除 | 改勾选交互 |
+| `common/sticky.js` | 吸顶高度 | 出行页骨架高度错位 |
+| `common/aura.js` | 鼠标光晕 | 改特效 |
+| `app.js` | 闲聊 + 视图切换 + 启动 | 闲聊逻辑、Tab 切换 |
+| `trip.js` | 出行 | 四段卡片、进度条、出行记录 |
+| `customer.js` | 客服 | 问答交互 |
+
+
 
 ## 数据从哪来
 
@@ -159,7 +194,7 @@ static/
 
 ## 后端怎么提供这些静态文件
 
-静态目录要能被浏览器访问，后端必须挂载它。相关代码在 `src/ctOS_chat_api.py` 里：
+静态目录要能被浏览器访问，后端必须挂载它。相关代码在 `api/main.py` 里：
 
 ```python
 from fastapi.staticfiles import StaticFiles
@@ -174,3 +209,19 @@ async def index():
 
 `mount` 挂在 `/static` 前缀下，与其他路由（`/chat`、`/sessions`、`/trip/...`、`/customer/...`）不冲突。
 根路径 `/` 直接返回 `index.html`，所以访问 <http://127.0.0.1:8080/> 就是页面。
+
+## 自检页：改完前端先跑这个
+
+改完前端不确定有没有拆坏，打开：
+
+```
+http://127.0.0.1:8080/static/_selftest.html
+```
+
+它会把所有脚本按正式顺序加载，然后逐项检查每个函数是否就绪、能否正常调用。
+每项显示 `[OK]` / `[FAIL]` / `[ERR]`，末尾给出总数。
+
+检查内容包含：配置对象、工具函数、SSE 解析、打字机、请求中断、多选、视图切换、三个模块的入口函数。
+
+> 这个页面只是开发工具，不影响正式页面，大活完工后可以考虑删掉。
+

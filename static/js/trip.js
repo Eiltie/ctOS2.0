@@ -672,10 +672,15 @@ async function sendTrip(){
   try{
     const res = await fetch(API.base + "/trip/chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
+      headers: authHeaders({ "Content-Type": "application/json", "Accept": "text/event-stream" }),
       body: JSON.stringify({ query: text, history: tripHistory, chat_id: openChatId }),
       signal: ctl.signal
     });
+
+    if (res.status === 401){
+      handleAuthExpired();
+      throw new Error("登录已过期，请重新登录");
+    }
 
     if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
     if (!res.body) throw new Error("当前浏览器不支持流式读取（res.body 为空）");
@@ -785,6 +790,8 @@ function tripNewSession(){
   tripBusy = false;
   tripHistory = [];
   openChatId = null;
+  // 本地缓存的出行记录也清掉：换用户登录时不能带着上一个人的列表
+  tripRecords = [];
   tripIntro();
 
   // 用户主动开新会话，把光标放到输入框里

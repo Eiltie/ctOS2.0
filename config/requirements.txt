@@ -12,3 +12,11 @@ httpx
 chromadb==1.5.9
 jieba==0.42.1
 rank-bm25==0.2.2
+
+# 数据库：从 SQLite 迁到 PostgreSQL 后加的
+psycopg[binary]
+psycopg_pool
+
+# 认证：注册登录用
+python-jose[cryptography]
+bcrypt
