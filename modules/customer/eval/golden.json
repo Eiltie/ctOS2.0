@@ -71,7 +71,7 @@
       "category": "原词",
       "question": "rag_ingest.py 是做什么的",
       "expect_keywords": [
-        "rag_ingest"
+        "入库"
       ],
       "should_answer": true
     },
@@ -117,8 +117,8 @@
       "category": "同义改写",
       "question": "聊天记录存在什么地方",
       "expect_keywords": [
-        "SQLite",
-        "ctOS2_db.db"
+        "PostgreSQL",
+        "ctos2"
       ],
       "should_answer": true
     },
@@ -157,7 +157,7 @@
       "question": "回答老是说找不到资料是咋回事",
       "expect_keywords": [
         "向量数据库",
-        "rag_ingest.py"
+        "rag_ingest"
       ],
       "should_answer": true
     },

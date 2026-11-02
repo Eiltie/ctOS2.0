@@ -1,7 +1,10 @@
-﻿# ctOS 2.0 系统手册
+# ctOS 2.0 系统手册
 
 本文是 ctOS 2.0 的完整说明，涵盖使用方式、技术实现、常见问题与部署运维。
 读者既可以是第一次接触本系统的普通用户，也可以是准备二次开发的工程师。
+
+> **线上地址：<https://ctos2.cn>**（`www.ctos2.cn` 同样可访问）。注册账号后即可使用，
+> 不需要自己部署。本文里提到的本地启动方式只供二次开发时使用。
 
 ---
 
@@ -26,15 +29,19 @@ ctOS 2.0 是一个用 FastAPI 加 LangGraph 搭建的多模块 AI 应用。
 三者还有一个重要区别：
 
 - 闲聊和智能出行**会存数据库**，左侧栏能翻到历史记录。
-- 智能客服是**一问一答、不记会话、不带历史**，问完即走，不写数据库。所以它的请求体里只有 `query`，没有 `session_id`。
+- 智能客服的问答**不写数据库**，刷新页面就没了；但请求体会带上最近几轮对话（`history`），
+  用来理解「那它怎么配」这类追问。
 
 ### 技术栈
 
 - **Web 框架**：FastAPI、Uvicorn、Pydantic
 - **编排框架**：LangGraph、LangChain、langchain-openai
+- **模型**：DeepSeek（对话与推理）、智谱 embedding-3（向量化）
 - **外部工具**：DeepSeek Search 联网搜索、高德地图路径规划、Open-Meteo 天气
-- **存储**：SQLite（Python 标准库 `psycopg`）存会话与出行记录；Chroma 用于 RAG 向量库
-- **检索**：智谱 embedding-3、jieba + rank-bm25
+- **存储**：PostgreSQL 17 存会话、账号与出行记录（多租户）；Chroma 用于 RAG 向量库
+- **检索**：jieba + rank-bm25 与向量混合
+- **认证**：JWT + bcrypt
+- **部署**：Docker + Docker Compose，线上由 Cloudflare 托管域名与 HTTPS
 - **配置**：python-dotenv
 
 ---
@@ -69,6 +76,12 @@ DEEPSEEK_BASE_URL=     # DeepSeek 接口地址
 DEEPSEEK_MODEL=        # 模型名
 
 AMAP_KEY=              # 高德地图密钥，智能出行算路线用
+
+# PostgreSQL 数据库
+PG_HOST= / PG_PORT= / PG_DBNAME= / PG_USER= / PG_PASSWORD=
+
+# 登录 token 的签名密钥
+JWT_SECRET_KEY=
 ```
 
 智能客服模块另外还需要一个密钥：
@@ -89,14 +102,16 @@ ZHIPU_API_KEY=         # 智谱密钥，RAG 向量化用
 python core/db.py
 ```
 
-会建好闲聊和出行两边的全部 5 张表。表已存在就跳过，不会动已有数据。
+会建好全部 8 张表：`tenants`、`users`、`sessions`、`messages`、`trip_chats`、
+`trip_sessions`、`trip_user_inputs`、`trip_ai_outputs`。表已存在就跳过，不会动已有数据。
+**没建表的话注册登录会直接报错**，这是最容易漏的一步。
 
 ### 第四步：智能客服入库（第一次使用前跑一次）
 
 智能客服依赖本地向量库，需要先把 `data/docs/` 里的文档切块、向量化、入库：
 
 ```bash
-python modules/customer/rag_ingest.py
+python -X utf8 -m modules.customer.rag_ingest
 ```
 
 **改了 `data/docs/` 里的文档后要重新跑一次。**
@@ -104,13 +119,16 @@ python modules/customer/rag_ingest.py
 ### 第五步：启动服务
 
 ```bash
-python api/main.py
+python -X utf8 -m api.main
 ```
 
 然后在浏览器打开 <http://127.0.0.1:8080/> 就是前端页面。
 
 还没有跑过建表和入库时，闲聊和出行照样能用（写库失败只会打印一行日志），
 但智能客服会因为找不到向量库而报错。
+
+> **如果只是想用，不想自己装：** 直接打开 <https://ctos2.cn>，注册账号即可，
+> 线上部署的就是这一套代码。
 
 ## 启动项目（完整步骤汇总）
 
@@ -133,64 +151,69 @@ cp config/YOUR_config.env config/.env
 ```
 
 然后在 `config/.env` 里填好 `DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL`、
-`AMAP_KEY`、`ZHIPU_API_KEY`。
+`AMAP_KEY`、`ZHIPU_API_KEY`、`PG_*`（数据库连接）、`JWT_SECRET_KEY`（登录签名密钥）。
 
 ### 3. 初始化数据库
 
 ```bash
-python core/db.py
+python -X utf8 -m core.db
 ```
 
 ### 4. 智能客服入库（第一次用才需要）
 
 ```bash
-python modules/customer/rag_ingest.py
+python -X utf8 -m modules.customer.rag_ingest
 ```
 
 ### 5. 启动服务
 
 ```bash
-python api/main.py
+python -X utf8 -m api.main
 ```
 
 看到 uvicorn 启动成功后，在浏览器打开 <http://127.0.0.1:8080/> 即可使用。
+线上对应的地址是 <https://ctos2.cn/>。
 
 ### 快速启动（已经配置过之后的日常使用）
 
 如果之前已经装好依赖、配好密钥、建好表、入过库，那以后每次只要一条命令：
 
 ```bash
-python api/main.py
+python -X utf8 -m api.main
 ```
+
+> Windows 控制台默认 GBK，不加 `-X utf8` 中文可能乱码。
 
 ### 关于端口
 
-端口 8080 写死在 `api/main.py` 文件末尾的这一行：
+本地默认监听 `127.0.0.1:8080`，由 `api/main.py` 末尾决定：
 
 ```python
-uvicorn.run(app, host="127.0.0.1", port=8080)
+host = os.getenv("HOST", "127.0.0.1")
+port = int(os.getenv("PORT", "8080"))
+uvicorn.run(app, host=host, port=port)
 ```
+
+也就是说，**改端口用环境变量 `PORT`** 就够了，不用改代码。
+容器（含线上）里 Dockerfile 已经把 `HOST` 设成 `0.0.0.0`，否则端口映射转发不进来。
 
 前端请求后端用的是**相对路径**（`API.base` 为空字符串），也就是同源访问，
-所以**换端口只需要改这一处**，前端不用动。
-
-也可以用 uvicorn 命令启动，但端口必须和 8080 保持一致：
-
-```bash
-uvicorn src.ctOS_chat_api:app --reload --port 8080
-```
+所以**换端口前端也不用动**，线上和本地用的是同一份前端代码。
 
 ### 其它常用命令
 
 | 用途 | 命令 |
 | --- | --- |
-| 建表 | `python core/db.py` |
-| 客服入库 | `python modules/customer/rag_ingest.py` |
-| 查知识库是否就绪 | `python -X utf8 modules/customer/rag_store.py` |
-| 看数据库内容 | `python -X utf8 databases/db_view.py` |
-| 终端调试出行 | `python modules/trip/understand.py` |
-| 终端调试客服 | `python -X utf8 modules/customer/stream.py` |
-| 验证客服流式封装 | `python -X utf8 modules/customer/stream.py` |
+| 建表 | `python -X utf8 -m core.db` |
+| 客服入库 | `python -X utf8 -m modules.customer.rag_ingest` |
+| 查知识库是否就绪 | `python -X utf8 -m modules.customer.rag_store` |
+| 检索测评（40 题） | `python -X utf8 -m modules.customer.rag_eval` |
+| 看数据库内容 | `python -X utf8 -m databases.db_view` |
+| 终端调试出行 | `python -X utf8 -m modules.trip.cli` |
+| 验证客服流式封装 | `python -X utf8 -m modules.customer.stream` |
+
+> 线上这些命令要在容器里跑，前面加 `docker exec ctos2-app`，例如
+> `docker exec ctos2-app python -m core.db`。
 
 ---
 
@@ -230,6 +253,18 @@ uvicorn src.ctOS_chat_api:app --reload --port 8080
 
 出行模块对模糊需求有容错：如果用户表达的信息不足以识别目的地，系统会提示「把话说具体点试试」，
 而不是直接报错崩溃。
+
+**目的地、天数、出发日期（`start_date`）是怎么从一句话里猜出来的**：
+出行图第一个节点 `weather` 先调一次模型做「需求解析」，把自然语言转成一段 JSON，
+字段就是 `{"destination": 城市名, "days": 天数, "start_date": 出发日期}`。
+
+- 目的地必须是城市名：说景点会换算成所属城市（西湖 → 杭州、故宫 → 北京），并去掉「市」这类后缀
+- 天数：「周末」算 2 天、「三天两晚」算 3 天、「一周」算 7 天，没提就按 3 天
+- 出发日期（`start_date`）：格式 `YYYY-MM-DD`，所有相对时间都以「今天」为基准推算，
+  「明天」加 1 天、「后天」加 2 天、「周末」取最近的周六、「下周三」取下周星期三；
+  没说出发时间就取今天
+
+这段解析出的 JSON 是给程序用的，**不会流给用户看**；页面上展示的是解析后再写的天气总结。
 
 **出行模块还带一个「闲聊分流」**：进图之前会先判断这句话是不是出行需求。
 
@@ -321,24 +356,23 @@ START → retrieve → generate → END
 
 ```
 modules/customer/
-├── main.py                    # 终端调试入口（会打印三层检索详情）
-├── ctOS2_customer_stream.py   # 流式封装（对外唯一入口，供 Web 层调用）
-├── create_graph.py            # 组装图（定义节点和连线）
-├── agent_node.py              # 图的节点：检索、生成
-├── agent_state.py             # 图的状态定义
-├── get_llm.py                 # 读配置、建模型客户端、路径常量
-├── prompts.py                 # 提示词（文件名就是拼错的 prompts，别改）
+├── graph.py                   # 组装图（定义节点和连线）
+├── node.py                    # 图的节点：retrieve 检索、generate 生成
+├── state.py                   # 图的状态定义
+├── prompts.py                 # 提示词
+├── stream.py                  # 流式封装（对外唯一入口 customer_stream）
+├── rag_config.py              # 文档目录、向量库目录、集合名、embedding 模型
 ├── rag_ingest.py              # 一次性入库脚本
 ├── rag_store.py               # 知识库加载与复用（加载一次，全程共用）
-├── rag_search.py             # 第一层：关键词检索
-├── rag_search.py              # 第二层：向量检索
-├── rag_search.py              # 第三层：混合检索
+├── rag_search.py              # 三层检索：关键词 / 向量 / 混合，都在这一个文件里
+├── rag_eval.py                # 检索测评脚本（40 题）
+├── eval/golden.json           # 测评题库
 └── data/
     ├── docs/                  # 知识库原始文档（放 .md 文件）
-    └── chroma/                # 向量库落盘目录
+    └── chroma/                # 向量库落盘目录（不入 git）
 ```
 
-**`ctOS2_customer_stream.py` 是模块对外的唯一出入口**，里面只有一个 `async` 生成器 `customer_stream(query)`，
+**`stream.py` 里的 `customer_stream()` 是模块对外的唯一出入口**，它是个 `async` 生成器，
 把图的产出转成 SSE 事件。Web 层（`api/main.py` 的 `/customer/chat` 路由）只管调用它，
 不需要知道图长什么样、有几个节点、三层检索怎么跑。
 
@@ -371,7 +405,7 @@ modules/customer/
 
 向量检索把文本转成一组数字（向量），再比较向量之间的相似度，找语义最接近的段落。
 
-使用的模型是智谱的 `embedding-3`，输出 **2048 维**向量。
+使用的模型是智谱的 `embedding-3`，输出 2048 维向量。
 向量存在 Chroma 向量库里。
 
 这一层的优势是**语义匹配**：即使用户的问法和文档的用词不一样，也能命中。
@@ -424,8 +458,10 @@ modules/customer/
 入库是**一次性操作**，执行：
 
 ```bash
-python modules/customer/rag_ingest.py
+python -X utf8 -m modules.customer.rag_ingest
 ```
+
+线上要在容器里跑：`docker exec ctos2-app python -m modules.customer.rag_ingest`。
 
 入库脚本做四件事：
 
@@ -466,16 +502,18 @@ python modules/customer/rag_ingest.py
 
 **Q：克隆下来为什么跑不起来？**
 A：因为这个项目**不含任何 API 密钥**，必须自己申请并填进 `config/.env`。
-一共需要 4 个：DeepSeek（对话 + 联网搜索，必需）、智谱（客服向量化，必需）、高德（算路线）。
+一共需要 4 个：DeepSeek（对话 + 联网搜索，必需）、智谱（客服向量化，必需）、高德（算路线），
+外加 PostgreSQL 的连接参数和登录用的 `JWT_SECRET_KEY`。
 另外克隆下来时数据库和向量库都还不存在，要先跑 `core/db.py` 建表、
-再跑 `rag_ingest.py` 入库，这两个都是一次性的初始化步骤。
+再跑 `rag_ingest` 入库，这两个都是一次性的初始化步骤。
 只拿到 DeepSeek 密钥的话，闲聊和出行都能用（联网搜索复用同一个密钥），只有客服会不可用。
 
 **Q：怎么启动这个项目？**
 A：三步。① 装依赖 `pip install -r config/requirements.txt`；
-② 建表 `python core/db.py`；
-③ 启动服务 `python api/main.py`，然后在浏览器打开 <http://127.0.0.1:8080/>。
-如果是第一次用智能客服，中间还要多跑一次入库脚本 `python modules/customer/rag_ingest.py`。
+② 建表 `python -X utf8 -m core.db`；
+③ 启动服务 `python -X utf8 -m api.main`，然后在浏览器打开 <http://127.0.0.1:8080/>。
+如果是第一次用智能客服，中间还要多跑一次入库脚本 `python -X utf8 -m modules.customer.rag_ingest`。
+**不想自己装的话，直接用线上的 <https://ctos2.cn> 就行，注册后就能用。**
 
 **Q：怎么安装依赖？**
 A：在项目根目录执行：
@@ -486,19 +524,25 @@ venv\Scripts\activate          # Windows
 pip install -r config/requirements.txt
 ```
 
-依赖清单在 `config/requirements.txt` 里，分 Web、出行模块、客服模块三组。
+依赖清单在 `config/requirements.txt` 里，分 Web、出行模块、客服模块、数据库、认证五组。
+如果不想装 Python，也可以直接用 Docker：`docker compose --env-file config/.env up -d`。
 
 **Q：启动后端口是多少？访问哪个地址？**
-A：端口是 8080，地址是 <http://127.0.0.1:8080/>。
-端口写死在 `api/main.py` 末尾的 `uvicorn.run(..., port=8080)`。
+A：本地默认端口是 8080，地址是 <http://127.0.0.1:8080/>；
+线上地址是 <https://ctos2.cn>，走标准 443 端口和 HTTPS。
+端口由环境变量 `PORT` 控制，默认值写在 `api/main.py` 末尾。
 
 **Q：系统支持哪些大模型？**
 A：对话和图上的推理用的是 DeepSeek，通过 `config/.env` 里的 `DEEPSEEK_MODEL` 配置。
 向量化用的是智谱的 `embedding-3`。两者是不同厂商的模型，各司其职。
 
 **Q：端口可以改吗？**
-A：可以，只改 `api/main.py` 末尾的 `uvicorn.run(..., port=8080)` 这一处即可。
+A：可以，设环境变量 `PORT` 即可（本地或容器都适用），不用改代码。
 前端请求后端用的是相对路径（同源），不写死端口，所以不用改。
+
+**Q：需要注册才能用吗？**
+A：需要。打开 <https://ctos2.cn> 先注册一个账号（邮箱 + 密码），
+登录后才能用三个模块。每个账号是一个独立租户，看不到别人的会话记录。
 
 **Q：智能客服为什么不跟我闲聊？**
 A：这是刻意设计的。智能客服的职责是「查资料回答问题」，不是聊天。
@@ -514,16 +558,16 @@ A：天气数据来自 Open-Meteo 的真实预报，不是模型生成的。
 但预报本身有不确定性，且最远只能查到未来 15 天左右。
 
 **Q：对话记录会丢吗？**
-A：不会。闲聊会话存在 `sessions` / `messages`，出行记录存在 `trip_*` 三张表，
+A：不会。闲聊会话存在 `sessions` / `messages`，出行记录存在 `trip_chats` / `trip_sessions` 等表，
 都在 PostgreSQL 数据库 `ctos2` 里，重启服务和刷新页面都还在。
-只有智能客服不留记录。
+只有智能客服的问答不留记录。
 
 ### 关于开发
 
 **Q：怎么修改知识库内容？**
 A：两步。第一，改 `data/docs/` 下的 Markdown 文件（或新增文件）；
-第二，重新执行 `python modules/customer/rag_ingest.py`。
-只做第一步不生效。改完记得重启服务。
+第二，重新执行 `python -X utf8 -m modules.customer.rag_ingest`。
+只做第一步不生效。改完记得重启服务。线上则是先 `docker exec ctos2-app python -m modules.customer.rag_ingest`，再重启容器。
 
 **Q：检索返回几条可以调吗？**
 A：可以。关键词层和向量层各有一个 `TOP_K` 常量控制返回条数（都在 `rag_search.py` 里，当前都是 3）；
@@ -568,7 +612,7 @@ A：这是编辑器选错了 Python 解释器，用的是系统全局 Python 去
 **Q：智能客服输出中文乱码怎么办？**
 A：Windows 控制台默认编码是 GBK。运行时加上 `-X utf8` 参数即可：
 ```bash
-python -X utf8 modules/customer/stream.py
+python -X utf8 -m modules.customer.stream
 ```
 
 **Q：报错说缺少 `ZHIPU_API_KEY` 怎么办？**
@@ -581,7 +625,7 @@ ZHIPU_API_KEY=你的密钥
 **Q：智能客服启动时报「没找到向量数据库」/「没有这个集合」/「向量数据库是空的」？**
 A：说明还没入库，或者入库目录被删了。跑一次：
 ```bash
-python modules/customer/rag_ingest.py
+python -X utf8 -m modules.customer.rag_ingest
 ```
 这几种情况的报错文本里也都会直接提示这条命令。
 
@@ -599,13 +643,14 @@ A：说明表达太模糊了。把话说具体一点，比如「下周想去杭�
 
 ### 6.1 环境要求
 
-- Python 3.14（开发环境实测版本：3.14.5）
-- 无需额外安装数据库（SQLite 是 Python 标准库自带的）
+- Python 3.14（开发环境实测版本：3.14.5）；或者只装 Docker，用镜像跑
+- PostgreSQL 17（本地开发自己装；Docker 部署时由 `db` 容器提供，不用另外装）
 - 能访问外网：需要调用 DeepSeek、智谱、高德、Open-Meteo 的接口
+- 线上：一台能跑 Docker 的服务器 + 一个域名（本站用的是 `ctos2.cn`，DNS 和 HTTPS 托管在 Cloudflare）
 
 ### 6.2 依赖清单
 
-依赖统一写在 `config/requirements.txt`，分三组：
+依赖统一写在 `config/requirements.txt`，分五组：
 
 ```
 fastapi
@@ -624,37 +669,51 @@ httpx
 chromadb==1.5.9
 jieba==0.42.1
 rank-bm25==0.2.2
+# 数据库：从 SQLite 迁到 PostgreSQL 后加的
+psycopg[binary]
+psycopg_pool
+# 认证：注册登录用
+python-jose[cryptography]
+bcrypt
 ```
 
-其中 `chromadb`、`jieba`、`rank-bm25` 三个是智能客服模块专用的。
+其中 `chromadb`、`jieba`、`rank-bm25` 三个是智能客服模块专用的，
+`psycopg` 系列是数据库驱动，`python-jose` / `bcrypt` 是登录认证用的。
 
 `langgraph-checkpoint-sqlite` 虽然列在「出行模块用的」这组里，但**当前代码并没有真的用到它**：
 项目里没有任何地方 import 它，也没有配置任何 checkpointer。
-真正承担持久化的是 `databases/` 那套自己写的 `psycopg` 代码。
+真正承担持久化的是 `databases/` 那套自己基于 `psycopg` 写的代码。
 这个包留着不影响运行，只是占一个位置。
 
 ### 6.3 启动顺序
 
-1. 确认 `config/.env` 已填好所有密钥（含 `ZHIPU_API_KEY`）
-2. 建表：`python core/db.py`
+1. 确认 `config/.env` 已填好所有密钥（含 `ZHIPU_API_KEY`、`PG_*`、`JWT_SECRET_KEY`）
+2. 建表：`python -X utf8 -m core.db`
 3. 智能客服要用的话，先跑一次入库脚本
-4. 启动 Web 服务：`python api/main.py`
+4. 启动 Web 服务：`python -X utf8 -m api.main`
+
+用 Docker 的话只有三步：`docker compose --env-file config/.env up -d` →
+`docker exec ctos2-app python -m core.db` → `docker exec ctos2-app python -m modules.customer.rag_ingest`。
 
 ### 6.4 数据存放位置
 
 | 数据 | 位置 | 说明 |
 | --- | --- | --- |
+| 租户 / 账号 | PostgreSQL 表 `tenants` / `users` | 一个注册用户 = 一个租户，密码存 bcrypt 哈希 |
 | 闲聊会话 | PostgreSQL 表 `sessions` / `messages` | 会话与消息 |
-| 出行记录 | 同一个 `.db` → `trip_sessions` / `trip_user_inputs` / `trip_ai_outputs` | 一轮出行 = 主表一行 + 子表各一行 |
-| 向量库 | `modules/customer/data/chroma/` | Chroma 落盘的向量数据 |
+| 出行记录 | `trip_chats` / `trip_sessions` / `trip_user_inputs` / `trip_ai_outputs` | 一轮出行 = 主表一行 + 子表各一行 |
+| 向量库 | `modules/customer/data/chroma/` | Chroma 落盘的向量数据，Docker 里是挂载进去的目录 |
 | 知识库原文 | `modules/customer/data/docs/` | Markdown 文档 |
 
-向量库文件和 `.db` 文件都已被 `.gitignore` 排除，不会进代码仓库。
+Docker 部署时数据库数据在命名卷 `ctos2-pgdata` 里，删容器不丢；
+向量库目录被挂载出来，重建容器不用重新入库。
+向量库目录已被 `.gitignore` 排除，不会进代码仓库。
 
 ### 6.5 备份与恢复
 
-- **数据库**：用 `pg_dump -U ctos_app ctos2 > backup.sql` 导出，会话和出行记录都在里面。
-  程序运行时开了 WAL 模式，热备时注意把同目录下的 `-wal` / `-shm` 文件一并复制
+- **数据库**（Docker）：`docker exec ctos2-db pg_dump -U ctos_app ctos2 > backup.sql`，
+  恢复用 `docker exec -i ctos2-db psql -U ctos_app ctos2 < backup.sql`
+- **数据库**（本地直连）：`pg_dump -U ctos_app ctos2 > backup.sql`
 - **向量库**：可以直接复制整个 `data/chroma/` 目录；
   但因为向量库可以随时由入库脚本重建，更稳妥的做法是**备份 `data/docs/` 里的原始文档**，
   需要时重新跑一次入库脚本
@@ -665,30 +724,36 @@ rank-bm25==0.2.2
 ```bash
 # 1. 修改 data/docs/ 下的文档
 # 2. 重新入库
-python modules/customer/rag_ingest.py
+python -X utf8 -m modules.customer.rag_ingest
 # 3. 重启服务，否则内存里还是旧知识库
+#    线上等价于：
+#    docker exec ctos2-app python -m modules.customer.rag_ingest
+#    docker compose --env-file config/.env restart app
 ```
 
 **单独调试出行模块**（不启动 Web 服务）：
 ```bash
-python modules/trip/understand.py
+python -X utf8 -m modules.trip.cli
 ```
 
 **单独调试智能客服模块**：
 ```bash
-python -X utf8 modules/customer/stream.py
+python -X utf8 -m modules.customer.stream
 ```
 
 **查看/导出聊天记录**：
 ```bash
 # 列出所有会话
-python -X utf8 databases/db_view.py
+python -X utf8 -m databases.db_view
 # 看某个会话的完整对话
-python -X utf8 databases/db_view.py show 3
-# 导出某个会话为 txt（写到 databases/ 下）
-python -X utf8 databases/db_view.py export 3
+python -X utf8 -m databases.db_view show 3
 ```
-注意这个工具只查闲聊的两张表，看不到出行记录。
+
+**线上健康检查与日志**：
+```bash
+curl https://ctos2.cn/health
+docker compose --env-file config/.env logs -f app
+```
 
 ---
 
@@ -696,45 +761,51 @@ python -X utf8 databases/db_view.py export 3
 
 ```
 ctOS2.0/
-├── api/                        # 后端主服务
-│   ├── ctOS_chat_api.py        # ★ FastAPI 入口（app 在这里）
-│   ├── ctOS_chat_graph.py      # 对话图
-│   ├── modules/chat/stream.py    # 对话图对外入口 run_graph
-│   ├── ctOS_chat_agent_node.py # 图节点
-│   ├── ctOS_chat_llm.py        # LLM 初始化
-│   ├── ctOS_chat_prompts.py    # 提示词
-│   ├── ctOS_chat_sessions.py   # 会话读写（错误兜底 + 格式转换）
-│   └── ctOS_chat_state.py      # 图状态定义
-├── modules/
-│   ├── trip/          # 智能出行模块
-│   └── ctOS2_customer_AI/      # 智能客服模块（RAG）
-├── databases/                   # 表和读写
-│   ├── ctOS2_db.py             # ★ 连接层 + 统一建表入口
-│   ├── ctOS2_db_chat.py        # 闲聊表：sessions / messages
-│   ├── ctOS2_db_trip.py        # 出行表：trip_sessions / trip_user_inputs / trip_ai_outputs
-│   ├── ctOS2_db_view.py        # 命令行查看工具
-│   └── PostgreSQL 数据库 ctos2             # 数据库文件（自动生成，不入库）
+├── api/                        # HTTP 接口层
+│   ├── main.py                 # ★ FastAPI 入口，所有业务路由都在这里
+│   └── routes/auth.py          # 认证路由 /auth/register、/auth/login、/auth/me
+├── core/                       # 跨模块公用
+│   ├── llm.py                  # 唯一的模型客户端 get_llm()，也负责加载 .env
+│   ├── db.py                   # ★ PostgreSQL 连接 + 统一建表入口
+│   ├── auth.py                 # bcrypt 密码哈希 + JWT 签发校验
+│   └── sse.py                  # SSE 事件打包
+├── databases/                  # 表和读写
+│   ├── db_tenant.py            # 全局身份表 tenants
+│   ├── db_auth.py              # 用户表 users
+│   ├── db_chat.py              # 闲聊表：sessions / messages
+│   ├── db_trip.py              # 出行表：trip_chats / trip_sessions / trip_user_inputs / trip_ai_outputs
+│   └── db_view.py              # 命令行查看工具
+├── modules/                    # 三个业务模块
+│   ├── chat/                   # 闲聊：graph / node / prompts / state / stream / sessions
+│   ├── trip/                   # 智能出行：graph / node / tools / prompts / route / state / stream / understand / cli
+│   └── customer/               # 智能客服（RAG）：graph / node / state / prompts / stream / rag_* / eval
 ├── static/                     # 前端（无构建步骤）
 │   ├── index.html
-│   ├── css/style.css
+│   ├── css/style.css           # 模板原样式
+│   ├── css/modules.css         # 出行卡片、客服气泡、登录页等
 │   └── js/
+│       ├── common/             # 公用：配置、工具、SSE、打字机、多选、中断
+│       ├── auth.js             # 登录页
 │       ├── app.js              # 核心：状态、侧边栏、闲聊、模块切换
 │       ├── trip.js             # 智能出行
 │       └── customer.js         # 智能客服
-├── screenshots/                # README 用的界面截图
-└── config/
-    ├── YOUR_config.env         # 配置模板（入库）
-    ├── .env                    # 真实密钥（已 gitignore，不入库）
-    └── requirements.txt
+├── screenshot/                 # README 用的界面截图
+├── docs/                       # 项目文档（architecture / files / deployment）
+├── config/
+│   ├── YOUR_config.env         # 配置模板（入库）
+│   ├── .env                    # 真实密钥（已 gitignore，不入库）
+│   └── requirements.txt
+├── Dockerfile                  # 镜像构建（python:3.14-slim，非 root，带健康检查）
+└── docker-compose.yml          # 应用 + 数据库两个容器
 ```
 
 ### 关于前端
 
-前端**没有任何构建步骤**。改 `static/css/style.css` 或 `static/js/*.js`，
+前端**没有任何构建步骤**。改 `static/css/*.css` 或 `static/js/*.js`，
 保存后刷新浏览器就能生效，不需要执行任何编译或打包命令。
 
-三个 JS 文件按 `app.js → trip.js → customer.js` 的顺序加载，
-后两个依赖 `app.js` 里的 `$`、`esc`、`md`、`API`、`state` 等全局变量，**调整加载顺序会导致报错**。
+加载顺序是 `common/*.js` → `app.js` → `trip.js` / `customer.js`，
+后面加载的依赖前面定义的全局变量（`$`、`esc`、`md`、`API`、`state` 等），**调整加载顺序会导致报错**。
 详见 `static/README.md`。
 
 后端为了提供静态资源，在 `api/main.py` 里挂载了静态目录：
@@ -745,15 +816,20 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 ```
 
 挂载在 `/static` 前缀下，不会和已有的 `/chat`、`/sessions`、`/trip/...`、`/customer/...` 等路由冲突。
+线上直接访问 <https://ctos2.cn/> 就是同一份页面。
 
 ---
 
 ## 八、安全说明
 
 - 所有密钥都从 `config/.env` 读取，**代码里不写死任何凭据**
-- `.gitignore` 已排除 `config/.env`、`*.env`、`venv/`、`__pycache__/`、`*.sql`、`*.sqlite`、`*.psycopg`、`*.db` 等
+- `.gitignore` 已排除 `config/.env`、`*.env`、`venv/`、`__pycache__/`、`*.sql`、`*.db`、向量库目录、测评结果等
 - 只有配置模板 `config/YOUR_config.env` 会入库，里面有占位符，不含真实值
-- PostgreSQL 数据库文件本身没有访问权限控制，谁拿到谁能读，不要外传
+- **所有业务接口都要登录**：请求头带 `Authorization: Bearer <token>`，未登录返回 401
+- 密码存 bcrypt 哈希；登录失败时不区分「邮箱不存在」和「密码错误」，避免被用来枚举账号
+- **数据库不直接暴露到公网**：Docker 部署时 PostgreSQL 只在内部网络 `ctos2-net` 里，
+  只有 `app` 容器能连
+- HTTPS 由 Cloudflare 提供，应用本身不处理证书
 - 如果不小心把密钥提交进了仓库，**必须立刻去对应平台轮换密钥**。
   删除文件并不能让已泄露的密钥失效，因为提交历史里还留着
 
@@ -761,28 +837,45 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 ## 九、数据库表结构
 
-项目使用 PostgreSQL 数据库：`ctos2`。
-所有模块共用同一个文件、同一套连接函数（`ctOS2_db.open_database()`）。
+项目使用 PostgreSQL 数据库：`ctos2`，共 8 张表。
+所有模块共用同一个数据库、同一套连接函数（`core/db.py` 的 `get_conn()` / `query()` / `execute()`）。
 
-建表入口是 `ctOS2_db.create_all_tables()`，它会依次调用各模块的建表函数。
-建表语句都用了 `CREATE TABLE IF NOT EXISTS`，重复执行是安全的。
+建表入口是 `core/db.py` 的 `create_all_tables()`，它会先建全局身份表 `tenants`，
+再依次调用各模块的建表函数。建表语句都用了 `CREATE TABLE IF NOT EXISTS`，重复执行是安全的。
 
-`open_database()` 每次开连接都会做三件事：打开外键检查 `PRAGMA foreign_keys = ON`、
-开启 WAL 模式、设置 `row_factory` 让查询结果能按列名取值。
-**不要另写第二份开连接的代码**，否则某个模块漏了开外键，就会悄悄出 bug。
+连接层每个操作开一个短连接，用完自动关、出错自动回滚；`transaction()` 把多条写入包成一个事务。
+**不要另写第二份开连接的代码**，所有 SQL 都走 `core/db.py` 提供的函数。
+
+**多租户**：`tenants` 是一切的根，`users` / `sessions` / `trip_chats` / `trip_sessions` 都外键引用它，
+所有业务表都带 `tenant_id` 列。API 层从登录 token 解析出当前租户，一路传下去做数据隔离。
+
+### 9.0 身份：`tenants` / `users`
+
+| 表 | 字段 | 说明 |
+| --- | --- | --- |
+| `tenants` | `id` / `name` / `slug` / `created_at` | 租户，`slug` 唯一；建表时会插入一个 `default` 兜底租户 |
+| `users` | `id` | 主键，自增 |
+| | `tenant_id` | 外键 → `tenants.id`，`ON DELETE CASCADE` |
+| | `email` | 唯一 |
+| | `password_hash` | bcrypt 哈希，**不存明文** |
+| | `display_name` | 显示名，可为空 |
+| | `created_at` / `last_login_at` | 创建时间 / 最近登录时间 |
+
+目前是「一人一户」：一个用户注册时自动创建自己的租户，所以用户和租户是一对一。
 
 ### 9.1 闲聊：`sessions` / `messages`
 
 | 表 | 字段 | 说明 |
 | --- | --- | --- |
 | `sessions` | `id` | 主键，自增 |
+| | `tenant_id` | 所属租户 |
 | | `title` | 会话标题（用户第一句话的前 14 个字） |
-| | `created_at` / `updated_at` | 本地时间，`updated_at` 在每次追加消息时刷新，列表按它倒序 |
+| | `created_at` / `updated_at` | `updated_at` 在每次追加消息时刷新，列表按它倒序 |
 | `messages` | `id` | 主键，自增 |
 | | `session_id` | 外键 → `sessions.id`，`ON DELETE CASCADE` |
 | | `role` | 只能是 `user` 或 `assistant` |
 | | `content` | 消息正文 |
-| | `created_at` | 本地时间 |
+| | `created_at` | 创建时间 |
 
 `messages.session_id` 上有索引 `ix_messages_session_id`。
 
@@ -819,10 +912,11 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 1. 在 `modules/` 下建一个模块目录
 2. 在图里定义状态、节点，然后组装成一张图
-3. 在模块内写一个流式封装文件，对外只暴露一个生成器（参照 `ctOS2_Trip_stream.py` / `ctOS2_customer_stream.py`）
-4. 在 `api/main.py` 里加一个路由，把生成器塞进 `StreamingResponse`
-5. 在前端加一个面板和请求逻辑（参照 `static/js/trip.js` / `customer.js`）
-6. 要存数据的话，在 `databases/` 下加一个 `db_xxx.py`（命名参照现有的 `db_chat.py` / `db_trip.py`），并把它的建表函数加进 `core/db.py` 的 `create_all_tables()`
+3. 在模块内写一个流式封装文件，对外只暴露一个生成器（参照 `modules/trip/stream.py` 里的 `trip_stream` / `modules/customer/stream.py` 里的 `customer_stream`）
+4. 在 `api/main.py` 里加一个路由，把生成器塞进 `StreamingResponse`；**记得像别的业务路由一样调 `tenant_of(authorization)`**，否则新接口会绕过登录和数据隔离
+5. 在前端加一个面板和请求逻辑（参照 `static/js/trip.js` / `customer.js`），并把新视图加进 `static/js/common/config.js` 的 `VIEW_ORDER`
+6. 要存数据的话，在 `databases/` 下加一个 `db_xxx.py`（命名参照现有的 `db_chat.py` / `db_trip.py`），表里带上 `tenant_id`，并把它的建表函数加进 `core/db.py` 的 `create_all_tables()`
+7. 上线：走 `docker compose build` + `up -d`（线上环境见部署文档）
 
 模块之间应该保持独立：各自的图、各自的提示词、各自的配置读取。
 共享的只有 FastAPI 应用、端口、会话接口和数据库连接层。
@@ -839,14 +933,17 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 - **优化切块策略**：调整 `MAX_CHUNK_CHARS`，或在切块时保留更多上下文
 
 这些改动都集中在 `rag_search.py`（检索三层）和 `rag_ingest.py`（切块入库）里，不影响图的其它部分。
+改完用 `python -X utf8 -m modules.customer.rag_eval` 跑一遍 40 题测评，对比改动前后的命中率。
 
-### 让智能客服记住上下文
+### 智能客服的多轮是怎么做的
 
-目前客服是「一问一答、不带历史」。如果要改成多轮：
+客服已经支持追问：前端把最近几轮对话放进请求体的 `history` 里，
+`retrieve` 节点用「上一轮问题 + 当前问题」拼成检索串，`generate` 节点把最近 3 轮对话拼进提示词。
+两个关键点都在 `node.py`：
 
-1. 在 `agent_state.py` 里加一个 `history` 字段
-2. 在 `ctOS2_customer_stream.py` 里接收历史并写进初始状态
-3. 在 `agent_node.py` 的提示词里拼上历史
-4. 在 `api/main.py` 的 `CustomerRequest` 里加上 `history` 字段，前端跟着传
+- 检索串合并（`_build_search_query`）：解决「那它怎么配」这类没有主语的追问搜不到东西
+- 历史截断（`HISTORY_TURNS = 3`）：历史太长会挤占上下文
 
-如果还要把客服问答存进会话记录，就再参照闲聊的做法加表。注意：这会改变「客服不留记录」的现有设计意图。
+目前客服问答**不落库**。如果要把问答也存进会话记录，参照闲聊的做法在 `databases/` 下加表，
+并把建表函数加进 `core/db.py` 的 `create_all_tables()`。
+注意：这会改变「客服不留记录」的现有设计意图。

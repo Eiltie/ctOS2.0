@@ -13,33 +13,39 @@
 ```
 ctOS2.0/
 ├── api/
-│   └── main.py            ← 唯一入口，所有路由都在这里
+│   ├── main.py            ← 唯一入口，所有业务路由都在这里
+│   └── routes/auth.py     ← 认证路由 /auth/*
 ├── core/                  ← 跨模块共用
 │   ├── llm.py             ← 唯一的 get_llm()
 │   ├── sse.py             ← sse() 事件打包
+│   ├── auth.py            ← 密码哈希 + JWT
 │   └── db.py              ← 开连接 + 建表总入口
 ├── databases/             ← 各模块的表和增删改查
 │   ├── db_tenant.py       ← 全局身份表 tenants（谁都不依赖它，它也不依赖谁）
+│   ├── db_auth.py         ← 账号 users
 │   ├── db_chat.py
 │   ├── db_trip.py
-│   ├── db_view.py         ← 命令行查看工具
-│   └── ctOS2_db.db        ← 数据文件在这
+│   └── db_view.py         ← 命令行查看工具
+│   （数据在 PostgreSQL 里，不在仓库中；线上在 ctos2-db 容器的命名卷 ctos2-pgdata）
 ├── modules/
 │   ├── chat/              ← 闲聊（graph/node/state/prompts/stream/sessions）
 │   ├── trip/              ← 出行（graph/node/tools/prompts/route/state/stream/cli）
 │   └── customer/          ← 客服（graph/node/state/prompts/stream + rag_* + data/）
 ├── static/                ← 前端（无构建步骤）
 ├── docs/                  ← 本文档
-└── config/                ← .env、requirements.txt
+├── config/                ← .env、requirements.txt
+├── Dockerfile             ← 镜像怎么打
+└── docker-compose.yml     ← app + db 两个容器怎么起来（线上就是这套）
 ```
 
 ### 请求流向
 
 ```
-浏览器 static/index.html
+浏览器 static/index.html   （本地 127.0.0.1:8080 / 线上 https://ctos2.cn）
         │
         ▼
 api/main.py          ← 唯一入口，所有路由都在这里
+   │  ↑ 每个业务请求先进 auth，从 token 取出 tenant_id
    │
    ├─ POST /chat      ──→ 闲聊    纯文本流
    ├─ POST /trip/chat ──→ 出行    SSE 事件流
@@ -60,7 +66,7 @@ POST /chat
    │
    ├─ run_graph()              modules/chat/stream.py    ← 模块对外唯一出口
    │     └─ 图：START → chat_node → END
-   │          └─ ctOS_chat_node()   modules/chat/node.py
+   │          └─ ctOS_chat_node()   modules/chat/node.py（函数名和文件名对不上，就是这个文件）
    │                └─ 系统提示词    modules/chat/prompts.py
    │                └─ get_llm(temperature=0.7)  core/llm.py
    │

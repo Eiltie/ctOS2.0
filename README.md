@@ -2,6 +2,8 @@
 
 一个 FastAPI + LangGraph 的多模块 AI 应用：**闲聊对话**、**智能出行规划**、**RAG 智能客服**，三种能力跑在同一个服务、同一个端口、同一个前端页面里，数据存 PostgreSQL。
 
+**线上地址：<https://ctos2.cn>**（也可用 `www.ctos2.cn`）——注册账号后直接就能用，不用本地部署。
+
 支持 Docker 一键部署，也可以在本地直接运行。
 
 ---
@@ -41,6 +43,11 @@
 ---
 
 ## 快速开始
+
+### 方式零：直接用线上版（什么都不用装）
+
+打开 <https://ctos2.cn>，注册一个账号就能用三个模块。这是用下面的 Docker 方式部署上去的，
+代码和本地跑完全一致。
 
 ### 方式一：Docker（推荐）
 
@@ -227,7 +234,7 @@ python -X utf8 -m modules.trip.cli
 | 向量库 | Chroma |
 | 检索 | jieba + BM25 + 向量混合 |
 | 认证 | JWT + bcrypt |
-| 部署 | Docker + Docker Compose |
+| 部署 | Docker + Docker Compose，Cloudflare 托管域名与 TLS |
 | 前端 | 原生 JS，无构建步骤 |
 
 ---
@@ -266,6 +273,7 @@ python -X utf8 -m modules.trip.cli
 | 代码怎么流转（请求地图） | [docs/architecture.md](docs/architecture.md) |
 | 每个文件做什么 | [docs/files.md](docs/files.md) |
 | 怎么部署（Docker / 本地） | [docs/deployment.md](docs/deployment.md) |
+| 线上是怎么上线的、怎么更新 | [docs/deployment.md](docs/deployment.md) 第九节 |
 | 前端怎么组织 | [static/README.md](static/README.md) |
 
 ---

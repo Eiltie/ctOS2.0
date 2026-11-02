@@ -10,12 +10,12 @@
 
 | 文件 | 行数 | 职责 |
 | --- | --- | --- |
-| `README.md` | 241 | 项目说明：怎么装、怎么跑、怎么用 |
+| `README.md` | 180 | 项目说明：线上地址、怎么装、怎么跑、怎么用 |
 | `LICENSE` | 17 | MIT 协议 |
-| `Dockerfile` | 48 | 怎么把项目打包成镜像（Python 环境、装依赖、启动命令） |
-| `docker-compose.yml` | 78 | 怎么把「应用 + 数据库」两个容器组起来跑 |
-| `.dockerignore` | 45 | 构建镜像时排除哪些文件（venv、密钥、数据库） |
-| `.gitignore` | 78 | 哪些文件不进 git（密钥、数据库、缓存） |
+| `Dockerfile` | 40 | 怎么把项目打包成镜像（Python 环境、装依赖、启动命令） |
+| `docker-compose.yml` | 69 | 怎么把「应用 + 数据库」两个容器组起来跑 |
+| `.dockerignore` | 39 | 构建镜像时排除哪些文件（venv、密钥、数据库） |
+| `.gitignore` | 73 | 哪些文件不进 git（密钥、数据库、缓存） |
 
 > **配置只有一份**：`config/.env`。根目录不放 `.env`，
 > Docker 用 `--env-file config/.env` 指定，代码用 `load_dotenv` 读同一份。
@@ -124,7 +124,7 @@ modules/<模块名>/
 | `prompts.py` | 267 | **6 个提示词**：需求解析、天气总结、景点、行程、路线、对话理解 |
 | `tools.py` | 288 | **三个外部工具**：`get_weather`（Open-Meteo）、`web_search`（DeepSeek）、`get_directions`（高德） |
 | `route.py` | 10 | 条件路由：景点搜够了就去 planner，没够就继续搜 |
-| `stream.py` | 175 | 对外出口 `trip_stream()`，把图的事件转成 7 种 SSE |
+| `stream.py` | 180 | 对外出口 `trip_stream()`，把图的事件转成 7 种 SSE |
 | **`understand.py`** | 28 | **需求解析**：判断「这句是出行需求还是闲聊」，合并多轮需求 |
 | `cli.py` | 73 | **终端调试入口**，只有手动运行才用到 |
 
@@ -165,9 +165,9 @@ modules/<模块名>/
 
 | 文件 | 行数 | 职责 |
 | --- | --- | --- |
-| `index.html` | 164 | 页面结构（登录页 + 主界面） |
+| `index.html` | 162 | 页面结构（登录页 + 主界面） |
 | `css/style.css` | 145 | 模板原样式：光标光晕、呼吸滚动条、全息光幕 |
-| `css/modules.css` | 619 | 模板之外新增：出行卡片、客服气泡、登录页、多选操作条 |
+| `css/modules.css` | 617 | 模板之外新增：出行卡片、客服气泡、登录页、多选操作条 |
 
 ### `js/common/` —— 跨模块公用
 
@@ -187,18 +187,9 @@ modules/<模块名>/
 
 | 文件 | 行数 | 职责 |
 | --- | --- | --- |
-| `app.js` | 433 | **闲聊 + 视图切换 + 启动**。全局 `state` 也定义在这里 |
-| `trip.js` | 645 | 出行：四段卡片、进度条、出行记录 |
-| `customer.js` | 145 | 客服：一问一答，本地维护上下文 |
-
-### 开发工具
-
-| 文件 | 行数 | 职责 |
-| --- | --- | --- |
-| `_selftest.html` | 154 | 前端自检页：检查所有函数是否就绪 |
-| `_selftest_sidebar.html` | 60 | 侧栏切换验证页 |
-
-**访问**：`http://127.0.0.1:8080/static/_selftest.html`
+| `app.js` | 405 | **闲聊 + 视图切换 + 启动**。全局 `state` 也定义在这里 |
+| `trip.js` | 616 | 出行：四段卡片、进度条、出行记录 |
+| `customer.js` | 138 | 客服：一问一答，本地维护上下文 |
 
 ---
 
@@ -211,7 +202,7 @@ modules/<模块名>/
 | `config/requirements.txt` | Python 依赖清单 |
 | `docs/architecture.md` | 请求地图：用户点一下，代码经过哪些文件 |
 | `docs/files.md` | **本文档**：每个文件做什么 |
-| `docs/deployment.md` | Docker 部署详细说明 |
+| `docs/deployment.md` | 部署说明：线上实例、Docker、本地运行、上线流程 |
 
 ---
 
@@ -228,8 +219,9 @@ modules/<模块名>/
 | 改前端样式 | `static/css/modules.css` |
 | 改前端逻辑 | `static/js/app.js`（闲聊）/ `trip.js` / `customer.js` |
 | 加公用前端函数 | `static/js/common/` 下新建文件，并在 `index.html` 里按顺序引入 |
-| 改端口 | 环境变量 `PORT`（容器）/ `api/main.py` 底部（本地） |
+| 改端口 | 环境变量 `PORT`（容器/线上）/ `api/main.py` 底部（本地） |
 | 改数据库连接 | `config/.env` 的 `PG_*` 变量 |
+| 上线 / 更新线上 | 见 [deployment.md](deployment.md) 第九节 |
 
 ---
 
@@ -237,19 +229,17 @@ modules/<模块名>/
 
 | 文件 | 行数 |
 | --- | --- |
-| `static/js/trip.js` | 645 |
-| `static/css/modules.css` | 619 |
-| `static/js/app.js` | 433 |
-| `modules/trip/tools.py` | 288 |
-| `databases/db_view.py` | 283 |
-| `modules/trip/prompts.py` | 267 |
-| `README.md` | 241 |
-| `databases/db_trip.py` | 218 |
-| `docs/architecture.md` | 193 |
-| `modules/customer/rag_eval.py` | 184 |
-| `modules/trip/stream.py` | 175 |
-| `static/README.md` | 172 |
+| `static/css/modules.css` | 617 |
+| `static/js/trip.js` | 616 |
+| `static/js/app.js` | 405 |
+| `modules/trip/tools.py` | 293 |
+| `databases/db_view.py` | 279 |
+| `modules/trip/prompts.py` | 271 |
+| `databases/db_trip.py` | 212 |
+| `docs/architecture.md` | 195 |
+| `modules/customer/rag_eval.py` | 188 |
+| `modules/trip/stream.py` | 180 |
 | `api/main.py` | 164 |
-| `static/index.html` | 164 |
+| `static/index.html` | 162 |
 
-**如果一个文件超过 500 行，考虑拆分。** 目前只有两个前端文件超标（都是历史积累），后端都在合理范围。
+**如果一个文件超过 500 行，考虑拆分。** 目前只有两个前端文件超标（`trip.js`、`modules.css`，都是历史积累），后端都在合理范围。

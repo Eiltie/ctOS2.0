@@ -4,6 +4,27 @@
 
 ---
 
+## 〇、线上实例
+
+项目已上线，**随时可以打开看**：
+
+| 项 | 值 |
+| --- | --- |
+| 访问地址 | <https://ctos2.cn>（裸域和 `www.ctos2.cn` 都能访问，页面完全一致） |
+| 健康检查 | <https://ctos2.cn/health> → `{"ok":true,"database":"ctos2","user":"ctos_app"}` |
+| 链路 | 浏览器 → Cloudflare（TLS / CDN）→ 服务器上的 `ctos2-app` 容器（8080）→ `ctos2-db` 容器（PostgreSQL 17） |
+| 访问方式 | 进入页面先注册账号（一人一户，数据按租户隔离），然后即可用三个模块 |
+
+> Cloudflare 默认**不缓存** HTML/SSE，`cf-cache-status` 是 `DYNAMIC`，流式输出不受影响。
+
+**线上和本地唯一的区别是域名和 TLS**：应用代码、Dockerfile、Compose 文件都完全一样，
+容器内部仍然监听 `0.0.0.0:8080`，HTTPS 由 Cloudflare 那一层负责。
+
+**线上体感的前提**：服务器上 `config/.env` 里的密钥必须有效（DeepSeek / 智谱 / 高德），
+且账户有余额。缺密钥或余额不足时，对应模块会返回「这次没跑通」。
+
+---
+
 ## 一、Docker 部署（推荐）
 
 ### 前提
@@ -211,6 +232,13 @@ http://192.168.1.247:8080/
 
 ## 七、常见问题
 
+### 线上打不开 / 打开是旧页面
+
+1. 先访问 <https://ctos2.cn/health>：有 `{"ok":true,...}` 说明应用本身活着，问题在域名或 CDN 层
+2. 没响应就看服务器上容器状态：`docker compose --env-file config/.env ps`
+3. Cloudflare 里确认 `ctos2.cn` 和 `www.ctos2.cn` 两条 DNS 记录都在，并且是**已代理**（橙云）
+4. 改了代码上线后看到的还是旧页面，先强制刷新（Ctrl+F5）；HTML 不被 CDN 缓存，一般刷新即可
+
 ### 容器起不来
 
 ```powershell
@@ -262,3 +290,70 @@ docker exec ctos2-app python -m core.db
 | **改代码后重建** | **约 20 秒** | 依赖层命中缓存 |
 
 **为什么用阿里云 pip 源：** 走 PyPI 官方源在国内要几十分钟。
+
+---
+
+## 九、上线流程（线上 www.ctos2.cn 就是这样上线的）
+
+代码和配置都在本地改，**上线只做一件事：把改动同步到服务器再重建容器**。
+
+```powershell
+# 1. 本地确认能跑（可选，但推荐）
+docker compose --env-file config/.env up -d
+#    浏览器打开 http://127.0.0.1:8080/ 自测三个模块
+
+# 2. 改完提交
+git add -A
+git commit -m "说明改了什么"
+
+# 3. 把代码同步到服务器（按你的实际方式二选一）
+#    git 方式：服务器上 git pull
+#    镜像方式：本地 docker compose build 后，把镜像推到仓库再在服务器 pull
+#    （.dockerignore 保证 venv/、config/.env、向量库、数据库文件都不会进镜像）
+
+# 4. 服务器上重建并重启
+docker compose --env-file config/.env build
+docker compose --env-file config/.env up -d
+
+# 5. 验证
+curl https://ctos2.cn/health
+# 期望：{"ok":true,"database":"ctos2","user":"ctos_app"}
+```
+
+**上线前必须检查的三件事：**
+
+| 检查 | 为什么 |
+| --- | --- |
+| 服务器上的 `config/.env` 是最新的 | 密钥只在服务器上有一份，本地改了不会自动同步过去 |
+| 服务器上的 `modules/customer/data/chroma/` 存在 | 向量库是目录挂载，**不进镜像**，服务器第一次部署必须先跑一次入库脚本 |
+| 服务器上跑过 `python -m core.db` | 建表是一次性的，没建表的话注册登录会直接报错 |
+
+**线上第一次部署的完整步骤：**
+
+```bash
+# 1. 拉代码到服务器
+git clone <仓库地址> && cd ctOS2.0
+
+# 2. 准备配置
+cp config/YOUR_config.env config/.env    # 填好密钥
+
+# 3. 起容器
+docker compose --env-file config/.env up -d
+
+# 4. 建表（一次性）
+docker exec ctos2-app python -m core.db
+
+# 5. 知识库入库（一次性，结果落进挂载的 chroma 目录）
+docker exec ctos2-app python -m modules.customer.rag_ingest
+
+# 6. 验证
+curl http://127.0.0.1:8080/health
+```
+
+**域名和 TLS**：在域名商处把 `ctos2.cn` 和 `www.ctos2.cn` 都指向服务器 IP，
+这两条记录都在 Cloudflare 里托管（走代理），HTTPS 证书由 Cloudflare 自动签发和续期，
+应用本身**不需要**配任何证书或反向代理。
+
+**改知识库要重新入库**：线上改了 `modules/customer/data/docs/*.md` 之后，
+必须重跑 `docker exec ctos2-app python -m modules.customer.rag_ingest` 并**重启应用容器**，
+否则客服读到的还是内存里的旧知识库。
