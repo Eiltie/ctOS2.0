@@ -95,6 +95,10 @@
             <div class="status-row"><span>状态</span><span class="status-online"><span class="status-dot"></span> 在线</span></div>
             <div class="status-row"><span>模型</span><span class="status-value" id="foot-model">deepseek-v4-flash</span></div>
             <div class="status-row"><span>端点</span><span class="status-value" id="foot-endpoint">POST /chat</span></div>
+            <!-- 反馈入口（桌面端侧栏）。不需要了删掉这个按钮 -->
+            <button id="feedback-entry" class="feedback-entry" type="button" onclick="openFeedback()">
+                <span class="fe-ic">💬</span> 提交反馈
+            </button>
             <button class="logout-btn" onclick="logout()">退出登录</button>
         </div>
     </div>
@@ -185,6 +189,43 @@
     </div>
     </div><!-- /#app-root -->
 
+    <!-- ===== 反馈（独立功能，不需要了整块删掉）===== -->
+
+    <!-- 手机端浮标：侧栏是抽屉，入口放在这里才找得到 -->
+    <button id="feedback-fab" class="feedback-fab" type="button" onclick="openFeedback()" aria-label="提交反馈">
+        💬
+    </button>
+
+    <div id="feedback-modal" class="feedback-modal">
+        <div class="fb-box">
+            <h3 class="fb-title">提交反馈</h3>
+            <p class="fb-sub">欢迎留下你的意见与建议，将用于项目改进</p>
+
+            <div class="fb-moods">
+                <button class="fb-mood" type="button" onclick="pickRating(this, '很满意')">很满意</button>
+                <button class="fb-mood" type="button" onclick="pickRating(this, '满意')">满意</button>
+                <button class="fb-mood" type="button" onclick="pickRating(this, '一般')">一般</button>
+                <button class="fb-mood" type="button" onclick="pickRating(this, '不太满意')">不太满意</button>
+            </div>
+
+            <textarea id="feedback-content" class="fb-input" maxlength="500"
+                      placeholder="请描述你遇到的问题或建议"
+                      oninput="updateFeedbackCount()"></textarea>
+            <div id="feedback-count" class="fb-count">0 / 500</div>
+
+            <div class="fb-label">联系方式<span class="fb-opt">（选填，方便回访）</span></div>
+            <input id="feedback-contact" class="fb-input" maxlength="100" placeholder="邮箱或联系方式">
+
+            <div id="feedback-error" class="fb-error"></div>
+
+            <div class="fb-actions">
+                <button class="fb-btn ghost" type="button" onclick="closeFeedback()">取消</button>
+                <button id="feedback-submit" class="fb-btn primary" type="button" onclick="submitFeedback()">提交</button>
+            </div>
+        </div>
+    </div>
+    <!-- ===== 反馈结束 ===== -->
+
     <!-- 加载顺序不能乱：
          1. common/ 里都是无状态工具，先加载
          2. app.js 定义全局 state 和闲聊逻辑
@@ -198,6 +239,7 @@
     <script src="/static/js/common/selection.js"></script>
     <script src="/static/js/common/sticky.js"></script>
     <script src="/static/js/common/aura.js"></script>
+    <script src="/static/js/common/feedback.js"></script>
     <script src="/static/js/app.js"></script>
     <script src="/static/js/trip.js"></script>
     <script src="/static/js/customer.js"></script>

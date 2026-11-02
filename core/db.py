@@ -142,6 +142,7 @@ def create_all_tables():
         ("databases.db_chat", "create_chat_tables"),
         ("databases.db_auth", "create_user_tables"),
         ("databases.db_trip", "create_trip_tables"),
+        ("databases.db_feedback", "create_feedback_tables"),
     )
     for module_path, func_name in module_builders:
         try:
