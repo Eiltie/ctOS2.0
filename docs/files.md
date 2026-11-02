@@ -10,7 +10,7 @@
 
 | 文件 | 行数 | 职责 |
 | --- | --- | --- |
-| `README.md` | 180 | 项目说明：线上地址、怎么装、怎么跑、怎么用 |
+| `README.md` | 182 | 项目说明：线上地址、怎么装、怎么跑、怎么用 |
 | `LICENSE` | 17 | MIT 协议 |
 | `Dockerfile` | 40 | 怎么把项目打包成镜像（Python 环境、装依赖、启动命令） |
 | `docker-compose.yml` | 69 | 怎么把「应用 + 数据库」两个容器组起来跑 |
@@ -28,10 +28,27 @@
 
 | 文件 | 行数 | 职责 |
 | --- | --- | --- |
-| `main.py` | 164 | **唯一入口**。定义所有路由（`/chat`、`/trip/*`、`/customer/*`、`/sessions`、`/health`），挂载静态文件。每个业务接口都从这里取 `tenant_id` 做隔离 |
+| `main.py` | 192 | **唯一入口**。定义所有路由（`/chat`、`/trip/*`、`/customer/*`、`/sessions`、`/health`），挂载静态文件。每个业务接口都从这里取 `tenant_id` 做隔离。`NoCacheStaticFiles` 给静态文件发 `no-cache`，避免 CDN 缓存旧样式 |
 | `routes/auth.py` | 118 | 注册、登录、查当前用户。`current_tenant()` 是所有接口的数据隔离入口 |
+| `routes/trial.py` | 71 | **预设账号**：`POST /auth/trial` 一键建测试账号并登录（见下方说明） |
 
 **读代码的顺序**：先看 `main.py` 的路由列表，知道有哪些接口，再按需跳进去。
+
+### `routes/trial.py`：预设账号（可整块删除）
+
+让面试官/访客不用注册就能点进去的入口。点登录页的「用预设账号体验」时，
+后端新建一个独立账号（统一邮箱 `trial_<16位随机>@ctos-trial.local`）并直接返回 token。
+
+它**不碰任何现有逻辑**：账号走的是 `create_user()`，所以租户隔离、会话读写全部照常工作。
+
+**不需要了怎么删**（三处引用）：
+
+1. `api/main.py`：`from api.routes.trial import ...` 那一行 + `app.include_router(trial_router)` 那一行
+2. `static/index.html`：登录页里 `login-divider` / `login-trial` / `login-trial-hint` 那一段
+3. `static/js/common/auth.js`：`loginAsTrial()` 函数
+
+删完项目行为和加这个文件之前完全一样。测试账号以后要清理的话：
+`DELETE FROM users WHERE email LIKE '%@ctos-trial.local'`。
 
 ---
 

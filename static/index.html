@@ -46,6 +46,13 @@
                         onclick="switchLoginMode(document.getElementById('login-submit').dataset.mode === 'register' ? 'login' : 'register')">
                     还没有账号？去注册
                 </button>
+
+                <!-- 预设账号：一键体验，不需要注册。不需要了删掉这个块即可 -->
+                <div class="login-divider"><span>或</span></div>
+                <button id="login-trial" class="login-trial-btn" type="button" onclick="loginAsTrial()">
+                    用预设账号体验（无需注册）
+                </button>
+                <p class="login-trial-hint">会创建一个临时测试账号，三秒进入完整功能</p>
             </div>
         </div>
     </div>

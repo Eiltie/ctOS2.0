@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from langchain_core.messages import HumanMessage
 
 from api.routes.auth import current_tenant, router as auth_router
+from api.routes.trial import router as trial_router          # 预设账号（可删，见该文件头）
 from modules.chat.stream import run_graph
 from modules.trip.stream import trip_stream
 from modules.customer.stream import customer_stream
@@ -33,10 +34,39 @@ app = FastAPI(title="ctOS 2.0")
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+class NoCacheStaticFiles(StaticFiles):
+    """静态文件：每次都让浏览器/CDN 回源确认有没有更新。
+
+    为什么要覆写：
+      默认的 StaticFiles 只发 ETag 和 Last-Modified。Cloudflare 会把
+      /static/*.css 这类文件缓存 4 小时（max-age=14400），
+      结果就是「代码改了、源站是新的，但用户看到的还是旧样式」——
+      改完前端上线，界面上却是白底黑字的默认按钮。
+
+    这里显式发 Cache-Control: no-cache：
+      - no-cache 不是「不缓存」，而是「用之前必须先问源站」
+      - 配合 ETag，没变化时源站回 304，几乎不耗流量，速度不受影响
+      - 一旦文件变了，立刻拿到新版本
+
+    代价：每次请求多一次 304 往返。这个项目是给人演示用的，
+    新鲜度比这点开销重要得多。
+    """
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+        return response
+
+
+app.mount("/static", NoCacheStaticFiles(directory=STATIC_DIR), name="static")
 
 # 认证路由：/auth/register、/auth/login、/auth/me
 app.include_router(auth_router)
+
+# 预设账号：POST /auth/trial（一键创建测试账号并登录）
+# 不需要了就删掉这两行 + api/routes/trial.py，其余代码不受影响
+app.include_router(trial_router)
 
 
 class ChatRequest(BaseModel):
@@ -207,8 +237,15 @@ async def health():
 
 @app.get("/", include_in_schema=False)
 async def index():
-    """返回前端入口页 index.html。"""
-    return FileResponse(STATIC_DIR / "index.html")
+    """返回前端入口页 index.html。
+
+    同样加 no-cache：HTML 一旦被 CDN 缓存，改版后用户看到的还是旧页面，
+    /static 下面的新脚本也就用不上。
+    """
+    return FileResponse(
+        STATIC_DIR / "index.html",
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
 
 
 if __name__ == "__main__":

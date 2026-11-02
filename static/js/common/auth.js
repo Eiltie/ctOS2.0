@@ -102,6 +102,36 @@ function loginError(text){
   el.style.display = text ? "block" : "none";
 }
 
+// 预设账号：一键创建测试账号并登录（不需要用户填任何东西）
+//
+// 后端 /auth/trial 会新建一个独立账号（统一邮箱格式），
+// 数据完全隔离，和正常注册的账号用起来一模一样。
+//
+// 不需要这个功能时：删掉这个函数 + index.html 里的按钮块 + api/routes/trial.py
+async function loginAsTrial(){
+  const btn = document.getElementById("login-trial");
+  if (btn){ btn.disabled = true; btn.textContent = "正在准备测试账号..."; }
+  loginError("");
+
+  try{
+    const res = await fetch("/auth/trial", { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok){
+      loginError(data.detail || "创建测试账号失败，请稍后再试");
+      return;
+    }
+
+    saveAuth(data.token, data.user);
+    showApp();
+    if (typeof onLoginSuccess === "function") onLoginSuccess();
+  }catch(e){
+    loginError("网络错误：" + (e && e.message ? e.message : e));
+  }finally{
+    if (btn){ btn.disabled = false; btn.textContent = "用预设账号体验（无需注册）"; }
+  }
+}
+
 // 切换登录 / 注册表单
 function switchLoginMode(mode){
   const isRegister = mode === "register";
@@ -180,7 +210,14 @@ function logout(){
 function renderUserBadge(){
   const el = document.getElementById("user-email");
   if (!el) return;
+
   const u = currentUser();
-  el.textContent = u && u.email ? u.email : "";
-  el.title = u && u.email ? u.email : "";
+  const email = (u && u.email) ? u.email : "";
+
+  // 预设账号的邮箱是 trial_<16位随机串>@ctos-trial.local，太长会把侧栏撑开，
+  // 统一显示成「预设账号」，完整邮箱放进 title，鼠标悬停还能看到。
+  const isTrial = (u && u.is_trial) || email.endsWith("@ctos-trial.local");
+
+  el.textContent = isTrial ? "预设账号" : email;
+  el.title = isTrial ? "预设账号（" + email + "）" : email;
 }

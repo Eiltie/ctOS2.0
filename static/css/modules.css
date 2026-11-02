@@ -653,6 +653,58 @@
   color: #00e5ff;
 }
 
+/* ===== 预设账号：一键体验（不需要了连同 index.html 里的按钮块一起删） ===== */
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0 14px;
+  font-size: 11px;
+  color: #3d5262;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(0, 229, 255, 0.12);
+}
+
+.login-trial-btn {
+  width: 100%;
+  padding: 11px;
+  background: transparent;
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  border-radius: 7px;
+  color: #00e5ff;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.login-trial-btn:hover:not(:disabled) {
+  background: rgba(0, 229, 255, 0.08);
+  border-color: rgba(0, 229, 255, 0.6);
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.15);
+}
+
+.login-trial-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.login-trial-hint {
+  margin: 9px 0 0;
+  text-align: center;
+  font-size: 11px;
+  color: #3d5262;
+  line-height: 1.5;
+}
+
 /* 侧栏底部的退出按钮 */
 .logout-btn {
   margin-top: 10px;
