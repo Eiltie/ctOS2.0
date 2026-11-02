@@ -238,7 +238,7 @@ python -X utf8 -m modules.trip.cli
 | 检索 | jieba + BM25 + 向量混合 |
 | 认证 | JWT + bcrypt |
 | 部署 | Docker + Docker Compose，Cloudflare 托管域名与 TLS |
-| 前端 | 原生 JS，无构建步骤 |
+| 前端 | 原生 JS，无构建步骤；手机端做了基础适配（侧栏收成抽屉） |
 
 ---
 

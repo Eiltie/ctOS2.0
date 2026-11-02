@@ -2,7 +2,9 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- viewport-fit=cover：让页面能铺到刘海屏边缘，配合 CSS 里的 env(safe-area-inset-*)
+         不写的话 iPhone 会自动留出白边，底部输入框会被顶上去 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>ctOS 2.0</title>
 
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><text y='19' font-size='19'>%E2%9A%A1</text></svg>" />
@@ -59,6 +61,14 @@
 
     <!-- 主界面：登录后才显示 -->
     <div id="app-root" class="app-root">
+
+    <!-- 手机上侧栏收成抽屉，用这个按钮展开；桌面上被 CSS 隐藏 -->
+    <button id="sidebar-toggle" class="sidebar-toggle" onclick="toggleSidebar()" aria-label="会话记录">
+        <span></span><span></span><span></span>
+    </button>
+
+    <!-- 抽屉打开时盖在内容上的半透明遮罩，点它关闭 -->
+    <div id="sidebar-mask" class="sidebar-mask" onclick="closeSidebar()"></div>
 
     <div class="sidebar">
         <div class="sidebar-header">

@@ -462,6 +462,37 @@ document.querySelectorAll(".quick-prompts .prompt-btn").forEach((btn) => {
 });
 
 
+// ===== 手机端侧栏抽屉 =====
+// 桌面上侧栏常驻，这两个函数不起作用（CSS 里 .sidebar-toggle 只在窄屏显示）。
+// 手机上侧栏默认滑出屏幕，点汉堡按钮滑入，点遮罩或选中会话后收回。
+
+function openSidebar(){
+  document.body.classList.add("sidebar-open");
+}
+
+function closeSidebar(){
+  document.body.classList.remove("sidebar-open");
+}
+
+function toggleSidebar(){
+  if (document.body.classList.contains("sidebar-open")) closeSidebar();
+  else openSidebar();
+}
+
+// 手机上选中一个会话后自动收起侧栏，把屏幕让给对话
+document.addEventListener("click", (e) => {
+  if (e.target.closest("#history-chat .history-item") ||
+      e.target.closest("#history-trip .history-item")){
+    closeSidebar();
+  }
+});
+
+// 窗口变宽（横屏/旋转回桌面宽度）时，保证回到「侧栏常驻」状态
+window.addEventListener("resize", () => {
+  if (window.innerWidth > 768) closeSidebar();
+});
+
+
 // ===== 启动 =====
 
 // 登录成功后要重置界面：清掉上一个用户的残留数据

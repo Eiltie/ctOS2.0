@@ -733,3 +733,229 @@
   height: 100%;
   overflow: hidden;
 }
+
+
+/* ============================================================
+   手机端适配（宽度 ≤ 768px）
+   ------------------------------------------------------------
+   桌面端的样式一行不动，所有改动都包在媒体查询里。
+   目标是「能用」，不是「精致」：
+     - 侧栏收成抽屉，点汉堡按钮滑出
+     - 主区占满屏幕
+     - 输入框字号 16px（小于 16px iOS 会自动放大页面）
+     - 用 dvh 代替 vh，软键盘弹出时布局跟着缩，输入框不会被顶出屏幕
+   ============================================================ */
+
+/* 汉堡按钮和遮罩：桌面上不存在 */
+.sidebar-toggle { display: none; }
+.sidebar-mask { display: none; }
+
+
+@media (max-width: 768px) {
+
+  /* ---------- 1. 视口高度：100dvh 跟着地址栏/软键盘变化 ---------- */
+  html, body { height: 100dvh; }
+
+  /* 防止 iOS 双击放大后回不去 */
+  body { touch-action: manipulation; }
+
+  /* ---------- 2. 侧栏改成抽屉 ---------- */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(280px, 82vw);
+    z-index: 200;
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    /* 刘海屏左侧留白 */
+    padding-left: env(safe-area-inset-left);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.6);
+  }
+
+  body.sidebar-open .sidebar { transform: translateX(0); }
+
+  /* 抽屉打开时把汉堡按钮藏起来，否则会盖住侧栏的 logo */
+  body.sidebar-open .sidebar-toggle {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* 抽屉打开时的遮罩 */
+  .sidebar-mask {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 190;
+    background: rgba(0, 0, 0, 0.6);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s;
+  }
+
+  body.sidebar-open .sidebar-mask {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* 汉堡按钮：固定在左上角 */
+  .sidebar-toggle {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    position: fixed;
+    top: calc(10px + env(safe-area-inset-top));
+    left: 10px;
+    z-index: 300;
+    width: 36px;
+    height: 36px;
+    padding: 0 8px;
+    border-radius: 8px;
+    background: rgba(13, 17, 23, 0.92);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+    transition: opacity 0.2s;
+  }
+
+  .sidebar-toggle span {
+    display: block;
+    height: 2px;
+    background: var(--cyan);
+    border-radius: 1px;
+    transition: 0.2s;
+  }
+
+  /* ---------- 3. 主区占满、给汉堡按钮让位 ---------- */
+  .main-content {
+    width: 100%;
+    padding-top: env(safe-area-inset-top);
+  }
+
+  /* 顶部导航：汉堡按钮占了左边，给 tab 让出位置 */
+  .top-nav {
+    height: 54px;
+    padding: 0 8px 0 54px;
+    gap: 6px;
+  }
+
+  .nav-tabs {
+    flex: 1;
+    min-width: 0;
+    padding: 3px;
+    gap: 2px;
+  }
+
+  .nav-tab {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 4px;
+    font-size: 12px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* 右上角的状态标签和「新会话」在手机上没地方放，隐藏状态标签 */
+  .nav-status { gap: 6px; flex-shrink: 0; }
+  .tag-status { display: none !important; }
+
+  .new-session-btn {
+    padding: 5px 8px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  /* ---------- 4. 聊天区：左右留白收窄，气泡放宽 ---------- */
+  .chat-area {
+    padding: 16px 12px;
+    gap: 16px;
+  }
+
+  .message-row { max-width: 94%; }
+  .bubble { padding: 10px 13px; font-size: 14px; }
+  .cust-msg { max-width: 94%; }
+  .cust-bubble { padding: 10px 13px; }
+
+  .bottom-section {
+    padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
+    gap: 8px;
+  }
+
+  /* 字体 16px：iOS 上小于 16px 的输入框，聚焦时会自动放大整个页面 */
+  .input-wrapper input { font-size: 16px; }
+  .input-wrapper { padding: 6px 12px; }
+
+  .quick-prompts { gap: 6px; }
+  .prompt-btn { padding: 5px 9px; font-size: 11px; }
+
+  /* ---------- 5. 出行页 ---------- */
+  .trip-hero { padding: 0 16px 40px; gap: 20px; }
+  .hero-greeting { font-size: 20px; gap: 8px; text-align: center; }
+  .hero-icon { width: 32px; height: 32px; }
+  .hero-input { max-width: 100%; padding: 10px 12px; }
+  .hero-input input { font-size: 16px; }
+
+  .trip-fixed { padding: 10px 12px 8px; }
+  .trip-stream { padding: 0 12px; }
+
+  .trip-flow { gap: 14px; }
+  .trip-block-body { font-size: 14px; line-height: 1.7; }
+  .trip-user-msg { max-width: 92%; }
+  .trip-chat, .trip-err { padding: 12px 13px; font-size: 13px; }
+
+  /* 进度条：手机上四个步骤横排太挤，缩小间距 */
+  .trip-fixed .process-flow { gap: 6px; row-gap: 6px; }
+  .trip-fixed .process-step { font-size: 11px; gap: 5px; }
+  .trip-fixed .step-num { width: 20px; height: 20px; font-size: 10px; }
+  .trip-fixed .step-arrow { width: 12px; }
+
+  /* 示例卡片竖排 */
+  .trip-cards { grid-template-columns: 1fr; gap: 8px; }
+  .trip-card { padding: 12px; }
+
+  .trip-scroll-btn { right: 14px; bottom: 100px; }
+
+  /* ---------- 6. 客服页 ---------- */
+  .customer-welcome { margin-top: -30px; }
+  .radar-wrap { width: 64px; height: 64px; }
+  .customer-welcome h2 { font-size: 17px; }
+
+  /* ---------- 7. 登录页：手机上几乎铺满 ---------- */
+  .login-screen { padding: 16px; }
+  .login-box {
+    max-width: 100%;
+    padding: 28px 22px;
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+  }
+  .login-input { font-size: 16px; }
+
+  /* ---------- 8. 侧栏内部：底部信息精简 ---------- */
+  .sidebar-footer {
+    padding: 12px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    gap: 6px;
+  }
+  .sidebar-header { padding: 16px; }
+  .history-section { padding: 12px; }
+}
+
+
+/* 很窄的老手机（iPhone SE 320px）：再收一档 */
+@media (max-width: 380px) {
+  .nav-tab { font-size: 11px; padding: 5px 2px; }
+  .hero-greeting { font-size: 17px; }
+  .message-row { max-width: 96%; }
+}
+
+
+/* 横屏手机：高度很矮，去掉一些上下留白 */
+@media (max-width: 900px) and (orientation: landscape) and (max-height: 500px) {
+  .top-nav { height: 46px; }
+  .trip-hero { padding-bottom: 20px; gap: 14px; }
+  .hero-greeting { font-size: 18px; }
+}

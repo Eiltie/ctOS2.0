@@ -182,9 +182,9 @@ modules/<模块名>/
 
 | 文件 | 行数 | 职责 |
 | --- | --- | --- |
-| `index.html` | 162 | 页面结构（登录页 + 主界面） |
+| `index.html` | 178 | 页面结构（登录页 + 主界面 + 手机端汉堡按钮） |
 | `css/style.css` | 145 | 模板原样式：光标光晕、呼吸滚动条、全息光幕 |
-| `css/modules.css` | 617 | 模板之外新增：出行卡片、客服气泡、登录页、多选操作条 |
+| `css/modules.css` | 848 | 模板之外新增：出行卡片、客服气泡、登录页、多选操作条，末尾一整段是**手机端适配**（全部包在媒体查询里） |
 
 ### `js/common/` —— 跨模块公用
 
@@ -204,7 +204,7 @@ modules/<模块名>/
 
 | 文件 | 行数 | 职责 |
 | --- | --- | --- |
-| `app.js` | 405 | **闲聊 + 视图切换 + 启动**。全局 `state` 也定义在这里 |
+| `app.js` | 457 | **闲聊 + 视图切换 + 启动**。全局 `state` 也定义在这里；末尾有手机端抽屉开关 |
 | `trip.js` | 616 | 出行：四段卡片、进度条、出行记录 |
 | `customer.js` | 138 | 客服：一问一答，本地维护上下文 |
 
@@ -246,9 +246,9 @@ modules/<模块名>/
 
 | 文件 | 行数 |
 | --- | --- |
-| `static/css/modules.css` | 617 |
+| `static/css/modules.css` | 848 |
 | `static/js/trip.js` | 616 |
-| `static/js/app.js` | 405 |
+| `static/js/app.js` | 457 |
 | `modules/trip/tools.py` | 293 |
 | `databases/db_view.py` | 279 |
 | `modules/trip/prompts.py` | 271 |
@@ -257,6 +257,6 @@ modules/<模块名>/
 | `modules/customer/rag_eval.py` | 188 |
 | `modules/trip/stream.py` | 180 |
 | `api/main.py` | 164 |
-| `static/index.html` | 162 |
+| `static/index.html` | 178 |
 
 **如果一个文件超过 500 行，考虑拆分。** 目前只有两个前端文件超标（`trip.js`、`modules.css`，都是历史积累），后端都在合理范围。
