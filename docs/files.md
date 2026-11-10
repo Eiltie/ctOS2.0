@@ -79,6 +79,7 @@
 | `db_chat.py` | 112 | `sessions` `messages` | 闲聊会话的增删改查、消息读写（**不再建 tenants**） |
 | `db_trip.py` | 218 | `trip_chats` `trip_sessions` `trip_user_inputs` `trip_ai_outputs` | 出行会话、每一轮、用户原话、AI 四段产出 |
 | `db_view.py` | 283 | 全部 | **命令行查看工具**，不参与 Web 服务 |
+| `clean_db.py` | 300+ | 全部 | **命令行清理工具**：访客账号、某个账号的数据、全部闲聊/出行/反馈 |
 
 **表结构在哪**：每个文件顶部有 `CREATE_*_TABLE` 常量，建表语句就在那儿。
 
@@ -91,6 +92,16 @@ python -X utf8 -m databases.db_view show 5     # 某个会话的对话
 python -X utf8 -m databases.db_view trip 3     # 某个出行会话
 python -X utf8 -m databases.db_view search 端口 # 搜关键词
 ```
+
+**`clean_db.py` 用法**：
+```bash
+python -X utf8 -m databases.clean_db            # 清理本机 5432
+python -X utf8 -m databases.clean_db --docker   # 清理 Docker 5433（8080 页面用的库）
+docker exec -it ctos2-app python -m databases.clean_db   # 在容器里清理
+```
+
+菜单里可以选：查看现状、清理访客账号、清理某个账号的聊天/出行、删除某个账号、
+清理全部闲聊/出行/反馈。删除前会显示条数，并要求输入确认词。
 
 ---
 

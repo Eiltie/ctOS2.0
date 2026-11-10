@@ -194,7 +194,19 @@ python -X utf8 -m databases.db_view show 5     # 某个会话的对话
 
 # 或者用 psql / VS Code 插件连
 # host=127.0.0.1  port=5432  db=ctos2  user=ctos_app
+# Docker 的话端口是 5433
 ```
+
+### 清理数据
+
+```bash
+python -X utf8 -m databases.clean_db            # 本机 5432
+python -X utf8 -m databases.clean_db --docker   # Docker 5433（8080 页面用的库）
+docker exec -it ctos2-app python -m databases.clean_db   # 在容器里清理
+```
+
+菜单里可以选：查看现状、清理访客账号、清理某个账号的聊天/出行、删除某个账号、
+清理全部闲聊/出行/反馈。删除前会显示条数，并要求输入确认词。
 
 ---
 
