@@ -29,7 +29,10 @@ ctOS2.0/
 │   （数据在 PostgreSQL 里，不在仓库中；线上在 ctos2-db 容器的命名卷 ctos2-pgdata）
 ├── modules/
 │   ├── chat/              ← 闲聊（graph/node/state/prompts/stream/sessions）
-│   ├── trip/              ← 出行（graph/node/tools/prompts/route/state/stream/cli）
+│   ├── trip/              ← 出行
+│   │   ├── 攻略：graph/node/state/prompts/tools/route
+│   │   ├── 路线决策：route_decision_tools/prompts/graph/stream
+│   │   └── 分流/出口：understand.py、stream.py、cli.py
 │   └── customer/          ← 客服（graph/node/state/prompts/stream + rag_* + data/）
 ├── static/                ← 前端（无构建步骤）
 ├── docs/                  ← 本文档
@@ -82,17 +85,80 @@ POST /chat
 
 ---
 
-## 三、出行链路（最复杂，一次规划十几次模型调用）
+## 三、出行链路（两个分支：路线决策 / 旅游攻略）
+
+### 3.1 先看分流
 
 ```
 POST /trip/chat
    │
    └─ trip_stream()             modules/trip/stream.py
-        │  ← 注意：这个函数本身不干活，它把活丢给线程再收回来
+        └─ understand_query()   modules/trip/understand.py
+             ├─ CHAT   → 直接回一句，存库，结束
+             ├─ ROUTE  → 路线决策（见 3.2）
+             └─ TRAVEL → 旅游攻略（见 3.3）
+```
+
+### 3.2 路线决策（新，伪导航 + 人工选方案）
+
+```
+POST /trip/chat
+   │
+   └─ start_route_decision()    modules/trip/route_decision_stream.py
+        ├─ 解析需求  parse_route_need()    调 LLM 出 JSON
+        ├─ 查地点    find_place()          高德地理编码，城市/类型校验
+        ├─ 查天气    get_weather()         Open-Meteo
+        ├─ 查候选    route_graph           modules/trip/route_decision_graph.py
+        │     ├─ collect_routes   查驾车/公交/步行/骑行
+        │     ├─ ask_user         interrupt() 暂停，等用户选方案
+        │     ├─ compare_routes   写对比
+        │     ├─ decide_route     写推荐理由
+        │     └─ write_tips       写出发提醒
+        └─ 存库      save_trip_turn(..., "ROUTE")
+```
+
+**人工干预（HITL）**：
+
+- 候选路线出来后，图会停在 `ask_user`，后端发 `ASK` 事件，前端显示候选按钮。
+- 用户点一条后，前端 POST `/trip/route/choose`，后端用 `Command(resume=choice_id)` 接着跑。
+- 暂停状态存在 `databases/route_checkpoints.sqlite`（LangGraph 检查点，运行产物，已 gitignore）。
+- 服务重启后，没选完的暂停仍然能接着选；选完/失效后线程会被删掉。
+
+**数据落在哪**：`trip_ai_outputs` 新增 `route_need`、`route_compare`、`route_decision`、`route_tips` 四列；`trip_sessions.turn_kind = 'ROUTE'`。
+
+**老库升级**：跑一次 `python -X utf8 -m core.db`。没升级时旧模块仍能存，路线轮次会提示“不存历史”，不会拖垮攻略/闲聊。
+
+### 3.3 旅游攻略（原流程 + 两个暂停点）
+
+```
+POST /trip/chat
+   │
+   └─ start_guide()             modules/trip/guide_stream.py
+        ├─ 跑图  guide_graph      modules/trip/graph.py
+        │     ├─ weather          解析需求 + 查天气
+        │     ├─ spots_agent      搜景点（ReAct 循环）
+        │     ├─ ask_spots        interrupt() 暂停：用户勾掉/补充景点
+        │     ├─ planner          按用户的调整排行程
+        │     └─ route_agent      写详细路线
         │
-        ├─ yield SAY "收到，正在理解你的需求…"    第一秒就发，不让用户白等
+        ├─ 暂停时发 ASK_SPOTS，用户点确认后 POST /trip/guide/spots
+        │     └─ resume_guide()   Command(resume=...) 继续排行程
         │
-        └─ _run_trip() 在【工作线程】里跑
+        ├─ 跑完发 ASK_ROUTE，用户选择后 POST /trip/guide/route
+        │     ├─ 要查 → check_guide_route() 高德查每天相邻站点
+        │     └─ 不查 → finish_guide() 直接存库
+        │
+        └─ 存库  save_trip_turn(..., "TRAVEL")
+```
+
+**两个暂停点**：
+
+1. 景点清单出来之后停住，用户可以勾掉不想去的、补一个想去的；
+   “必须去掉”和“用户想补充”会明确写进排行程的提示词。
+2. 攻略写完后问“要不要按真实路线查每天的移动”，选了才去查，
+   结果作为第 5 段“真实路线”单独显示。
+
+**线程号**：攻略的暂停现场也用同一个检查点文件，线程号以 `guide-` 开头。
              │
              ├─ ① 分流  understand_query()   modules/trip/cli.py
              │      调一次 LLM，看这句是 TRAVEL 还是 CHAT
@@ -133,14 +199,21 @@ POST /trip/chat
                           trip_ai_outputs（四段产出）
 ```
 
-**数据落在哪**：`trip_chats`（会话）+ `trip_sessions`（每轮）+ `trip_user_inputs` + `trip_ai_outputs`
+**数据落在哪**：`trip_chats`（会话）+ `trip_sessions`（每轮）+ `trip_user_inputs` + `trip_ai_outputs`。
+路线决策也用同一套表，只是 `trip_ai_outputs` 多出 4 列（见 3.2）。
+攻略“查真实路线”那一段目前只在结果里显示，不单独入库。
 
-**提示词全在**：`modules/trip/prompts.py`（共 6 个，每个都按「角色/任务/输出格式」写）
+**提示词在哪**：攻略提示词在 `modules/trip/prompts.py`；路线提示词在 `modules/trip/route_decision_prompts.py`。
 
-**读这里的顺序**：
-1. `modules/trip/graph.py`（28 行，**这张图就是全部逻辑**）
-2. `modules/trip/stream.py` 的 `_run_trip`（看清 4 个阶段）
-3. 按需读某个节点，不用全读
+**读攻略的顺序**：
+1. `modules/trip/graph.py`（**这张图就是攻略的全部逻辑**）
+2. `modules/trip/guide_stream.py`（暂停按口、确认后继续、跑完问要不要查路线）
+3. `modules/trip/guide_ask.py`（景点清单的暂停节点和用户调整整理）
+
+**读路线决策的顺序**：
+1. `modules/trip/route_decision_graph.py`（图：查候选 → 暂停 → 写对比/推荐/提醒）
+2. `modules/trip/route_decision_stream.py`（解析需求、校验地点、SSE、恢复）
+3. `modules/trip/route_decision_tools.py`（高德数据，不调模型）
 
 ---
 

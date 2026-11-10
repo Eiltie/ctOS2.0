@@ -78,6 +78,33 @@ def weather_node(state: AgentState) -> dict:
     }
 
 
+def split_spot_names(text):
+    """把景点清单里最后一行“景点清单：A、B、C”拆出来，返回（去掉这一行的正文, 名字列表）。
+
+    模型偶尔漏写或写歪，这时候正文原样返回、名字列表为空，不影响原来的显示。
+    """
+    if not text:
+        return text, []
+
+    lines = text.rstrip().split("\n")
+
+    for index in range(len(lines) - 1, -1, -1):
+        line = lines[index].strip()
+        if not line:
+            continue
+
+        if not line.startswith("景点清单"):
+            break
+
+        content = line.split("：", 1)[-1] if "：" in line else line.split(":", 1)[-1]
+        names = [name.strip() for name in content.split("、") if name.strip()]
+
+        body = "\n".join(lines[:index]).rstrip()
+        return body, names
+
+    return text, []
+
+
 def spots_agent_node(state: AgentState) -> dict:
     """节点二：景点 ReAct 循环，没调工具时返回最终景点清单。"""
     history = state["messages"]
@@ -105,7 +132,10 @@ def spots_agent_node(state: AgentState) -> dict:
 
     result = {"messages": opening + [ai], "node_path": ["spots_agent"]}
     if not ai.tool_calls:
-        result["spots"] = ai.content or "（本次没能生成景点推荐，请重试）"
+        text = ai.content or "（本次没能生成景点推荐，请重试）"
+        body, names = split_spot_names(text)
+        result["spots"] = body
+        result["spot_names"] = names
 
     return result
 
@@ -123,11 +153,21 @@ def planner_node(state: AgentState) -> dict:
               .replace("{start_date}", state["start_date"])
               .replace("{weather}", state["weather"])
               .replace("{spots}", state["spots"])
-              .replace("{user_query}", state["user_query"]))
+              .replace("{user_query}", state["user_query"])
+              .replace("{removed_spots}", format_name_list(state.get("removed_spots") or []))
+              .replace("{added_spot}", (state.get("added_spot") or "").strip() or "（没有补充）"))
 
     itinerary = get_llm().invoke(prompt).content.strip()
 
     return {"itinerary": itinerary or "（本次没能生成行程安排，请重试）", "node_path": ["planner"]}
+
+
+def format_name_list(names):
+    """把名字列表拼成“A、B”这种样子，空列表给一个说明。"""
+    names = [name.strip() for name in names if name and str(name).strip()]
+    if not names:
+        return "（没有要去掉的）"
+    return "、".join(names)
 
 
 def route_agent_node(state: AgentState) -> dict:

@@ -17,7 +17,34 @@ from core.db import (
     transaction,
 )
 
-ALLOWED_TURN_KINDS = ("TRAVEL", "CHAT")
+ALLOWED_TURN_KINDS = ("TRAVEL", "CHAT", "ROUTE")
+
+# 老库可能还没加路线字段。第一次存之前查一下，查过就记住，避免每次存都查
+_route_columns_ready = None
+
+
+def route_columns_ready():
+    """trip_ai_outputs 有没有 route_need 这些新列。"""
+    global _route_columns_ready
+
+    # 只有确认存在才缓存；没有或连不上就下次再查，方便补完表不用重启
+    if _route_columns_ready:
+        return True
+
+    try:
+        row = query_one(
+            "SELECT COUNT(*) AS n FROM information_schema.columns "
+            "WHERE table_name = 'trip_ai_outputs' AND column_name = 'route_need'"
+        )
+    except Exception as e:
+        print(f"[数据库] 检查路线字段失败：{e}")
+        return False
+
+    if row and row["n"] > 0:
+        _route_columns_ready = True
+        return True
+
+    return False
 
 CREATE_TRIP_CHATS_TABLE = """
 CREATE TABLE IF NOT EXISTS trip_chats (
@@ -55,17 +82,29 @@ CREATE TABLE IF NOT EXISTS trip_user_inputs (
 
 CREATE_TRIP_AI_OUTPUTS_TABLE = """
 CREATE TABLE IF NOT EXISTS trip_ai_outputs (
-    id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id   INTEGER     NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    trip_id     INTEGER     NOT NULL REFERENCES trip_sessions(id) ON DELETE CASCADE,
-    weather     TEXT        NOT NULL DEFAULT '',
-    spots       TEXT        NOT NULL DEFAULT '',
-    itinerary   TEXT        NOT NULL DEFAULT '',
-    route_plan  TEXT        NOT NULL DEFAULT '',
-    chat_reply  TEXT        NOT NULL DEFAULT '',
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    id             INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id      INTEGER     NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    trip_id        INTEGER     NOT NULL REFERENCES trip_sessions(id) ON DELETE CASCADE,
+    weather        TEXT        NOT NULL DEFAULT '',
+    spots          TEXT        NOT NULL DEFAULT '',
+    itinerary      TEXT        NOT NULL DEFAULT '',
+    route_plan     TEXT        NOT NULL DEFAULT '',
+    route_need     TEXT        NOT NULL DEFAULT '',
+    route_compare  TEXT        NOT NULL DEFAULT '',
+    route_decision TEXT        NOT NULL DEFAULT '',
+    route_tips     TEXT        NOT NULL DEFAULT '',
+    chat_reply     TEXT        NOT NULL DEFAULT '',
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 )
 """
+
+# 老库升级用：表已经存在时，CREATE TABLE 不会补新列，只能一列一列加
+ADD_TRIP_ROUTE_COLUMNS = (
+    "ALTER TABLE trip_ai_outputs ADD COLUMN IF NOT EXISTS route_need TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE trip_ai_outputs ADD COLUMN IF NOT EXISTS route_compare TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE trip_ai_outputs ADD COLUMN IF NOT EXISTS route_decision TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE trip_ai_outputs ADD COLUMN IF NOT EXISTS route_tips TEXT NOT NULL DEFAULT ''",
+)
 
 CREATE_TRIP_INDEXES = (
     "CREATE INDEX IF NOT EXISTS ix_trip_chats_tenant ON trip_chats (tenant_id, updated_at DESC)",
@@ -76,11 +115,13 @@ CREATE_TRIP_INDEXES = (
 
 
 def create_trip_tables():
-    """建出行的四张表和索引，已存在就跳过。"""
+    """建出行的四张表和索引，已存在就跳过；老库顺便补上路线决策的新列。"""
     execute(CREATE_TRIP_CHATS_TABLE)
     execute(CREATE_TRIP_SESSIONS_TABLE)
     execute(CREATE_TRIP_USER_INPUTS_TABLE)
     execute(CREATE_TRIP_AI_OUTPUTS_TABLE)
+    for add_column in ADD_TRIP_ROUTE_COLUMNS:
+        execute(add_column)
     for create_index in CREATE_TRIP_INDEXES:
         execute(create_index)
 
@@ -112,7 +153,12 @@ def save_trip_turn(user_query, ai_output, turn_kind="TRAVEL", chat_id=None,
     ai_output = ai_output or {}
 
     destination = (ai_output.get("destination") or "").strip()
-    title = (destination or user_query or "")[:14]
+    title = (ai_output.get("title") or destination or user_query or "")[:14]
+
+    # 还没升级表的时候，路线轮次先不存，至少别让旧模块的保存也一起坏掉
+    if turn_kind == "ROUTE" and not route_columns_ready():
+        print("[数据库] 还没有路线字段，先运行 python -X utf8 -m core.db；这次路线结果不存历史。")
+        return chat_id
 
     # 一次事务：中途报错整体回滚，不会留下没有子表数据的轮次
     with transaction() as cur:
@@ -133,17 +179,35 @@ def save_trip_turn(user_query, ai_output, turn_kind="TRAVEL", chat_id=None,
             (tenant_id, trip_id, user_query or ""),
         )
 
-        cur.execute(
-            "INSERT INTO trip_ai_outputs "
-            "(tenant_id, trip_id, weather, spots, itinerary, route_plan, chat_reply) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-            (tenant_id, trip_id,
-             ai_output.get("weather") or "",
-             ai_output.get("spots") or "",
-             ai_output.get("itinerary") or "",
-             ai_output.get("route_plan") or "",
-             ai_output.get("chat_reply") or ""),
-        )
+        if route_columns_ready():
+            cur.execute(
+                "INSERT INTO trip_ai_outputs "
+                "(tenant_id, trip_id, weather, spots, itinerary, route_plan, "
+                " route_need, route_compare, route_decision, route_tips, chat_reply) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (tenant_id, trip_id,
+                 ai_output.get("weather") or "",
+                 ai_output.get("spots") or "",
+                 ai_output.get("itinerary") or "",
+                 ai_output.get("route_plan") or "",
+                 ai_output.get("route_need") or "",
+                 ai_output.get("route_compare") or "",
+                 ai_output.get("route_decision") or "",
+                 ai_output.get("route_tips") or "",
+                 ai_output.get("chat_reply") or ""),
+            )
+        else:
+            cur.execute(
+                "INSERT INTO trip_ai_outputs "
+                "(tenant_id, trip_id, weather, spots, itinerary, route_plan, chat_reply) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                (tenant_id, trip_id,
+                 ai_output.get("weather") or "",
+                 ai_output.get("spots") or "",
+                 ai_output.get("itinerary") or "",
+                 ai_output.get("route_plan") or "",
+                 ai_output.get("chat_reply") or ""),
+            )
 
         # 刷新排序用的时间戳，标题保持第一次的
         cur.execute(

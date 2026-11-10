@@ -1,17 +1,43 @@
-const TRIP_SECTIONS = [
-  { key: "weather",    label: "天气" },
-  { key: "spots",      label: "景点推荐" },
-  { key: "itinerary",  label: "行程安排" },
-  { key: "route_plan", label: "详细路线" }
-];
+const TRIP_MODES = {
+  TRAVEL: {
+    steps: ["weather", "spots", "itinerary", "route_plan"],
+    stepLabels: ["查询天气", "推荐景点", "安排行程", "规划路线"],
+    sections: [
+      { key: "weather",     label: "天气" },
+      { key: "spots",       label: "景点推荐" },
+      { key: "itinerary",   label: "行程安排" },
+      { key: "route_plan",  label: "详细路线" },
+      { key: "guide_route", label: "真实路线" }
+    ]
+  },
+  ROUTE: {
+    steps: ["route_need", "route_compare", "route_decision", "route_tips"],
+    stepLabels: ["确认需求", "查询候选", "推荐方案", "出发提醒"],
+    sections: [
+      { key: "route_need",     label: "需求确认" },
+      { key: "route_compare",  label: "候选路线对比" },
+      { key: "route_decision", label: "推荐方案" },
+      { key: "route_tips",     label: "出发提醒" }
+    ]
+  }
+};
 
-const STEP_KEYS = ["weather", "spots", "itinerary", "route_plan"];
-const FLOW_LABELS = ["查询天气", "推荐景点", "安排行程", "规划路线"];
+let tripMode = "TRAVEL";
+
+function tripModeConfig(){
+  return TRIP_MODES[tripMode] || TRIP_MODES.TRAVEL;
+}
+
+function tripSetMode(mode){
+  if (!TRIP_MODES[mode] || mode === tripMode) return;
+  tripMode = mode;
+  tripRenderShell();
+}
 
 const TRIP_EXAMPLES = [
-  { q: "下周想去杭州玩3天，带老人", meta: "3 天 · 带老人 · 雨天偏好室内" },
-  { q: "成都4天，带小孩",           meta: "4 天 · 带小孩 · 节奏放缓" },
-  { q: "三亚周末游，两个人",         meta: "2 天 · 情侣 · 看海为主" }
+  { q: "明天早上8点从学校到西湖，怎么走最快", meta: "路线决策 · 时间优先" },
+  { q: "从杭州东站到灵隐寺，带老人，少走路",   meta: "路线决策 · 少步行" },
+  { q: "下周去杭州玩3天，带老人",             meta: "旅游攻略 · 3 天" }
 ];
 
 let tripBusy = false;
@@ -44,10 +70,11 @@ function tripRenderShell(){
   const box = $("trip-fixed");
   if (!box) return;
 
-  const steps = STEP_KEYS.map((key, i) =>
+  const config = tripModeConfig();
+  const steps = config.steps.map((key, i) =>
     `<div class="process-step" data-step="${key}" data-state="wait">` +
-    `<span class="step-num">${String(i + 1).padStart(2, "0")}</span> ${esc(FLOW_LABELS[i])}</div>` +
-    (i < STEP_KEYS.length - 1 ? `<span class="step-arrow"></span>` : "")
+    `<span class="step-num">${String(i + 1).padStart(2, "0")}</span> ${esc(config.stepLabels[i])}</div>` +
+    (i < config.steps.length - 1 ? `<span class="step-arrow"></span>` : "")
   ).join("");
 
   // 顶部只留进度条。开场态已经有居中的欢迎语了，不需要再放一个大标题。
@@ -66,6 +93,8 @@ function tripRenderShell(){
     };
   });
 
+  // 正在跑的时候不要把示例卡片又亮出来
+  tripCardsShow(!tripBusy);
   if (typeof syncStickyHeads === "function") syncStickyHeads();
 }
 
@@ -232,6 +261,7 @@ function tripShowChatPane(){
 
 
 function tripIntro(){
+  tripMode = "TRAVEL";
   tripRenderShell();
 
   tripStepsReset();
@@ -393,6 +423,11 @@ async function openTripChat(chatId){
   if (!record) return;
 
   openChatId = Number(chatId);
+
+  // 历史里第一轮真正的出行是什么类型，进度条就按什么类型显示
+  const firstTripTurn = (record.turns || []).find((t) => t.turn_kind !== "CHAT");
+  tripMode = firstTripTurn && firstTripTurn.turn_kind === "ROUTE" ? "ROUTE" : "TRAVEL";
+  tripRenderShell();
   tripCardsShow(false);
   tripStepsReset();
 
@@ -427,11 +462,14 @@ function renderStoredTurn(feed, turnRec){
     return;
   }
 
+  // 路线决策和旅游攻略的段落不一样，按这一轮自己的类型选
+  const config = turnRec.turn_kind === "ROUTE" ? TRIP_MODES.ROUTE : TRIP_MODES.TRAVEL;
+
   // 历史记录也渲染成连贯的一段：按顺序把四段拼起来，每段带小标题
   const flow = document.createElement("div");
   flow.className = "trip-flow";
 
-  TRIP_SECTIONS.forEach((sec) => {
+  config.sections.forEach((sec) => {
     const text = ai[sec.key];
     if (!text) return;
 
@@ -538,20 +576,21 @@ function createFlow(target){
   flow.className = "trip-flow";
   feed.appendChild(flow);
 
-  // 已经建好的段落，键是 weather / spots / itinerary / route_plan
+  // 已经建好的段落，键由当前模式决定（攻略是 weather...，路线是 route_...）
   const blocks = {};
 
   function ensureBlock(key){
     if (blocks[key]) return blocks[key];
 
-    const meta = TRIP_SECTIONS.find((s) => s.key === key) || { key, label: key };
+    const config = tripModeConfig();
+    const meta = config.sections.find((s) => s.key === key) || { key, label: key };
     const made = makeTripBlock(meta.label);
     flow.appendChild(made.block);
 
     // 每段文字用独立的打字机，这样多段可以各自追加，互不干扰
     const typer = createTyper(feed, made.body);
 
-    const idx = STEP_KEYS.indexOf(key);
+    const idx = config.steps.indexOf(key);
     if (idx >= 0) tripStepSet(idx, "busy");
 
     blocks[key] = { body: made.body, typer, idx };
@@ -636,9 +675,18 @@ async function sendTrip(){
   const text = input.value.trim();
   if (!text) return;
 
+  // 等访客会话就绪再发，避免页面刚打开时抢跑
+  if (!(await ensureSession(false))){
+    appendNotice(feed, "会话还没准备好，请刷新页面重试");
+    return;
+  }
+
   tripBusy = true;
   activeTripId = null;
   input.value = "";
+
+  // 之前如果有没选完的路线，先把旧按钮锁掉，避免点了串到新对话里
+  lockRoutePanels();
 
   // 从开场态切到对话态：输入框落到下方，内容区显示出来
   tripShowChatPane();
@@ -653,6 +701,10 @@ async function sendTrip(){
     tripHistory = [];
   }
 
+  // 新一轮开始时，把上一个没选完的路线面板撤掉。
+  // 不然它会一直占着页面，用户以为还在等，其实已经过了
+  document.querySelectorAll(".route-ask").forEach((panel) => panel.remove());
+
   const turn = document.createElement("div");
   turn.className = "trip-turn";
   turn.dataset.chatId = openChatId == null ? "" : String(openChatId);
@@ -666,6 +718,7 @@ async function sendTrip(){
 
   let failed = null;
   let chatTurn = false;
+  let awaitingChoice = false;
   let touched = false;
   let stepError = -1;
 
@@ -697,11 +750,13 @@ async function sendTrip(){
 
         case "START":
           touched = true;
+          // 后端会告诉这次是路线决策还是旅游攻略，进度条跟着换
+          if (ev.mode) tripSetMode(ev.mode);
           tripStepSet(0, "busy");
           break;
 
         case "STEP": {
-          const idx = STEP_KEYS.indexOf(ev.key);
+          const idx = tripModeConfig().steps.indexOf(ev.key);
           if (idx >= 0){ touched = true; tripStepSet(idx, "busy"); }
           flow.status(ev.text);
           break;
@@ -715,6 +770,30 @@ async function sendTrip(){
         case "DONE":
           touched = true;
           flow.done(ev.key, ev.text);
+          break;
+
+        case "ASK":
+          touched = true;
+          awaitingChoice = true;
+          clearWaitingPanels(turn);
+          showRouteChoices(turn, flow, ev);
+          flow.status("查到了候选路线，在下面点一个方案，我再继续写推荐");
+          break;
+
+        case "ASK_SPOTS":
+          touched = true;
+          awaitingChoice = true;
+          clearWaitingPanels(turn);
+          showSpotChoices(turn, flow, ev);
+          flow.status("景点清单出来了，勾掉不想要的，或者在下面补一个");
+          break;
+
+        case "ASK_ROUTE":
+          touched = true;
+          awaitingChoice = true;
+          clearWaitingPanels(turn);
+          showRouteQuestion(turn, flow, ev);
+          flow.status("攻略写好了，要不要再查一遍真实路线？");
           break;
 
         case "CHAT":
@@ -757,18 +836,378 @@ async function sendTrip(){
   }finally{
     finishAbort(ctl);
     tripBusy = false;
-    tripClockStop(failed ? "FAILED" : `用时 ${fmtSec(tripSeconds())}`);
 
-    if (!failed && stepError < 0 && touched && !chatTurn) tripStepsFinish(false);
-    else if (failed || stepError >= 0) tripStepsInterrupt();
-
-    // 状态行收尾：把它从"正在理解你的需求"改成这轮的真实结果
-    if (chatTurn){
-      flow.finish("CTOS任务完成", false);
+    if (!failed && stepError < 0 && touched && !chatTurn && !awaitingChoice){
+      tripStepsFinish(false);
     }else if (failed || stepError >= 0){
+      tripStepsInterrupt();
+    }
+
+    // 状态行收尾：如果停在选方案，就保持"等你选"，时钟也改成"等待选择"
+    if (awaitingChoice){
+      tripClockStop("等待选择");
+    }else{
+      tripClockStop(failed ? "FAILED" : `用时 ${fmtSec(tripSeconds())}`);
+
+      if (chatTurn){
+        flow.finish("CTOS任务完成", false);
+      }else if (failed || stepError >= 0){
+        flow.finish("CTOS任务失败", true);
+      }else if (touched){
+        flow.finish(`CTOS规划结束 · 用时 ${fmtSec(tripSeconds())}`, false);
+      }
+    }
+
+    tripScroll();
+    if (awaitingChoice) scrollToWaitingPanel();
+
+    await loadTripRecords();
+    if (state.view === "trip") renderTripHistory();
+
+    const inp = $("trip-input");
+    if (inp) inp.focus();
+  }
+}
+
+
+function showRouteChoices(turn, flow, event){
+  const panel = document.createElement("div");
+  panel.className = "route-ask";
+
+  const question = document.createElement("div");
+  question.className = "route-ask-question";
+  question.textContent = event.question || "你想按哪条路线走？";
+  panel.appendChild(question);
+
+  if (event.recommended_text){
+    const recommend = document.createElement("div");
+    recommend.className = "route-ask-recommend";
+    recommend.textContent = event.recommended_text;
+    panel.appendChild(recommend);
+  }
+
+  const optionsBox = document.createElement("div");
+  optionsBox.className = "route-options";
+
+  (event.options || []).forEach((option) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "route-option" +
+      (option.id === event.recommended_id ? " is-recommended" : "");
+
+    const name = document.createElement("span");
+    name.className = "ro-name";
+    name.textContent = option.name || "";
+
+    const label = document.createElement("span");
+    label.className = "ro-label";
+    label.textContent = option.label || "";
+
+    button.appendChild(name);
+    button.appendChild(label);
+
+    if (option.note){
+      const note = document.createElement("span");
+      note.className = "ro-note";
+      note.textContent = option.note;
+      button.appendChild(note);
+    }
+
+    button.onclick = () => chooseRoute(event.thread_id, option.id, turn, flow, panel);
+    optionsBox.appendChild(button);
+  });
+
+  panel.appendChild(optionsBox);
+
+  const reset = document.createElement("button");
+  reset.type = "button";
+  reset.className = "route-ask-reset";
+  reset.textContent = "都不满意，重新说";
+  reset.onclick = () => {
+    panel.remove();
+    const hint = turn.querySelector(".route-ask-hint");
+    if (hint) hint.remove();
+    const status = $("trip-status");
+    if (status) status.textContent = "TRIP AGENT";
+    const input = $("trip-input");
+    if (input) input.focus();
+  };
+  panel.appendChild(reset);
+
+  turn.appendChild(panel);
+  showWaitingHint(turn, hintTextFor("route"));
+  tripScroll();
+
+  // 面板可能比可视区还高，滚到底它才完整露出来
+  scrollToWaitingPanel();
+}
+
+// 加一行“我在等你”的提示，让等待状态更明显
+function showWaitingHint(turn, text){
+  if (!turn) return;
+  if (turn.querySelector(".route-ask-hint")) return;
+
+  const hint = document.createElement("div");
+  hint.className = "route-ask-hint";
+  hint.textContent = text || "流程已暂停，等你选一个方案 ↑";
+  turn.appendChild(hint);
+}
+
+// 切到下一个等待面板之前，先把上一轮的面板和提示清掉
+function clearWaitingPanels(turn){
+  const scope = turn || document;
+  scope.querySelectorAll(".route-ask").forEach((panel) => panel.remove());
+  scope.querySelectorAll(".route-ask-hint").forEach((hint) => hint.remove());
+}
+
+// 不同面板给不同的等待提示，说清楚现在在等什么
+function hintTextFor(kind){
+  if (kind === "spots") return "流程已暂停，勾完点“就这样，继续排行程” ↑";
+  return "流程已暂停，等你选一个方案 ↑";
+}
+
+
+// ===== 攻略：景点清单勾选 =====
+
+function showSpotChoices(turn, flow, event){
+  const panel = document.createElement("div");
+  panel.className = "route-ask spot-ask";
+
+  const question = document.createElement("div");
+  question.className = "route-ask-question";
+  question.textContent = event.question || "这些景点可以吗？";
+  panel.appendChild(question);
+
+  const list = document.createElement("div");
+  list.className = "spot-list";
+
+  (event.spot_names || []).forEach((name) => {
+    const row = document.createElement("label");
+    row.className = "spot-row";
+
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = true;
+    box.dataset.name = name;
+
+    const text = document.createElement("span");
+    text.textContent = name;
+
+    row.appendChild(box);
+    row.appendChild(text);
+    list.appendChild(row);
+  });
+
+  panel.appendChild(list);
+
+  const addRow = document.createElement("div");
+  addRow.className = "spot-add";
+
+  const addInput = document.createElement("input");
+  addInput.type = "text";
+  addInput.placeholder = "想加一个景点？写在这里，可以留空";
+  addInput.className = "spot-add-input";
+
+  addRow.appendChild(addInput);
+  panel.appendChild(addRow);
+
+  const actions = document.createElement("div");
+  actions.className = "spot-actions";
+
+  const confirmButton = document.createElement("button");
+  confirmButton.type = "button";
+  confirmButton.className = "spot-confirm";
+  confirmButton.textContent = "就这样，继续排行程";
+
+  const skipButton = document.createElement("button");
+  skipButton.type = "button";
+  skipButton.className = "spot-skip";
+  skipButton.textContent = "不改了，直接排";
+
+  actions.appendChild(confirmButton);
+  actions.appendChild(skipButton);
+  panel.appendChild(actions);
+
+  confirmButton.onclick = () => {
+    const removed = [];
+    list.querySelectorAll("input[type=checkbox]").forEach((box) => {
+      if (!box.checked) removed.push(box.dataset.name);
+    });
+    submitSpotChoices(event.thread_id, removed, addInput.value.trim(), turn, flow, panel);
+  };
+
+  skipButton.onclick = () => {
+    submitSpotChoices(event.thread_id, [], "", turn, flow, panel);
+  };
+
+  turn.appendChild(panel);
+  showWaitingHint(turn, hintTextFor("spots"));
+  tripScroll();
+  scrollToWaitingPanel();
+}
+
+
+// ===== 攻略：问要不要查真实路线 =====
+
+function showRouteQuestion(turn, flow, event){
+  const panel = document.createElement("div");
+  panel.className = "route-ask";
+
+  const question = document.createElement("div");
+  question.className = "route-ask-question";
+  question.textContent = event.question || "要不要按真实路线查一下每天的移动？";
+  panel.appendChild(question);
+
+  const optionsBox = document.createElement("div");
+  optionsBox.className = "route-options";
+
+  const yes = document.createElement("button");
+  yes.type = "button";
+  yes.className = "route-option is-recommended";
+  yes.innerHTML = "";
+  const yesName = document.createElement("span");
+  yesName.className = "ro-name";
+  yesName.textContent = "要查";
+  const yesLabel = document.createElement("span");
+  yesLabel.className = "ro-label";
+  yesLabel.textContent = "用高德查每天相邻站点的真实距离和耗时";
+  yes.appendChild(yesName);
+  yes.appendChild(yesLabel);
+
+  const no = document.createElement("button");
+  no.type = "button";
+  no.className = "route-option";
+  const noName = document.createElement("span");
+  noName.className = "ro-name";
+  noName.textContent = "不用了";
+  const noLabel = document.createElement("span");
+  noLabel.className = "ro-label";
+  noLabel.textContent = "攻略就到这里，直接保存";
+  no.appendChild(noName);
+  no.appendChild(noLabel);
+
+  yes.onclick = () => submitGuideRoute(event.thread_id, true, turn, flow, panel);
+  no.onclick = () => submitGuideRoute(event.thread_id, false, turn, flow, panel);
+
+  optionsBox.appendChild(yes);
+  optionsBox.appendChild(no);
+  panel.appendChild(optionsBox);
+
+  turn.appendChild(panel);
+  showWaitingHint(turn, hintTextFor("route"));
+  tripScroll();
+  scrollToWaitingPanel();
+}
+
+
+// 把“继续”的请求统一发一遍，事件处理也和主流程保持一致
+async function sendGuideStep(url, body, turn, flow, panel, pendingText){
+  if (tripBusy) return;
+
+  tripBusy = true;
+  tripClockStart();
+  panel.classList.add("is-locked");
+  panel.querySelectorAll("button").forEach((button) => { button.disabled = true; });
+  flow.status(pendingText);
+
+  const ctl = newAbortController();
+  let failed = null;
+  let hadError = false;
+  let awaiting = false;
+
+  try{
+    const res = await fetch(API.base + url, {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json", "Accept": "text/event-stream" }),
+      body: JSON.stringify(body),
+      signal: ctl.signal
+    });
+
+    if (res.status === 401){
+      handleAuthExpired();
+      throw new Error("登录已过期，请重新登录");
+    }
+
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    if (!res.body) throw new Error("当前浏览器不支持流式读取（res.body 为空）");
+
+    const parser = createSseParser((ev) => {
+      switch (ev.kind){
+        case "SAY":
+          flow.status(ev.text);
+          break;
+
+        case "STEP": {
+          const idx = tripModeConfig().steps.indexOf(ev.key);
+          if (idx >= 0) tripStepSet(idx, "busy");
+          flow.status(ev.text);
+          break;
+        }
+
+        case "TOKEN":
+          flow.token(ev.key, ev.text);
+          break;
+
+        case "DONE":
+          flow.done(ev.key, ev.text);
+          break;
+
+        case "ASK_ROUTE":
+          awaiting = true;
+          clearWaitingPanels(turn);
+          showRouteQuestion(turn, flow, ev);
+          break;
+
+        case "SAVED":
+          if (ev.chat_id) rememberChatId(ev.chat_id, turn);
+          break;
+
+        case "ERROR":
+          hadError = true;
+          appendTripError(ev.message || "这一步出错了", turn);
+          break;
+      }
+    });
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+
+    while (true){
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      parser.push(decoder.decode(value, { stream: true }));
+    }
+
+    parser.push(decoder.decode());
+    parser.end();
+  }catch(err){
+    if (!(err && err.name === "AbortError")){
+      failed = err;
+      appendTripError(
+        "请求失败：" + (err && err.message ? err.message : err), turn);
+    }
+  }finally{
+    finishAbort(ctl);
+    tripBusy = false;
+
+    if (failed || hadError){
+      tripClockStop("FAILED");
+      tripStepsInterrupt();
       flow.finish("CTOS任务失败", true);
-    }else if (touched){
+      // 出错时把按钮放开，允许再试一次
+      panel.classList.remove("is-locked");
+      panel.querySelectorAll("button").forEach((button) => { button.disabled = false; });
+    }else if (awaiting){
+      tripClockStop("等待选择");
+      return;
+    }else{
+      tripClockStop(`用时 ${fmtSec(tripSeconds())}`);
+      tripStepsFinish(false);
       flow.finish(`CTOS规划结束 · 用时 ${fmtSec(tripSeconds())}`, false);
+      panel.remove();
+      const hint = turn.querySelector(".route-ask-hint");
+      if (hint) hint.remove();
     }
 
     tripScroll();
@@ -776,8 +1215,163 @@ async function sendTrip(){
     await loadTripRecords();
     if (state.view === "trip") renderTripHistory();
 
-    const inp = $("trip-input");
-    if (inp) inp.focus();
+    const input = $("trip-input");
+    if (input) input.focus();
+  }
+}
+
+function submitSpotChoices(threadId, removed, added, turn, flow, panel){
+  sendGuideStep(
+    "/trip/guide/spots",
+    { thread_id: threadId, removed, added },
+    turn, flow, panel,
+    "按你选的景点，正在安排行程…"
+  );
+}
+
+function submitGuideRoute(threadId, wantRoute, turn, flow, panel){
+  sendGuideStep(
+    "/trip/guide/route",
+    {
+      thread_id: threadId,
+      want_route: wantRoute,
+      query: "",
+      city: "",
+      chat_id: openChatId
+    },
+    turn, flow, panel,
+    wantRoute ? "正在按真实路线查每天的移动…" : "正在保存攻略…"
+  );
+}
+
+
+// 把内容区滚到选方案面板的位置，保证用户第一眼能看到按钮
+function scrollToWaitingPanel(){
+  const feed = tripFeed();
+  const panel = document.querySelector(".route-ask");
+  if (!feed || !panel) return;
+
+  feed.scrollTo({ top: panel.offsetTop - 12, behavior: "smooth" });
+}
+
+function lockRoutePanels(){
+  document.querySelectorAll(".route-ask").forEach((panel) => {
+    panel.classList.add("is-locked");
+    panel.querySelectorAll("button").forEach((button) => { button.disabled = true; });
+  });
+}
+
+async function chooseRoute(threadId, choiceId, turn, flow, panel){
+  if (tripBusy) return;
+  if (!threadId || !choiceId) return;
+
+  tripBusy = true;
+  tripClockStart();
+  panel.classList.add("is-locked");
+  panel.querySelectorAll("button").forEach((button) => { button.disabled = true; });
+
+  const compareIndex = tripModeConfig().steps.indexOf("route_compare");
+  if (compareIndex >= 0) tripStepSet(compareIndex, "busy");
+  flow.status("按你选的方案，正在整理对比和推荐…");
+
+  const ctl = newAbortController();
+  let failed = null;
+  let hadError = false;
+
+  try{
+    const res = await fetch(API.base + "/trip/route/choose", {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json", "Accept": "text/event-stream" }),
+      body: JSON.stringify({ thread_id: threadId, choice_id: choiceId, chat_id: openChatId }),
+      signal: ctl.signal
+    });
+
+    if (res.status === 401){
+      handleAuthExpired();
+      throw new Error("登录已过期，请重新登录");
+    }
+
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    if (!res.body) throw new Error("当前浏览器不支持流式读取（res.body 为空）");
+
+    const parser = createSseParser((ev) => {
+      switch (ev.kind){
+        case "SAY":
+          flow.status(ev.text);
+          break;
+
+        case "STEP": {
+          const idx = tripModeConfig().steps.indexOf(ev.key);
+          if (idx >= 0) tripStepSet(idx, "busy");
+          flow.status(ev.text);
+          break;
+        }
+
+        case "TOKEN":
+          flow.token(ev.key, ev.text);
+          break;
+
+        case "DONE":
+          flow.done(ev.key, ev.text);
+          break;
+
+        case "SAVED":
+          if (ev.chat_id) rememberChatId(ev.chat_id, turn);
+          break;
+
+        case "ERROR":
+          hadError = true;
+          appendTripError(ev.message || "路线决策出错了", turn);
+          break;
+      }
+    });
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+
+    while (true){
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      parser.push(decoder.decode(value, { stream: true }));
+    }
+
+    parser.push(decoder.decode());
+    parser.end();
+  }catch(err){
+    if (!(err && err.name === "AbortError")){
+      failed = err;
+      appendTripError(
+        "请求失败：" + (err && err.message ? err.message : err) +
+        "\n请确认后端已启动。", turn);
+    }
+  }finally{
+    finishAbort(ctl);
+    tripBusy = false;
+    tripClockStop(failed || hadError ? "FAILED" : `用时 ${fmtSec(tripSeconds())}`);
+
+    if (failed || hadError){
+      tripStepsInterrupt();
+      flow.finish("CTOS路线决策失败", true);
+      // 出错时把按钮放开，用户可以再点一次
+      panel.classList.remove("is-locked");
+      panel.querySelectorAll("button").forEach((button) => { button.disabled = false; });
+    }else{
+      tripStepsFinish(false);
+      flow.finish(`CTOS路线决策结束 · 用时 ${fmtSec(tripSeconds())}`, false);
+      panel.remove();
+
+      const hint = turn.querySelector(".route-ask-hint");
+      if (hint) hint.remove();
+    }
+
+    tripScroll();
+
+    await loadTripRecords();
+    if (state.view === "trip") renderTripHistory();
+
+    const input = $("trip-input");
+    if (input) input.focus();
   }
 }
 
@@ -801,6 +1395,7 @@ function tripNewSession(){
 }
 
 function tripInit(){
+  tripMode = "TRAVEL";
   tripRenderShell();
 
   const feed = tripFeed();

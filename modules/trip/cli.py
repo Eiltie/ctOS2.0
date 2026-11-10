@@ -68,6 +68,11 @@ def main() -> None:
             history.append(query)
             continue
 
+        if kind == "ROUTE":
+            print("\n路线决策要在网页里用（需要暂停让你选方案），终端暂时只支持旅游攻略。")
+            history.append(query)
+            continue
+
         print("\n正在规划中…")
 
         try:

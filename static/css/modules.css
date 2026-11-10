@@ -422,6 +422,167 @@
     margin-top: 4px;
 }
 
+/* 路线决策：候选方案选择面板 */
+.route-ask {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px solid var(--cyan-border);
+    border-radius: 8px;
+    background-color: rgba(13, 17, 23, 0.72);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.route-ask-question {
+    font-size: 14px;
+    color: var(--text-main);
+}
+.route-ask-recommend {
+    font-size: 12px;
+    color: var(--cyan);
+}
+.route-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 2px;
+}
+.route-option {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    width: 100%;
+    padding: 10px 12px;
+    text-align: left;
+    background-color: #0d1117;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-main);
+    cursor: pointer;
+    transition: 0.2s;
+}
+.route-option:hover {
+    border-color: var(--cyan);
+    background-color: #161b22;
+}
+.route-option.is-recommended {
+    border-color: var(--cyan-border);
+    box-shadow: 0 0 10px var(--cyan-dim);
+}
+.route-option:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+.route-option .ro-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--cyan);
+}
+.route-option .ro-label {
+    font-size: 13px;
+}
+.route-option .ro-note {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+.route-ask-reset {
+    align-self: flex-start;
+    padding: 0;
+    margin-top: 2px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+}
+.route-ask-reset:hover {
+    color: var(--cyan);
+}
+.route-ask.is-locked {
+    opacity: 0.75;
+}
+
+/* 等用户选方案时的提示：比状态行更显眼，避免以为流程已经结束 */
+.route-ask-hint {
+    width: 100%;
+    padding: 8px 12px;
+    border-left: 3px solid var(--cyan);
+    background-color: var(--cyan-dim);
+    color: var(--cyan);
+    font-size: 13px;
+    border-radius: 4px;
+    animation: pulse-logo 1.4s infinite alternate;
+}
+
+/* 攻略：景点清单勾选 */
+.spot-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+}
+.spot-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background-color: #0d1117;
+    font-size: 13px;
+    cursor: pointer;
+}
+.spot-row:hover { border-color: var(--cyan-border); }
+.spot-row input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    accent-color: var(--cyan);
+    cursor: pointer;
+}
+.spot-add { margin-top: 2px; }
+.spot-add-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background-color: #0d1117;
+    color: var(--text-main);
+    font-size: 13px;
+    outline: none;
+}
+.spot-add-input:focus { border-color: var(--cyan); }
+.spot-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 4px;
+}
+.spot-confirm,
+.spot-skip {
+    padding: 7px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+.spot-confirm {
+    border: 1px solid var(--cyan);
+    background-color: var(--cyan);
+    color: #000;
+    font-weight: 600;
+}
+.spot-confirm:hover { box-shadow: 0 0 12px var(--cyan-dim); }
+.spot-skip {
+    border: 1px solid var(--border-color);
+    background-color: transparent;
+    color: var(--text-muted);
+}
+.spot-skip:hover { border-color: var(--cyan-border); color: var(--text-main); }
+.spot-actions button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .cust-msg {
     display: flex;
     gap: 16px;
@@ -515,6 +676,7 @@
 }
 
 .login-box {
+  position: relative;
   width: 100%;
   max-width: 380px;
   padding: 40px 36px;
@@ -522,6 +684,29 @@
   border: 1px solid rgba(0, 229, 255, 0.18);
   border-radius: 12px;
   box-shadow: 0 0 60px rgba(0, 229, 255, 0.06);
+}
+
+/* 登录弹层右上角的关闭按钮：关掉就回到访客模式 */
+.login-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #5d7a8a;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s;
+}
+
+.login-close:hover {
+  color: #e6f7ff;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .login-brand {
@@ -653,59 +838,53 @@
   color: #00e5ff;
 }
 
-/* ===== 预设账号：一键体验（不需要了连同 index.html 里的按钮块一起删） ===== */
+/* ===== 登录弹层底部的「继续以访客身份使用」 ===== */
 
-.login-divider {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 18px 0 14px;
-  font-size: 11px;
-  color: #3d5262;
-}
-
-.login-divider::before,
-.login-divider::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: rgba(0, 229, 255, 0.12);
-}
-
-.login-trial-btn {
+.login-guest {
   width: 100%;
-  padding: 11px;
+  margin-top: 4px;
+  padding: 10px;
   background: transparent;
-  border: 1px solid rgba(0, 229, 255, 0.35);
+  border: 1px solid rgba(0, 229, 255, 0.28);
   border-radius: 7px;
-  color: #00e5ff;
-  font-size: 13px;
-  font-weight: 500;
+  color: #5ec8e0;
+  font-size: 12px;
   letter-spacing: 0.5px;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
 
-.login-trial-btn:hover:not(:disabled) {
-  background: rgba(0, 229, 255, 0.08);
-  border-color: rgba(0, 229, 255, 0.6);
-  box-shadow: 0 0 16px rgba(0, 229, 255, 0.15);
+.login-guest:hover:not(:disabled) {
+  background: rgba(0, 229, 255, 0.07);
+  border-color: rgba(0, 229, 255, 0.55);
+  color: #00e5ff;
 }
 
-.login-trial-btn:disabled {
+.login-guest:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.login-trial-hint {
-  margin: 9px 0 0;
-  text-align: center;
+/* 侧栏底部的账号入口 / 退出按钮 */
+.login-entry {
+  margin-top: 10px;
+  width: 100%;
+  padding: 6px;
+  background: transparent;
+  border: 1px solid rgba(0, 229, 255, 0.22);
+  border-radius: 5px;
+  color: #58b6cf;
   font-size: 11px;
-  color: #3d5262;
-  line-height: 1.5;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
 }
 
-/* 侧栏底部的退出按钮 */
+.login-entry:hover {
+  color: #00e5ff;
+  border-color: rgba(0, 229, 255, 0.5);
+  background: rgba(0, 229, 255, 0.06);
+}
+
 .logout-btn {
   margin-top: 10px;
   width: 100%;

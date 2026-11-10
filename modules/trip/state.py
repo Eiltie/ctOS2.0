@@ -23,6 +23,11 @@ class AgentState(TypedDict):
 
     messages: Annotated[list, add_messages]
     spots: str
+    spot_names: NotRequired[list]
+
+    # 用户在景点清单上做的调整，排行程时要用
+    removed_spots: NotRequired[list]
+    added_spot: NotRequired[str]
 
     itinerary: str
 

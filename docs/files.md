@@ -30,13 +30,14 @@
 | --- | --- | --- |
 | `main.py` | 192 | **唯一入口**。定义所有路由（`/chat`、`/trip/*`、`/customer/*`、`/sessions`、`/health`），挂载静态文件。每个业务接口都从这里取 `tenant_id` 做隔离。`NoCacheStaticFiles` 给静态文件发 `no-cache`，避免 CDN 缓存旧样式 |
 | `routes/auth.py` | 118 | 注册、登录、查当前用户。`current_tenant()` 是所有接口的数据隔离入口 |
-| `routes/trial.py` | 71 | **预设账号**：`POST /auth/trial` 一键建测试账号并登录（见下方说明） |
+| `routes/trial.py` | 71 | **访客账号**：`POST /auth/trial` 自动建访客账号并登录（见下方说明） |
 
 **读代码的顺序**：先看 `main.py` 的路由列表，知道有哪些接口，再按需跳进去。
 
-### `routes/trial.py`：预设账号（可整块删除）
+### `routes/trial.py`：访客账号（可整块删除）
 
-让面试官/访客不用注册就能点进去的入口。点登录页的「用预设账号体验」时，
+让面试官/访客打开网址就能用的入口。页面首次打开、浏览器里没有 token 时，
+前端自动调用 `POST /auth/trial`；登录弹层里的「不登录，直接以访客身份使用」也走这里。
 后端新建一个独立账号（统一邮箱 `trial_<16位随机>@ctos-trial.local`）并直接返回 token。
 
 它**不碰任何现有逻辑**：账号走的是 `create_user()`，所以租户隔离、会话读写全部照常工作。
@@ -44,10 +45,10 @@
 **不需要了怎么删**（三处引用）：
 
 1. `api/main.py`：`from api.routes.trial import ...` 那一行 + `app.include_router(trial_router)` 那一行
-2. `static/index.html`：登录页里 `login-divider` / `login-trial` / `login-trial-hint` 那一段
-3. `static/js/common/auth.js`：`loginAsTrial()` 函数
+2. `static/js/common/auth.js`：`guestLogin()` 和 `ensureSession()` 里的访客分支
+3. `static/index.html`：登录弹层里的「不登录，直接以访客身份使用」按钮
 
-删完项目行为和加这个文件之前完全一样。测试账号以后要清理的话：
+删完项目行为和加这个文件之前完全一样。访客账号以后要清理的话：
 `DELETE FROM users WHERE email LIKE '%@ctos-trial.local'`。
 
 ---
@@ -135,20 +136,28 @@ modules/<模块名>/
 
 | 文件 | 行数 | 职责 |
 | --- | --- | --- |
-| `graph.py` | 28 | 图：`weather → spots_agent ⇄ tools → planner → route_agent` |
-| `node.py` | 124 | 四个节点的实现（天气、景点 ReAct 循环、排行程、查路线） |
-| `state.py` | 15 | 状态：目的地、天数、四段产出、消息列表 |
-| `prompts.py` | 267 | **6 个提示词**：需求解析、天气总结、景点、行程、路线、对话理解 |
-| `tools.py` | 288 | **三个外部工具**：`get_weather`（Open-Meteo）、`web_search`（DeepSeek）、`get_directions`（高德） |
-| `route.py` | 10 | 条件路由：景点搜够了就去 planner，没够就继续搜 |
-| `stream.py` | 180 | 对外出口 `trip_stream()`，把图的事件转成 7 种 SSE |
-| **`understand.py`** | 28 | **需求解析**：判断「这句是出行需求还是闲聊」，合并多轮需求 |
-| `cli.py` | 73 | **终端调试入口**，只有手动运行才用到 |
+| `graph.py` | 48 | 攻略图：`weather → spots_agent ⇄ tools → ask_spots → planner → route_agent` |
+| `guide_ask.py` | 28 | 景点清单的暂停节点：收用户的勾选结果，整理成排行程要用的字段 |
+| `guide_stream.py` | 401 | 攻略出口：跑图、暂停、确认后继续、跑完问要不要查真实路线 |
+| `node.py` | 165 | 攻略四个节点的实现（天气、景点 ReAct 循环、排行程、查路线） |
+| `state.py` | 27 | 攻略状态：目的地、天数、四段产出、消息列表 |
+| `prompts.py` | 373 | 攻略提示词 + 意图分流提示词 |
+| `tools.py` | 362 | **三个外部工具**：`get_weather`（Open-Meteo）、`web_search`（DeepSeek）、`get_directions`（高德） |
+| `route.py` | 21 | 攻略条件路由：景点搜够了就去 planner，没够就继续搜 |
+| `stream.py` | 189 | 对外出口 `trip_stream()`：分流（路线/攻略/闲聊）→ 线程跑图 → SSE |
+| **`understand.py`** | 32 | **需求解析**：判断「这句是路线、攻略还是闲聊」，合并多轮需求 |
+| `cli.py` | 93 | **终端调试入口**，只有手动运行才用到（路线决策请在网页用） |
+| `route_decision_tools.py` | 675 | 路线数据：地点、驾车、公交、步行、骑行、推荐打分 |
+| `route_decision_prompts.py` | 100 | 路线 4 个提示词：解析、对比、推荐、提醒 |
+| `route_decision_graph.py` | 265 | 路线决策图：`collect → interrupt → compare → decide → tips` |
+| `route_decision_stream.py` | 391 | 路线出口：解析/校验/SSE/暂停恢复/存库 |
 
 **关键细节**：
 - `understand.py` 是业务逻辑（被 `stream.py` 用），不是调试代码
 - `tools.py` 里 `_city_name_variants()` 处理城市名后缀变体（实测救回 22% 查不到的城市）
 - `node.py` 里 `route_agent_node` 的 for 循环是隐藏的 ReAct
+- 路线决策的 HITL：图停在 `ask_user`，用 `interrupt` 保存现场；用户选完走 `/trip/route/choose`，用 `Command(resume=...)` 继续
+- 暂停现场存在 `databases/route_checkpoints.sqlite`（LangGraph 检查点，运行产物，已 gitignore）
 
 ---
 
@@ -182,9 +191,9 @@ modules/<模块名>/
 
 | 文件 | 行数 | 职责 |
 | --- | --- | --- |
-| `index.html` | 178 | 页面结构（登录页 + 主界面 + 手机端汉堡按钮） |
+| `index.html` | 178 | 页面结构（登录弹层 + 主界面 + 手机端汉堡按钮） |
 | `css/style.css` | 145 | 模板原样式：光标光晕、呼吸滚动条、全息光幕 |
-| `css/modules.css` | 848 | 模板之外新增：出行卡片、客服气泡、登录页、多选操作条，末尾一整段是**手机端适配**（全部包在媒体查询里） |
+| `css/modules.css` | 848 | 模板之外新增：出行卡片、客服气泡、登录弹层、多选操作条，末尾一整段是**手机端适配**（全部包在媒体查询里） |
 
 ### `js/common/` —— 跨模块公用
 
@@ -192,7 +201,7 @@ modules/<模块名>/
 | --- | --- | --- |
 | `config.js` | 24 | API 地址、视图顺序、状态文案、打字机参数 |
 | `utils.js` | 53 | `$`、`esc`、`now`、`scrollDown`、`getJson`、`bindEnter` |
-| `auth.js` | 154 | token 存取、登录页逻辑、带认证的 fetch |
+| `auth.js` | 154 | token 存取、访客会话引导、登录弹层逻辑、带认证的 fetch |
 | `abort.js` | 28 | 请求中断控制（同一时刻只跑一个流） |
 | `sse.js` | 57 | SSE 事件解析器 |
 | `typer.js` | 128 | 打字机渲染 |

@@ -15,9 +15,14 @@ from pydantic import BaseModel
 from langchain_core.messages import HumanMessage
 
 from api.routes.auth import current_tenant, router as auth_router
-from api.routes.trial import router as trial_router          # 预设账号（可删，见该文件头）
+from api.routes.trial import router as trial_router          # 访客账号（可删，见该文件头）
 from modules.chat.stream import run_graph
-from modules.trip.stream import trip_stream
+from modules.trip.stream import (
+    guide_choose_stream,
+    guide_route_stream,
+    trip_stream,
+)
+from modules.trip.route_decision_stream import route_choose_stream
 from modules.customer.stream import customer_stream
 from databases.db_trip import list_trips, get_trip, delete_trip, delete_trips
 from modules.chat.sessions import (
@@ -64,7 +69,7 @@ app.mount("/static", NoCacheStaticFiles(directory=STATIC_DIR), name="static")
 # 认证路由：/auth/register、/auth/login、/auth/me
 app.include_router(auth_router)
 
-# 预设账号：POST /auth/trial（一键创建测试账号并登录）
+# 访客账号：POST /auth/trial（页面首次打开时自动创建并登录，免注册）
 # 不需要了就删掉这两行 + api/routes/trial.py，其余代码不受影响
 app.include_router(trial_router)
 
@@ -79,6 +84,37 @@ class TripRequest(BaseModel):
     history: list[str] = []
     # 不传 = 新开一个出行会话
     chat_id: int | None = None
+
+
+class RouteChoiceRequest(BaseModel):
+    """路线决策暂停后，用户点了哪个方案。"""
+    thread_id: str
+    choice_id: str
+    chat_id: int | None = None
+
+
+class GuideSpotsRequest(BaseModel):
+    """攻略暂停在景点清单后，用户勾选的结果。"""
+    thread_id: str
+    removed: list[str] = []
+    added: str = ""
+
+
+class GuideRouteRequest(BaseModel):
+    """攻略跑完后，用户要不要按真实路线再查一遍。"""
+    thread_id: str
+    want_route: bool = True
+    query: str = ""
+    city: str = ""
+    chat_id: int | None = None
+
+
+def sse_headers():
+    """SSE 统一响应头。"""
+    return {
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+    }
 
 
 class CustomerRequest(BaseModel):
@@ -138,6 +174,64 @@ async def trip_chat(req: TripRequest, authorization: str | None = Header(default
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
         },
+    )
+
+
+@app.post("/trip/route/choose")
+async def trip_route_choose(
+    req: RouteChoiceRequest,
+    authorization: str | None = Header(default=None),
+):
+    """路线决策暂停后，用户选完方案，继续把对比、推荐、提醒写完。"""
+    tenant_id = tenant_of(authorization)
+
+    return StreamingResponse(
+        route_choose_stream(
+            req.thread_id,
+            req.choice_id,
+            chat_id=req.chat_id,
+            tenant_id=tenant_id,
+        ),
+        media_type="text/event-stream",
+        headers=sse_headers(),
+    )
+
+
+@app.post("/trip/guide/spots")
+async def trip_guide_spots(
+    req: GuideSpotsRequest,
+    authorization: str | None = Header(default=None),
+):
+    """攻略暂停在景点清单后，用户勾选完，继续排行程。"""
+    tenant_id = tenant_of(authorization)
+    answer = {"removed": req.removed, "added": req.added}
+
+    return StreamingResponse(
+        guide_choose_stream(req.thread_id, answer, tenant_id=tenant_id),
+        media_type="text/event-stream",
+        headers=sse_headers(),
+    )
+
+
+@app.post("/trip/guide/route")
+async def trip_guide_route(
+    req: GuideRouteRequest,
+    authorization: str | None = Header(default=None),
+):
+    """攻略跑完后，按真实路线查行程里的移动，或者直接收尾。"""
+    tenant_id = tenant_of(authorization)
+
+    return StreamingResponse(
+        guide_route_stream(
+            req.thread_id,
+            req.want_route,
+            req.query,
+            req.city,
+            chat_id=req.chat_id,
+            tenant_id=tenant_id,
+        ),
+        media_type="text/event-stream",
+        headers=sse_headers(),
     )
 
 
