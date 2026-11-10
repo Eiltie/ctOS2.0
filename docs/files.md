@@ -206,7 +206,6 @@ modules/<模块名>/
 | `css/style.css` | 145 | 模板原样式：光标光晕、呼吸滚动条、全息光幕 |
 | `css/modules.css` | — | 模板之外新增：出行卡片、客服气泡、登录弹层、多选操作条，末尾一整段是**手机端适配**（全部包在媒体查询里） |
 | `css/theme.css` | — | 三套主题：clean / street / cyber 的变量和组件覆盖 |
-| `vendor/shoelace/` | — | Shoelace 2.20.1 本地组件库（主题菜单、反馈弹窗） |
 
 主题在右上角「主题」按钮切换，选择存 `localStorage` 的 `ctos_theme`，默认 `clean`。
 `index.html` 头部有内联脚本，在 CSS 之前先把 `data-theme` 设好，避免刷新闪一下。
