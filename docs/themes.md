@@ -62,6 +62,16 @@
 - 临时改默认主题：改 `theme.js` 里的 `DEFAULT_THEME`，同时改 `index.html`
   的 `<html data-theme="clean">` 兜底值。
 
+## Shoelace 组件
+
+主题菜单和反馈弹窗已经换成 Shoelace（Web Components）：
+
+- 本地文件在 `static/vendor/shoelace/`，是 2.20.1 的 `cdn` 构建，**不走 CDN、不需要构建**。
+- `index.html` 引入 `themes/light.css`、`themes/dark.css` 和 `shoelace-autoloader.js`。
+- 三套主题通过 `theme.css` 里的 `--sl-*` 变量和 `::part()` 覆盖颜色、边框、圆角。
+- 赛博主题会给 `<html>` 加 `sl-theme-dark` 类。
+- 这个目录不要删；删了主题菜单和反馈弹窗会变回未注册的自定义元素。
+
 ## 当前主题层的取舍
 
 - `clean` 和 `cyber` 大部分共用布局，只换颜色/圆角/阴影/字体。

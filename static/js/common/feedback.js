@@ -42,13 +42,18 @@ function openFeedback(){
   updateFeedbackCount();
 
   modal.classList.add("show");
+  if (typeof modal.show === "function") modal.show();
+  else modal.setAttribute("open", "");
   if (text) setTimeout(() => text.focus(), 80);
 }
 
 // 关闭弹窗
 function closeFeedback(){
   const modal = document.getElementById("feedback-modal");
-  if (modal) modal.classList.remove("show");
+  if (!modal) return;
+  if (typeof modal.hide === "function") modal.hide();
+  else modal.removeAttribute("open");
+  modal.classList.remove("show");
 }
 
 // 选中一个评价

@@ -25,6 +25,18 @@ html[data-theme="clean"] {
     --danger-dim: rgba(225, 29, 72, 0.07);
     --danger-border: #fecdd3;
     --soft-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 10px 28px rgba(16, 24, 40, 0.05);
+
+    /* Shoelace 变量：按钮、菜单、弹窗共用 */
+    --sl-color-primary-500: #6366f1;
+    --sl-color-primary-600: #4f46e5;
+    --sl-color-primary-700: #4338ca;
+    --sl-border-radius-medium: 8px;
+    --sl-font-sans: Inter, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    --sl-input-background-color: #ffffff;
+    --sl-input-border-color: #e6e8ec;
+    --sl-panel-background-color: #ffffff;
+    --sl-panel-border-color: #e6e8ec;
+    --sl-panel-border-width: 1px;
 }
 
 html[data-theme="street"] {
@@ -51,6 +63,19 @@ html[data-theme="street"] {
     --danger-dim: rgba(217, 31, 74, 0.08);
     --danger-border: #ff2e88;
     --soft-shadow: 4px 4px 0 var(--ink);
+
+    /* Shoelace 变量：街头版用方角、黑边 */
+    --sl-color-primary-500: #3b82f6;
+    --sl-color-primary-600: #1f5eff;
+    --sl-color-primary-700: #1e40af;
+    --sl-border-radius-medium: 0px;
+    --sl-font-sans: Inter, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    --sl-input-background-color: #ffffff;
+    --sl-input-border-color: #0c0c0e;
+    --sl-input-border-width: 2px;
+    --sl-panel-background-color: #fffdf6;
+    --sl-panel-border-color: #0c0c0e;
+    --sl-panel-border-width: 2px;
 }
 
 /* ---------- 主题切换按钮：三套主题共用 ---------- */
@@ -62,24 +87,55 @@ html[data-theme="street"] {
     z-index: 100;
 }
 
-.theme-switcher { position: relative; flex-shrink: 0; }
+.theme-switcher { flex-shrink: 0; }
 
-.theme-btn {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 6px 10px;
-    border: 1px solid var(--border-color);
-    border-radius: 7px;
-    background: var(--bg-sidebar);
-    color: var(--text-main);
+/* Shoelace 按钮：host 上不要画边框，样式走 ::part(base) */
+.theme-btn::part(base) {
+    height: 32px;
+    padding: 0 10px;
     font-size: 12px;
     font-weight: 600;
-    cursor: pointer;
+    color: var(--text-main);
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border-color);
+    border-radius: 7px;
     transition: border-color 0.2s, color 0.2s, background 0.2s;
 }
 
-.theme-btn:hover { border-color: var(--cyan-border); color: var(--cyan); }
+.theme-btn::part(base):hover {
+    border-color: var(--cyan-border);
+    color: var(--cyan);
+}
+
+.theme-btn::part(label) {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.theme-btn::part(caret) { color: currentColor; }
+
+/* Shoelace 下拉的弹层是 sl-dropdown 的 panel，不是 sl-menu 的 part */
+.theme-switcher::part(panel) {
+    padding: 5px;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: 0 12px 30px rgba(16, 24, 40, 0.16);
+}
+
+html[data-theme="street"] .theme-switcher::part(panel) {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    box-shadow: 5px 5px 0 var(--ink);
+    background: var(--panel);
+}
+
+html[data-theme="cyber"] .theme-switcher::part(panel) {
+    background: #0b1420;
+    border-color: var(--border-color);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+}
 
 .theme-dots { display: flex; gap: 2px; }
 .theme-dots i { display: block; width: 6px; height: 6px; border-radius: 50%; }
@@ -87,53 +143,108 @@ html[data-theme="street"] {
 .theme-dots i:nth-child(2) { background: #ff2e88; }
 .theme-dots i:nth-child(3) { background: #e9ff00; }
 
+/* Shoelace 菜单：颜色跟三套主题走 */
 .theme-menu {
-    position: absolute;
-    right: 0;
-    top: calc(100% + 18px);
-    z-index: 1200;
-    display: none;
-    width: 205px;
-    padding: 6px;
-    background: var(--bg-sidebar);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    box-shadow: 0 12px 30px rgba(16, 24, 40, 0.16);
+    min-width: 180px;
+    --sl-panel-background-color: var(--bg-sidebar);
+    --sl-panel-border-color: var(--border-color);
+    --sl-panel-border-width: 1px;
+    --sl-border-radius-medium: 9px;
+    --sl-font-sans: var(--font-main);
 }
 
-.theme-menu.show { display: block; }
-
-.theme-option {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    padding: 8px;
-    border: 1px solid transparent;
+.theme-menu sl-menu-item::part(base) {
+    padding: 8px 10px;
     border-radius: 7px;
-    background: transparent;
+    font-size: 12px;
     color: var(--text-main);
-    text-align: left;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
 }
 
-.theme-option:hover { background: var(--cyan-dim); border-color: var(--cyan-border); }
-.theme-option.is-active { background: var(--cyan-dim); border-color: var(--cyan-border); }
-.theme-option b { display: block; font-size: 12px; font-weight: 600; }
-.theme-option small { display: block; margin-top: 2px; font-size: 10px; color: var(--text-muted); }
+.theme-menu sl-menu-item::part(base):hover { background: var(--cyan-dim); }
+.theme-menu sl-menu-item[checked]::part(base) { background: var(--cyan-dim); }
 
 .theme-swatch {
+    display: inline-block;
+    vertical-align: middle;
     flex-shrink: 0;
-    width: 22px;
-    height: 22px;
+    width: 16px;
+    height: 16px;
+    margin-right: 3px;
     border: 1px solid var(--border-color);
-    border-radius: 6px;
+    border-radius: 4px;
 }
 
 .swatch-clean { background: linear-gradient(135deg, #ffffff 50%, #4f46e5 50%); }
 .swatch-street { background: linear-gradient(135deg, #f4f1e7 50%, #ff2e88 50%); }
 .swatch-cyber { background: linear-gradient(135deg, #05070d 50%, #22d3ee 50%); }
+
+/* ---------- 反馈弹窗：Shoelace 负责弹层，表单沿用原来的样式 ---------- */
+
+.fb-dialog::part(panel) {
+    width: min(420px, calc(100vw - 32px));
+    background: var(--panel);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    box-shadow: var(--soft-shadow);
+}
+
+.fb-dialog::part(header) { padding: 18px 24px 0; }
+
+.fb-dialog::part(title) {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.fb-dialog::part(body) { padding: 10px 24px 24px; }
+.fb-dialog::part(close-button) { color: var(--text-muted); }
+
+.fb-dialog::part(overlay) {
+    background: rgba(17, 24, 39, 0.38);
+    backdrop-filter: blur(3px);
+}
+
+html[data-theme] .fb-dialog .fb-box {
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+html[data-theme] .fb-dialog .fb-sub { margin-top: 0; }
+
+html[data-theme="street"] .fb-dialog::part(panel) {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    box-shadow: 6px 6px 0 var(--magenta);
+    background: var(--panel);
+}
+
+html[data-theme="street"] .fb-dialog::part(title) {
+    font-family: "Arial Black", "Microsoft YaHei", sans-serif;
+    font-weight: 900;
+}
+
+html[data-theme="street"] .fb-dialog::part(overlay) {
+    background: rgba(12, 12, 14, 0.46);
+}
+
+html[data-theme="cyber"] .fb-dialog::part(panel) {
+    background: linear-gradient(180deg, #101a29, #0a111c);
+    border-color: rgba(34, 211, 238, 0.25);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), 0 0 40px rgba(34, 211, 238, 0.08);
+}
+
+html[data-theme="cyber"] .fb-dialog::part(title) { color: #e6f2ff; }
+
+html[data-theme="cyber"] .fb-dialog::part(overlay) {
+    background: rgba(0, 0, 0, 0.62);
+}
 
 /* ============================================================
    clean + street 共用的亮色覆盖
@@ -1226,39 +1337,40 @@ html[data-theme="street"] .fb-btn.ghost {
     color: var(--ink);
 }
 
-html[data-theme="street"] .theme-btn {
+html[data-theme="street"] .theme-btn::part(base) {
     background: var(--panel);
     border: 2px solid var(--ink);
     border-radius: 0;
-    box-shadow: 2px 2px 0 var(--ink);
+    box-shadow: 2px 2px 0 var(--ink) !important;
     font-family: Consolas, monospace;
     color: var(--ink);
     font-weight: 700;
 }
 
-html[data-theme="street"] .theme-btn:hover {
+html[data-theme="street"] .theme-btn {
+    filter: drop-shadow(2px 2px 0 var(--ink));
+}
+
+html[data-theme="street"] .theme-btn::part(base):hover {
     background: var(--yellow);
     color: var(--ink);
     border-color: var(--ink);
 }
 
-html[data-theme="street"] .theme-menu {
+html[data-theme="street"] .theme-menu::part(base) {
     border: 2px solid var(--ink);
     border-radius: 0;
     box-shadow: 5px 5px 0 var(--ink);
     background: var(--panel);
 }
 
-html[data-theme="street"] .theme-option { border-radius: 0; }
-html[data-theme="street"] .theme-option:hover,
-html[data-theme="street"] .theme-option.is-active {
+html[data-theme="street"] .theme-menu sl-menu-item::part(base) { border-radius: 0; }
+
+html[data-theme="street"] .theme-menu sl-menu-item::part(base):hover,
+html[data-theme="street"] .theme-menu sl-menu-item[checked]::part(base) {
     background: var(--yellow);
     color: var(--ink);
-    border-color: var(--ink);
 }
-
-html[data-theme="street"] .theme-option small { color: var(--text-muted); }
-html[data-theme="street"] .theme-option.is-active small { color: var(--ink); }
 
 html[data-theme="street"] .sidebar-toggle {
     border: 2px solid var(--ink);
@@ -1271,7 +1383,7 @@ html[data-theme="street"] .sidebar-mask { background: rgba(12, 12, 14, 0.45); }
 
 @media (max-width: 768px) {
     .theme-label { display: none; }
-    .theme-btn { padding: 6px 8px; }
+    .theme-btn::part(base) { padding: 0 8px; }
 }
 
 /* ============================================================
@@ -1296,6 +1408,18 @@ html[data-theme="cyber"] {
     --accent-ink: #041018;
     --accent-2: #8b5cf6;
     --soft-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+
+    /* Shoelace 变量：赛博版用深色玻璃 */
+    --sl-color-primary-500: #67e8f9;
+    --sl-color-primary-600: #22d3ee;
+    --sl-color-primary-700: #06b6d4;
+    --sl-border-radius-medium: 10px;
+    --sl-font-sans: Inter, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    --sl-input-background-color: #0b1420;
+    --sl-input-border-color: #1e3046;
+    --sl-panel-background-color: #0b1420;
+    --sl-panel-border-color: #1e3046;
+    --sl-panel-border-width: 1px;
 }
 
 html[data-theme="cyber"] body {
@@ -1575,27 +1699,27 @@ html[data-theme="cyber"] .fb-btn.ghost {
     color: var(--text-main);
 }
 
-html[data-theme="cyber"] .theme-btn {
+html[data-theme="cyber"] .theme-btn::part(base) {
     background: #0b1420;
     border-color: var(--border-color);
     color: var(--text-main);
 }
 
-html[data-theme="cyber"] .theme-btn:hover {
+html[data-theme="cyber"] .theme-btn::part(base):hover {
     border-color: rgba(34, 211, 238, 0.4);
     color: #67e8f9;
 }
 
-html[data-theme="cyber"] .theme-menu {
+html[data-theme="cyber"] .theme-menu::part(base) {
     background: #0b1420;
     border-color: var(--border-color);
     box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
 }
 
-html[data-theme="cyber"] .theme-option:hover,
-html[data-theme="cyber"] .theme-option.is-active {
+html[data-theme="cyber"] .theme-menu sl-menu-item::part(base):hover,
+html[data-theme="cyber"] .theme-menu sl-menu-item[checked]::part(base) {
     background: rgba(34, 211, 238, 0.08);
-    border-color: rgba(34, 211, 238, 0.3);
+    color: #67e8f9;
 }
 
 html[data-theme="cyber"] .sidebar-toggle {

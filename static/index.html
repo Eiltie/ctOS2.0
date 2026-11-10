@@ -7,9 +7,9 @@
         (function () {
             try {
                 var saved = localStorage.getItem("ctos_theme");
-                if (saved === "clean" || saved === "street" || saved === "cyber") {
-                    document.documentElement.dataset.theme = saved;
-                }
+                var theme = (saved === "clean" || saved === "street" || saved === "cyber") ? saved : "clean";
+                document.documentElement.dataset.theme = theme;
+                document.documentElement.classList.toggle("sl-theme-dark", theme === "cyber");
             } catch (e) {}
         })();
     </script>
@@ -19,6 +19,10 @@
     <title>ctOS 2.0</title>
 
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><text y='19' font-size='19'>%E2%9A%A1</text></svg>" />
+
+    <link rel="stylesheet" href="/static/vendor/shoelace/themes/light.css">
+    <link rel="stylesheet" href="/static/vendor/shoelace/themes/dark.css">
+    <script type="module" src="/static/vendor/shoelace/shoelace-autoloader.js"></script>
 
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="/static/css/modules.css">
@@ -134,27 +138,17 @@
                 <div id="status-chat" class="tag-status view-section active">LANGGRAPH · READY</div>
                 <div id="status-trip" class="tag-status view-section">TRIP AGENT · READY</div>
                 <div id="status-customer" class="tag-status view-section">RAG · READY</div>
-                <div class="theme-switcher">
-                    <button id="theme-btn" class="theme-btn" type="button"
-                            aria-haspopup="true" aria-expanded="false" aria-label="切换主题">
+                <sl-dropdown id="theme-dropdown" class="theme-switcher" placement="bottom-end">
+                    <sl-button id="theme-btn" slot="trigger" size="small" caret aria-label="切换主题">
                         <span class="theme-dots"><i></i><i></i><i></i></span>
                         <span class="theme-label">主题</span>
-                    </button>
-                    <div id="theme-menu" class="theme-menu" role="menu">
-                        <button class="theme-option" type="button" data-theme-choice="clean" role="menuitem">
-                            <span class="theme-swatch swatch-clean"></span>
-                            <span><b>简洁现代</b><small>白底 / 紫色</small></span>
-                        </button>
-                        <button class="theme-option" type="button" data-theme-choice="street" role="menuitem">
-                            <span class="theme-swatch swatch-street"></span>
-                            <span><b>街头黑客</b><small>米白 / 荧光</small></span>
-                        </button>
-                        <button class="theme-option" type="button" data-theme-choice="cyber" role="menuitem">
-                            <span class="theme-swatch swatch-cyber"></span>
-                            <span><b>赛博暗色</b><small>原来的样子</small></span>
-                        </button>
-                    </div>
-                </div>
+                    </sl-button>
+                    <sl-menu id="theme-menu">
+                        <sl-menu-item value="clean"><span class="theme-swatch swatch-clean"></span> 简洁现代</sl-menu-item>
+                        <sl-menu-item value="street"><span class="theme-swatch swatch-street"></span> 街头黑客</sl-menu-item>
+                        <sl-menu-item value="cyber"><span class="theme-swatch swatch-cyber"></span> 赛博暗色</sl-menu-item>
+                    </sl-menu>
+                </sl-dropdown>
                 <button class="new-session-btn" onclick="triggerHologram()">新会话</button>
             </div>
         </div>
@@ -241,9 +235,8 @@
         💬
     </button>
 
-    <div id="feedback-modal" class="feedback-modal">
+    <sl-dialog id="feedback-modal" class="fb-dialog" label="提交反馈">
         <div class="fb-box">
-            <h3 class="fb-title">提交反馈</h3>
             <p class="fb-sub">欢迎留下你的意见与建议，将用于项目改进</p>
 
             <div class="fb-moods">
@@ -268,7 +261,7 @@
                 <button id="feedback-submit" class="fb-btn primary" type="button" onclick="submitFeedback()">提交</button>
             </div>
         </div>
-    </div>
+    </sl-dialog>
     <!-- ===== 反馈结束 ===== -->
 
     <!-- 加载顺序不能乱：
