@@ -6,8 +6,8 @@
 > **线上地址：<https://ctos2.cn>**。前端静态文件和后端在同一个进程里，
 > 由 `api/main.py` 用 `StaticFiles` 挂载在 `/static`，所以线上和本地看到的是同一份前端。
 >
-> **注意**：改完前端要上线，得走 `docs/deployment.md` 第九节的上线流程
-> （代码打进镜像，光刷新线上页面不会生效）。
+> **注意**：当前 Docker 已经把宿主机的 `static/` 挂进容器，改完刷新页面就生效；
+> 如果把镜像部署到没有挂载的机器，仍需重新构建镜像。
 
 ```
 static/
@@ -16,7 +16,8 @@ static/
 ├── css/
 │   ├── style.css         ← 模板原样式：光标光晕、呼吸滚动条、全息光幕、扫描打字机……
 │   │                        （与设计模板逐字一致，不在这里改）
-│   └── modules.css       ← 模板之外新增的类：出行四段卡片、客服气泡、多选操作条等
+│   ├── modules.css       ← 模板之外新增的类：出行四段卡片、客服气泡、多选操作条等
+│   └── theme.css         ← 三套主题：简洁现代 / 街头黑客 / 赛博暗色
 └── js/
     ├── common/           ← 跨模块公用，与任何业务无关
     │   ├── config.js     ← API 地址、视图顺序、状态标签、打字机参数
@@ -26,11 +27,26 @@ static/
     │   ├── typer.js      ← 打字机渲染
     │   ├── selection.js  ← 列表多选删除（闲聊和出行共用）
     │   ├── sticky.js     ← 吸顶高度同步
-    │   └── aura.js       ← 光标光晕特效
+    │   ├── aura.js       ← 光标光晕特效
+    │   └── theme.js      ← 主题切换 + localStorage 记忆
     ├── app.js            ← 闲聊：会话列表 + 聊天区 + 视图切换 + 启动
     ├── trip.js           ← 智能出行：四段卡片、进度条、出行记录
     └── customer.js       ← 智能客服：一问一答
 ```
+
+## 主题切换
+
+右上角「主题」按钮可以切三套：
+
+| 值 | 名字 | 样子 |
+| --- | --- | --- |
+| `clean` | 简洁现代 | 白底、细边框、紫色主色（默认） |
+| `street` | 街头黑客 | 米白纸底、黑描边、硬阴影、荧光黄/品红 |
+| `cyber` | 赛博暗色 | 原来的深色赛博霓虹 |
+
+- 切换时改 `<html data-theme="...">`，选择存在 `localStorage` 的 `ctos_theme` 里，刷新后还记得。
+- `index.html` 头部有一段内联脚本，在 CSS 加载前先把主题设好，避免刷新时闪一下旧主题。
+- 主题相关的颜色/边框/阴影在 `css/theme.css` 里，业务逻辑（SSE、HITL、计时器）不受影响。
 
 ## 加载顺序不能乱
 
@@ -46,6 +62,7 @@ static/
 <script src="/static/js/common/selection.js"></script>
 <script src="/static/js/common/sticky.js"></script>
 <script src="/static/js/common/aura.js"></script>
+<script src="/static/js/common/theme.js"></script>
 
 <!-- 2. app.js 定义全局 state 和闲聊逻辑 -->
 <script src="/static/js/app.js"></script>
@@ -73,6 +90,7 @@ static/
 | `common/selection.js` | 多选删除 | 改勾选交互 |
 | `common/sticky.js` | 吸顶高度 | 出行页骨架高度错位 |
 | `common/aura.js` | 鼠标光晕 | 改特效 |
+| `common/theme.js` | 主题切换 + 本地记忆 | 加主题、改默认主题 |
 | `app.js` | 闲聊 + 视图切换 + 启动 | 闲聊逻辑、Tab 切换 |
 | `trip.js` | 出行 | 四段卡片、进度条、出行记录 |
 | `customer.js` | 客服 | 问答交互 |

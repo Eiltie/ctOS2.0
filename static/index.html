@@ -1,7 +1,18 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="clean">
 <head>
     <meta charset="UTF-8">
+    <!-- 主题要在 CSS 之前生效，刷新时不会先闪一下旧主题 -->
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem("ctos_theme");
+                if (saved === "clean" || saved === "street" || saved === "cyber") {
+                    document.documentElement.dataset.theme = saved;
+                }
+            } catch (e) {}
+        })();
+    </script>
     <!-- viewport-fit=cover：让页面能铺到刘海屏边缘，配合 CSS 里的 env(safe-area-inset-*)
          不写的话 iPhone 会自动留出白边，底部输入框会被顶上去 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -11,6 +22,7 @@
 
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="/static/css/modules.css">
+    <link rel="stylesheet" href="/static/css/theme.css">
 </head>
 <body>
 
@@ -122,6 +134,27 @@
                 <div id="status-chat" class="tag-status view-section active">LANGGRAPH · READY</div>
                 <div id="status-trip" class="tag-status view-section">TRIP AGENT · READY</div>
                 <div id="status-customer" class="tag-status view-section">RAG · READY</div>
+                <div class="theme-switcher">
+                    <button id="theme-btn" class="theme-btn" type="button"
+                            aria-haspopup="true" aria-expanded="false" aria-label="切换主题">
+                        <span class="theme-dots"><i></i><i></i><i></i></span>
+                        <span class="theme-label">主题</span>
+                    </button>
+                    <div id="theme-menu" class="theme-menu" role="menu">
+                        <button class="theme-option" type="button" data-theme-choice="clean" role="menuitem">
+                            <span class="theme-swatch swatch-clean"></span>
+                            <span><b>简洁现代</b><small>白底 / 紫色</small></span>
+                        </button>
+                        <button class="theme-option" type="button" data-theme-choice="street" role="menuitem">
+                            <span class="theme-swatch swatch-street"></span>
+                            <span><b>街头黑客</b><small>米白 / 荧光</small></span>
+                        </button>
+                        <button class="theme-option" type="button" data-theme-choice="cyber" role="menuitem">
+                            <span class="theme-swatch swatch-cyber"></span>
+                            <span><b>赛博暗色</b><small>原来的样子</small></span>
+                        </button>
+                    </div>
+                </div>
                 <button class="new-session-btn" onclick="triggerHologram()">新会话</button>
             </div>
         </div>
@@ -252,6 +285,7 @@
     <script src="/static/js/common/sticky.js"></script>
     <script src="/static/js/common/aura.js"></script>
     <script src="/static/js/common/feedback.js"></script>
+    <script src="/static/js/common/theme.js"></script>
     <script src="/static/js/app.js"></script>
     <script src="/static/js/trip.js"></script>
     <script src="/static/js/customer.js"></script>

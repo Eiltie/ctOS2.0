@@ -43,8 +43,13 @@
 
 三个模块共用一个 FastAPI 应用、一套数据库、一套前端。各模块只负责自己的图和提示词。
 
-路线决策在候选路线出来后会用 `POST /trip/route/choose` 继续；暂停状态存在 `databases/route_checkpoints.sqlite`。
+路线决策在候选路线出来后会用 `POST /trip/route/choose` 继续；暂停状态存在 `databases/checkpoints/`。
 升级代码后先跑一次 `python -X utf8 -m core.db`，给 `trip_ai_outputs` 补上路线字段。
+
+### 主题
+
+右上角「主题」按钮可以切三套：**简洁现代**（默认）、**街头黑客**、**赛博暗色**。
+选择记在浏览器 `localStorage` 里，刷新后保留。主题只改样式，不影响 SSE、人工确认和计时。
 
 ---
 

@@ -1,0 +1,1268 @@
+/* ============================================================
+   主题层：在 style.css + modules.css 之后加载
+   clean / street 是亮色主题；cyber 直接沿用基础暗色
+   ============================================================ */
+
+/* ---------- 主题变量 ---------- */
+
+html[data-theme="clean"] {
+    --bg-main: #f5f6f8;
+    --bg-sidebar: #fbfbfc;
+    --border-color: #e6e8ec;
+    --text-main: #111827;
+    --text-muted: #6b7280;
+    --cyan: #4f46e5;
+    --cyan-dim: rgba(79, 70, 229, 0.08);
+    --cyan-border: #c7d2fe;
+    --bubble-user: #eef2ff;
+    --bubble-ai: #ffffff;
+    --font-main: Inter, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    --panel: #ffffff;
+    --panel-2: #f9fafb;
+    --panel-3: #f1f3f6;
+    --accent-ink: #ffffff;
+    --danger: #e11d48;
+    --danger-dim: rgba(225, 29, 72, 0.07);
+    --danger-border: #fecdd3;
+    --soft-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 10px 28px rgba(16, 24, 40, 0.05);
+}
+
+html[data-theme="street"] {
+    --bg-main: #f4f1e7;
+    --bg-sidebar: #fbf8ef;
+    --border-color: #0c0c0e;
+    --text-main: #0c0c0e;
+    --text-muted: #5d5d5d;
+    --cyan: #1f5eff;
+    --cyan-dim: rgba(31, 94, 255, 0.08);
+    --cyan-border: #1f5eff;
+    --bubble-user: #0c0c0e;
+    --bubble-ai: #fffdf6;
+    --font-main: Inter, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    --panel: #fffdf6;
+    --panel-2: #f8f4e8;
+    --panel-3: #eee9db;
+    --accent-ink: #0c0c0e;
+    --ink: #0c0c0e;
+    --magenta: #ff2e88;
+    --yellow: #e9ff00;
+    --lime: #a6ff3d;
+    --danger: #d91f4a;
+    --danger-dim: rgba(217, 31, 74, 0.08);
+    --danger-border: #ff2e88;
+    --soft-shadow: 4px 4px 0 var(--ink);
+}
+
+/* ---------- 主题切换按钮：三套主题共用 ---------- */
+
+.theme-switcher { position: relative; flex-shrink: 0; }
+
+.theme-btn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 7px;
+    background: var(--bg-sidebar);
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.theme-btn:hover { border-color: var(--cyan-border); color: var(--cyan); }
+
+.theme-dots { display: flex; gap: 2px; }
+.theme-dots i { display: block; width: 6px; height: 6px; border-radius: 50%; }
+.theme-dots i:nth-child(1) { background: #4f46e5; }
+.theme-dots i:nth-child(2) { background: #ff2e88; }
+.theme-dots i:nth-child(3) { background: #e9ff00; }
+
+.theme-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 18px);
+    z-index: 1200;
+    display: none;
+    width: 205px;
+    padding: 6px;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: 0 12px 30px rgba(16, 24, 40, 0.16);
+}
+
+.theme-menu.show { display: block; }
+
+.theme-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--text-main);
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.theme-option:hover { background: var(--cyan-dim); border-color: var(--cyan-border); }
+.theme-option.is-active { background: var(--cyan-dim); border-color: var(--cyan-border); }
+.theme-option b { display: block; font-size: 12px; font-weight: 600; }
+.theme-option small { display: block; margin-top: 2px; font-size: 10px; color: var(--text-muted); }
+
+.theme-swatch {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+}
+
+.swatch-clean { background: linear-gradient(135deg, #ffffff 50%, #4f46e5 50%); }
+.swatch-street { background: linear-gradient(135deg, #f4f1e7 50%, #ff2e88 50%); }
+.swatch-cyber { background: linear-gradient(135deg, #05070d 50%, #22d3ee 50%); }
+
+/* ============================================================
+   clean + street 共用的亮色覆盖
+   ============================================================ */
+
+html[data-theme="clean"] #cursor-aura,
+html[data-theme="street"] #cursor-aura { display: none; }
+
+html[data-theme="clean"] .hologram-reset,
+html[data-theme="street"] .hologram-reset { display: none; }
+
+html[data-theme="clean"] body,
+html[data-theme="street"] body {
+    background-color: var(--bg-main);
+    color: var(--text-main);
+}
+
+html[data-theme="clean"] .sidebar,
+html[data-theme="street"] .sidebar {
+    background-color: var(--bg-sidebar);
+    border-color: var(--border-color);
+}
+
+html[data-theme="clean"] :is(.main-content, .top-nav),
+html[data-theme="street"] :is(.main-content, .top-nav) {
+    background-color: var(--bg-main);
+    border-color: var(--border-color);
+}
+
+html[data-theme="clean"] .nav-tabs,
+html[data-theme="street"] .nav-tabs {
+    background-color: var(--panel-3);
+    border-color: var(--border-color);
+}
+
+html[data-theme="clean"] .nav-tab,
+html[data-theme="street"] .nav-tab { color: var(--text-muted); }
+
+html[data-theme="clean"] .nav-tab.active,
+html[data-theme="street"] .nav-tab.active {
+    background-color: var(--cyan);
+    color: var(--accent-ink);
+    box-shadow: none;
+}
+
+html[data-theme="clean"] .tag-status,
+html[data-theme="street"] .tag-status {
+    color: var(--cyan);
+    border-color: var(--cyan-border);
+    background: var(--cyan-dim);
+}
+
+html[data-theme="clean"] .new-session-btn,
+html[data-theme="street"] .new-session-btn {
+    background: var(--panel);
+    border-color: var(--border-color);
+    color: var(--text-main);
+}
+
+html[data-theme="clean"] .new-session-btn:hover,
+html[data-theme="street"] .new-session-btn:hover {
+    background: var(--cyan-dim);
+    border-color: var(--cyan);
+    color: var(--cyan);
+    box-shadow: none;
+}
+
+html[data-theme="clean"] .history-item,
+html[data-theme="street"] .history-item {
+    background: var(--panel);
+    border-color: transparent;
+    color: var(--text-muted);
+}
+
+html[data-theme="clean"] .history-item:hover,
+html[data-theme="street"] .history-item:hover {
+    background: var(--panel-2);
+    border-color: var(--cyan-border);
+}
+
+html[data-theme="clean"] .history-item.active,
+html[data-theme="street"] .history-item.active {
+    background: var(--panel);
+    border-color: var(--border-color);
+    color: var(--text-main);
+}
+
+html[data-theme="clean"] .history-select-bar,
+html[data-theme="street"] .history-select-bar {
+    background: var(--panel-2);
+    border-color: var(--border-color);
+}
+
+html[data-theme="clean"] .pick-dot,
+html[data-theme="street"] .pick-dot { border-color: #cbd5e1; }
+
+html[data-theme="clean"] .message-row.user .bubble,
+html[data-theme="street"] .message-row.user .bubble {
+    background: var(--bubble-user);
+    border-color: #e0e7ff;
+    color: var(--text-main);
+}
+
+html[data-theme="clean"] .message-row.ai .bubble,
+html[data-theme="street"] .message-row.ai .bubble {
+    background: var(--bubble-ai);
+    border-color: var(--border-color);
+}
+
+html[data-theme="clean"] .avatar.user,
+html[data-theme="street"] .avatar.user,
+html[data-theme="clean"] .cust-msg.user .avatar,
+html[data-theme="street"] .cust-msg.user .avatar {
+    background: var(--panel-3);
+    color: var(--text-muted);
+    border-color: var(--border-color);
+}
+
+html[data-theme="clean"] .cust-bubble,
+html[data-theme="street"] .cust-bubble {
+    background: var(--bubble-ai);
+    border-color: var(--border-color);
+}
+
+html[data-theme="clean"] .cust-msg.user .cust-bubble,
+html[data-theme="street"] .cust-msg.user .cust-bubble {
+    background: var(--bubble-user);
+    border-color: #e0e7ff;
+    color: var(--text-main);
+}
+
+html[data-theme="clean"] .trip-user-msg b,
+html[data-theme="street"] .trip-user-msg b {
+    background: var(--bubble-user);
+    border-color: #e0e7ff;
+    color: var(--text-main);
+}
+
+html[data-theme="clean"] .trip-chat,
+html[data-theme="street"] .trip-chat {
+    background: var(--bubble-ai);
+    border-color: var(--cyan-border);
+}
+
+html[data-theme="clean"] .trip-err,
+html[data-theme="street"] .trip-err {
+    background: var(--danger-dim);
+    border-color: var(--danger-border);
+    color: var(--danger);
+}
+
+html[data-theme="clean"] .trip-status-line[data-state="error"],
+html[data-theme="street"] .trip-status-line[data-state="error"],
+html[data-theme="clean"] .trip-fixed .process-step[data-state="error"],
+html[data-theme="street"] .trip-fixed .process-step[data-state="error"] { color: var(--danger); }
+
+html[data-theme="clean"] .trip-fixed,
+html[data-theme="street"] .trip-fixed {
+    background: var(--bg-main);
+    border-color: var(--cyan-border);
+    box-shadow: 0 6px 18px -8px rgba(16, 24, 40, 0.10);
+}
+
+html[data-theme="clean"] .trip-scroll-btn,
+html[data-theme="street"] .trip-scroll-btn {
+    background: var(--bg-sidebar);
+    border-color: var(--cyan-border);
+    color: var(--cyan);
+    box-shadow: none;
+}
+
+html[data-theme="clean"] .trip-scroll-btn:hover,
+html[data-theme="street"] .trip-scroll-btn:hover {
+    background: var(--cyan);
+    border-color: var(--cyan);
+}
+
+html[data-theme="clean"] .trip-block-title,
+html[data-theme="street"] .trip-block-title { color: var(--cyan); }
+
+html[data-theme="clean"] .trip-card,
+html[data-theme="street"] .trip-card {
+    background: var(--panel);
+    border-color: var(--border-color);
+}
+
+html[data-theme="clean"] .trip-card:hover,
+html[data-theme="street"] .trip-card:hover {
+    background: var(--panel-2);
+    border-color: var(--cyan-border);
+    box-shadow: var(--soft-shadow);
+}
+
+html[data-theme="clean"] .bottom-section,
+html[data-theme="street"] .bottom-section {
+    background: linear-gradient(to top, var(--bg-main) 60%, transparent);
+}
+
+html[data-theme="clean"] .input-wrapper,
+html[data-theme="street"] .input-wrapper {
+    background: var(--panel);
+    border-color: var(--border-color);
+}
+
+html[data-theme="clean"] .input-wrapper:focus-within,
+html[data-theme="street"] .input-wrapper:focus-within {
+    border-color: transparent;
+    transform: none;
+    box-shadow: 0 0 0 4px var(--cyan-dim), 0 10px 30px rgba(16, 24, 40, 0.06);
+}
+
+html[data-theme="clean"] .input-wrapper input::placeholder,
+html[data-theme="street"] .input-wrapper input::placeholder { color: #9ca3af; }
+
+html[data-theme="clean"] .send-btn,
+html[data-theme="street"] .send-btn {
+    background: var(--cyan-dim);
+    border-color: var(--cyan-border);
+    color: var(--cyan);
+}
+
+html[data-theme="clean"] .send-btn:hover,
+html[data-theme="street"] .send-btn:hover {
+    background: var(--cyan);
+    border-color: var(--cyan);
+    color: var(--accent-ink);
+    box-shadow: none;
+}
+
+html[data-theme="clean"] .prompt-btn,
+html[data-theme="street"] .prompt-btn {
+    background: var(--panel);
+    border-color: var(--border-color);
+    color: var(--text-muted);
+}
+
+html[data-theme="clean"] .prompt-btn:hover,
+html[data-theme="street"] .prompt-btn:hover {
+    background: var(--cyan-dim);
+    border-color: var(--cyan);
+    color: var(--cyan);
+    box-shadow: none;
+    transform: translateY(-1px);
+}
+
+html[data-theme="clean"] .hero-input,
+html[data-theme="street"] .hero-input {
+    background: var(--panel);
+    border-color: var(--border-color);
+}
+
+html[data-theme="clean"] .hero-input:focus-within,
+html[data-theme="street"] .hero-input:focus-within {
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 4px var(--cyan-dim);
+}
+
+html[data-theme="clean"] .hero-input input::placeholder,
+html[data-theme="street"] .hero-input input::placeholder { color: #9ca3af; }
+
+html[data-theme="clean"] .route-ask,
+html[data-theme="street"] .route-ask {
+    background: var(--panel);
+    border-color: var(--cyan-border);
+}
+
+html[data-theme="clean"] .route-option,
+html[data-theme="street"] .route-option {
+    background: var(--panel);
+    border-color: var(--border-color);
+}
+
+html[data-theme="clean"] .route-option:hover,
+html[data-theme="street"] .route-option:hover {
+    background: var(--panel-2);
+    border-color: var(--cyan);
+}
+
+html[data-theme="clean"] .route-option.is-recommended,
+html[data-theme="street"] .route-option.is-recommended {
+    border-color: var(--cyan-border);
+    box-shadow: 0 0 0 1px var(--cyan-border);
+}
+
+html[data-theme="clean"] .route-ask-hint,
+html[data-theme="street"] .route-ask-hint {
+    background: var(--cyan-dim);
+    border-left-color: var(--cyan);
+    color: var(--cyan);
+}
+
+html[data-theme="clean"] .spot-row,
+html[data-theme="street"] .spot-row {
+    background: var(--panel);
+    border-color: var(--border-color);
+}
+
+html[data-theme="clean"] .spot-add-input,
+html[data-theme="street"] .spot-add-input {
+    background: var(--panel);
+    border-color: var(--border-color);
+}
+
+html[data-theme="clean"] .spot-confirm,
+html[data-theme="street"] .spot-confirm {
+    background: var(--cyan);
+    border-color: var(--cyan);
+    color: var(--accent-ink);
+}
+
+html[data-theme="clean"] .spot-skip,
+html[data-theme="street"] .spot-skip {
+    background: var(--panel);
+    border-color: var(--border-color);
+    color: var(--text-muted);
+}
+
+html[data-theme="clean"] .radar-wrap,
+html[data-theme="street"] .radar-wrap {
+    border-color: var(--cyan);
+    box-shadow: 0 0 20px var(--cyan-dim);
+}
+
+html[data-theme="clean"] .customer-welcome h2,
+html[data-theme="street"] .customer-welcome h2 { color: var(--cyan); }
+
+/* 登录页 */
+html[data-theme="clean"] .login-screen,
+html[data-theme="street"] .login-screen { background: var(--bg-main); }
+
+html[data-theme="clean"] .login-box,
+html[data-theme="street"] .login-box {
+    background: var(--panel);
+    border-color: var(--border-color);
+    box-shadow: var(--soft-shadow);
+}
+
+html[data-theme="clean"] .login-close,
+html[data-theme="street"] .login-close { color: var(--text-muted); }
+
+html[data-theme="clean"] .login-close:hover,
+html[data-theme="street"] .login-close:hover {
+    color: var(--text-main);
+    background: var(--panel-3);
+}
+
+html[data-theme="clean"] .login-brand .logo-icon,
+html[data-theme="street"] .login-brand .logo-icon {
+    background: linear-gradient(135deg, var(--cyan), #7c3aed);
+    color: var(--accent-ink);
+}
+
+html[data-theme="clean"] .login-brand .logo-text h1,
+html[data-theme="street"] .login-brand .logo-text h1 { color: var(--text-main); }
+
+html[data-theme="clean"] .login-brand .logo-text p,
+html[data-theme="street"] .login-brand .logo-text p { color: var(--text-muted); }
+
+html[data-theme="clean"] .login-title,
+html[data-theme="street"] .login-title { color: var(--text-main); }
+
+html[data-theme="clean"] .login-sub,
+html[data-theme="street"] .login-sub,
+html[data-theme="clean"] .login-label,
+html[data-theme="street"] .login-label { color: var(--text-muted); }
+
+html[data-theme="clean"] .login-input,
+html[data-theme="street"] .login-input {
+    background: var(--panel-2);
+    border-color: var(--border-color);
+    color: var(--text-main);
+}
+
+html[data-theme="clean"] .login-input:focus,
+html[data-theme="street"] .login-input:focus { border-color: var(--cyan); }
+
+html[data-theme="clean"] .login-input::placeholder,
+html[data-theme="street"] .login-input::placeholder { color: var(--text-muted); }
+
+html[data-theme="clean"] .login-error,
+html[data-theme="street"] .login-error {
+    color: var(--danger);
+    background: var(--danger-dim);
+    border-left-color: var(--danger);
+}
+
+html[data-theme="clean"] .login-btn,
+html[data-theme="street"] .login-btn {
+    background: linear-gradient(135deg, var(--cyan), #7c3aed);
+    color: var(--accent-ink);
+}
+
+html[data-theme="clean"] .login-toggle,
+html[data-theme="street"] .login-toggle { color: var(--cyan); }
+
+html[data-theme="clean"] .login-guest,
+html[data-theme="street"] .login-guest {
+    border-color: var(--cyan-border);
+    color: var(--cyan);
+}
+
+html[data-theme="clean"] .login-guest:hover,
+html[data-theme="street"] .login-guest:hover {
+    background: var(--cyan-dim);
+    border-color: var(--cyan);
+    color: var(--cyan);
+}
+
+html[data-theme="clean"] .login-entry,
+html[data-theme="street"] .login-entry {
+    border-color: var(--cyan-border);
+    color: var(--cyan);
+}
+
+html[data-theme="clean"] .login-entry:hover,
+html[data-theme="street"] .login-entry:hover {
+    background: var(--cyan-dim);
+    border-color: var(--cyan);
+}
+
+html[data-theme="clean"] .logout-btn,
+html[data-theme="street"] .logout-btn {
+    background: var(--danger-dim);
+    border-color: var(--danger-border);
+    color: var(--danger);
+}
+
+/* 反馈 */
+html[data-theme="clean"] .feedback-entry,
+html[data-theme="street"] .feedback-entry {
+    background: var(--cyan-dim);
+    border-color: var(--cyan-border);
+    color: var(--cyan);
+}
+
+html[data-theme="clean"] .feedback-entry:hover,
+html[data-theme="street"] .feedback-entry:hover {
+    background: var(--cyan-dim);
+    border-color: var(--cyan);
+    box-shadow: none;
+}
+
+html[data-theme="clean"] .feedback-fab,
+html[data-theme="street"] .feedback-fab {
+    background: var(--panel);
+    border-color: var(--cyan-border);
+    color: var(--cyan);
+    box-shadow: var(--soft-shadow);
+}
+
+html[data-theme="clean"] .feedback-modal,
+html[data-theme="street"] .feedback-modal { background: rgba(17, 24, 39, 0.32); }
+
+html[data-theme="clean"] .fb-box,
+html[data-theme="street"] .fb-box {
+    background: var(--panel);
+    border-color: var(--border-color);
+    box-shadow: var(--soft-shadow);
+}
+
+html[data-theme="clean"] .fb-mood,
+html[data-theme="street"] .fb-mood {
+    background: var(--panel-2);
+    border-color: var(--border-color);
+    color: var(--text-main);
+}
+
+html[data-theme="clean"] .fb-mood:hover,
+html[data-theme="street"] .fb-mood:hover {
+    background: var(--panel-3);
+    border-color: var(--cyan-border);
+}
+
+html[data-theme="clean"] .fb-mood.on,
+html[data-theme="street"] .fb-mood.on {
+    background: var(--cyan-dim);
+    border-color: var(--cyan);
+    color: var(--cyan);
+    box-shadow: none;
+}
+
+html[data-theme="clean"] .fb-input,
+html[data-theme="street"] .fb-input {
+    background: var(--panel-2);
+    border-color: var(--border-color);
+    color: var(--text-main);
+}
+
+html[data-theme="clean"] .fb-input::placeholder,
+html[data-theme="street"] .fb-input::placeholder { color: var(--text-muted); }
+
+html[data-theme="clean"] .fb-count,
+html[data-theme="street"] .fb-count,
+html[data-theme="clean"] .fb-opt,
+html[data-theme="street"] .fb-opt { color: var(--text-muted); }
+
+html[data-theme="clean"] .fb-error,
+html[data-theme="street"] .fb-error {
+    color: var(--danger);
+    background: var(--danger-dim);
+    border-left-color: var(--danger);
+}
+
+html[data-theme="clean"] .fb-btn.primary,
+html[data-theme="street"] .fb-btn.primary {
+    background: var(--cyan);
+    border-color: var(--cyan);
+    color: var(--accent-ink);
+}
+
+html[data-theme="clean"] .fb-btn.ghost,
+html[data-theme="street"] .fb-btn.ghost {
+    background: transparent;
+    border-color: var(--border-color);
+    color: var(--text-main);
+}
+
+html[data-theme="clean"] .fb-btn.ghost:hover,
+html[data-theme="street"] .fb-btn.ghost:hover {
+    border-color: var(--cyan-border);
+    color: var(--cyan);
+}
+
+html[data-theme="clean"] .feedback-toast,
+html[data-theme="street"] .feedback-toast {
+    background: var(--cyan);
+    color: var(--accent-ink);
+    box-shadow: var(--soft-shadow);
+}
+
+/* 手机端 */
+html[data-theme="clean"] .sidebar-toggle,
+html[data-theme="street"] .sidebar-toggle {
+    background: var(--panel);
+    border-color: var(--border-color);
+}
+
+html[data-theme="clean"] .sidebar-toggle span,
+html[data-theme="street"] .sidebar-toggle span { background: var(--cyan); }
+
+html[data-theme="clean"] .sidebar-mask,
+html[data-theme="street"] .sidebar-mask { background: rgba(17, 24, 39, 0.35); }
+
+/* ============================================================
+   clean 专属
+   ============================================================ */
+
+html[data-theme="clean"] :is(
+    .nav-tab.active,
+    .send-btn:hover,
+    .spot-confirm,
+    .fb-btn.primary,
+    .login-btn,
+    .trip-scroll-btn:hover,
+    .trip-fixed .process-step[data-state="done"] .step-num
+) { color: #ffffff; }
+
+html[data-theme="clean"] .pick-dot.on::after { border-color: #ffffff; }
+
+html[data-theme="clean"] .status-online { color: #059669; }
+html[data-theme="clean"] .status-dot {
+    background: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+    animation: none;
+}
+
+html[data-theme="clean"] .sidebar-header .logo-icon {
+    animation: none;
+    box-shadow: none;
+    border-color: var(--cyan-border);
+    background: var(--cyan-dim);
+    color: var(--cyan);
+}
+
+html[data-theme="clean"] .login-brand .logo-icon,
+html[data-theme="street"] .login-brand .logo-icon { animation: none; }
+
+html[data-theme="clean"] .status-value,
+html[data-theme="street"] .status-value { color: var(--text-main); }
+
+html[data-theme="clean"] .status-value { color: #111827; }
+
+html[data-theme="clean"] .nav-tab.active { box-shadow: none; }
+html[data-theme="clean"] .tag-status { font-family: inherit; }
+html[data-theme="clean"] .history-item.active { box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04); }
+html[data-theme="clean"] .history-item { border-radius: 9px; }
+
+html[data-theme="clean"] .message-row.user .bubble,
+html[data-theme="clean"] .cust-msg.user .cust-bubble,
+html[data-theme="clean"] .trip-user-msg b { border-color: #e0e7ff; }
+
+html[data-theme="clean"] .login-btn {
+    background: linear-gradient(135deg, var(--cyan), #7c3aed);
+    color: #ffffff;
+}
+
+html[data-theme="clean"] .login-brand .logo-icon {
+    background: linear-gradient(135deg, var(--cyan), #7c3aed);
+    color: #ffffff;
+}
+
+html[data-theme="clean"] .route-option.is-recommended {
+    box-shadow: 0 0 0 1px var(--cyan-border), 0 8px 20px rgba(79, 70, 229, 0.06);
+}
+
+/* ============================================================
+   street 专属：米白纸底、黑描边、硬阴影、荧光色
+   ============================================================ */
+
+html[data-theme="street"] .sidebar { border-right-width: 2px; }
+html[data-theme="street"] .top-nav { border-bottom-width: 2px; }
+html[data-theme="street"] .sidebar-header { border-bottom: 2px solid var(--ink); }
+html[data-theme="street"] .sidebar-footer { border-top: 2px solid var(--ink); }
+
+html[data-theme="street"] body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image: radial-gradient(rgba(12, 12, 14, 0.10) 1px, transparent 1px);
+    background-size: 16px 16px;
+    opacity: 0.35;
+}
+
+html[data-theme="street"] .logo-icon {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background: var(--ink);
+    color: var(--yellow);
+    box-shadow: 3px 3px 0 var(--magenta);
+    animation: none;
+}
+
+html[data-theme="street"] .logo-text h1 {
+    font-family: "Arial Black", "Microsoft YaHei", sans-serif;
+    font-weight: 900;
+}
+
+html[data-theme="street"] .logo-text p {
+    font-family: Consolas, monospace;
+    letter-spacing: 1.5px;
+}
+
+html[data-theme="street"] .nav-tabs {
+    background: var(--panel-2);
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    padding: 3px;
+}
+
+html[data-theme="street"] .nav-tab {
+    border: 2px solid transparent;
+    border-radius: 0;
+    font-family: Consolas, "Microsoft YaHei", monospace;
+    font-size: 12px;
+}
+
+html[data-theme="street"] .nav-tab.active {
+    background: var(--ink);
+    color: var(--yellow);
+    border-color: var(--ink);
+    box-shadow: 2px 2px 0 var(--magenta);
+}
+
+html[data-theme="street"] .tag-status {
+    background: var(--ink);
+    color: var(--lime);
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    box-shadow: 2px 2px 0 var(--cyan);
+    font-family: Consolas, monospace;
+}
+
+html[data-theme="street"] .new-session-btn {
+    background: var(--panel);
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    box-shadow: 2px 2px 0 var(--ink);
+    font-family: Consolas, monospace;
+    font-weight: 700;
+}
+
+html[data-theme="street"] .new-session-btn:hover {
+    background: var(--yellow);
+    color: var(--ink);
+    border-color: var(--ink);
+    box-shadow: 3px 3px 0 var(--ink);
+    transform: translate(-1px, -1px);
+}
+
+html[data-theme="street"] .history-title {
+    font-family: Consolas, monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+html[data-theme="street"] .history-item {
+    border-radius: 0;
+    border: 1px solid transparent;
+    font-family: Consolas, "Microsoft YaHei", monospace;
+}
+
+html[data-theme="street"] .history-item.active {
+    background: var(--yellow);
+    border: 2px solid var(--ink);
+    color: var(--ink);
+    box-shadow: 3px 3px 0 var(--ink);
+    transform: translate(-1px, -1px);
+}
+
+html[data-theme="street"] .history-item:hover {
+    background: var(--panel-2);
+    border-color: var(--ink);
+}
+
+html[data-theme="street"] .status-row,
+html[data-theme="street"] .status-value {
+    font-family: Consolas, "Microsoft YaHei", monospace;
+}
+
+html[data-theme="street"] .status-online { color: #3d7a00; }
+html[data-theme="street"] .status-dot {
+    background: #65a30d;
+    box-shadow: none;
+    animation: none;
+}
+
+html[data-theme="street"] .pick-dot { border-color: var(--ink); }
+html[data-theme="street"] .pick-dot.on { background: var(--ink); border-color: var(--ink); }
+html[data-theme="street"] .pick-dot.on::after { border-color: var(--yellow); }
+
+html[data-theme="street"] .history-select-bar {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    box-shadow: 3px 3px 0 var(--ink);
+}
+
+html[data-theme="street"] .input-wrapper {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    box-shadow: 5px 5px 0 var(--ink);
+}
+
+html[data-theme="street"] .input-wrapper:focus-within {
+    border-color: var(--cyan);
+    box-shadow: 5px 5px 0 var(--cyan);
+    transform: none;
+}
+
+html[data-theme="street"] .send-btn {
+    background: var(--ink);
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    color: var(--yellow);
+    box-shadow: 2px 2px 0 var(--magenta);
+}
+
+html[data-theme="street"] .send-btn:hover {
+    background: var(--magenta);
+    border-color: var(--ink);
+    color: #ffffff;
+    box-shadow: 1px 1px 0 var(--ink);
+    transform: translate(1px, 1px);
+}
+
+html[data-theme="street"] .prompt-btn {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background: var(--panel);
+    color: var(--ink);
+    box-shadow: 2px 2px 0 var(--ink);
+    font-family: Consolas, "Microsoft YaHei", monospace;
+}
+
+html[data-theme="street"] .prompt-btn:hover {
+    background: var(--yellow);
+    color: var(--ink);
+    border-color: var(--ink);
+    box-shadow: 3px 3px 0 var(--ink);
+    transform: translate(-1px, -1px);
+}
+
+html[data-theme="street"] .hero-input {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    box-shadow: 5px 5px 0 var(--ink);
+}
+
+html[data-theme="street"] .hero-input:focus-within {
+    border-color: var(--cyan);
+    box-shadow: 5px 5px 0 var(--cyan);
+}
+
+html[data-theme="street"] .trip-quick .prompt-btn { border-radius: 0; }
+
+html[data-theme="street"] .trip-header h2,
+html[data-theme="street"] .trip-block-title,
+html[data-theme="street"] .customer-welcome h2,
+html[data-theme="street"] .login-title,
+html[data-theme="street"] .fb-title {
+    font-family: "Arial Black", "Microsoft YaHei", sans-serif;
+    font-weight: 900;
+}
+
+html[data-theme="street"] .trip-fixed {
+    border-bottom: 2px solid var(--ink);
+    box-shadow: none;
+}
+
+html[data-theme="street"] .trip-status-line,
+html[data-theme="street"] .bottom-status,
+html[data-theme="street"] .process-step,
+html[data-theme="street"] .route-ask-recommend,
+html[data-theme="street"] .route-option .ro-note {
+    font-family: Consolas, "Microsoft YaHei", monospace;
+}
+
+html[data-theme="street"] .bubble,
+html[data-theme="street"] .cust-bubble,
+html[data-theme="street"] .trip-chat,
+html[data-theme="street"] .trip-user-msg b {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+}
+
+html[data-theme="street"] .message-row.ai .bubble,
+html[data-theme="street"] .cust-bubble,
+html[data-theme="street"] .trip-chat {
+    background: var(--panel);
+    color: var(--ink);
+    box-shadow: 4px 4px 0 var(--cyan);
+}
+
+html[data-theme="street"] .message-row.user .bubble,
+html[data-theme="street"] .cust-msg.user .cust-bubble,
+html[data-theme="street"] .trip-user-msg b {
+    background: var(--ink);
+    color: #ffffff;
+    border-color: var(--ink);
+    box-shadow: 4px 4px 0 var(--magenta);
+}
+
+html[data-theme="street"] .avatar,
+html[data-theme="street"] .cust-msg .avatar {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background: var(--yellow);
+    color: var(--ink);
+}
+
+html[data-theme="street"] .avatar.user,
+html[data-theme="street"] .cust-msg.user .avatar {
+    background: var(--ink);
+    color: var(--yellow);
+    border-color: var(--ink);
+}
+
+html[data-theme="street"] .trip-fixed .step-num,
+html[data-theme="street"] .step-num {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    font-family: Consolas, monospace;
+}
+
+html[data-theme="street"] .trip-fixed .process-step[data-state="done"] .step-num {
+    background: var(--yellow);
+    color: var(--ink);
+    border-color: var(--ink);
+    box-shadow: none;
+}
+
+html[data-theme="street"] .route-ask {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    box-shadow: 5px 5px 0 var(--magenta);
+    background: #fffbe0;
+    overflow: hidden;
+    padding: 10px 12px;
+}
+
+html[data-theme="street"] .route-ask::before {
+    content: "";
+    display: block;
+    height: 6px;
+    margin: -10px -12px 8px;
+    background: repeating-linear-gradient(45deg, var(--ink) 0 7px, var(--yellow) 7px 14px);
+}
+
+html[data-theme="street"] .route-ask-question {
+    font-weight: 700;
+}
+
+html[data-theme="street"] .route-ask-recommend {
+    color: var(--magenta);
+    font-weight: 700;
+}
+
+html[data-theme="street"] .route-option {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    box-shadow: 3px 3px 0 var(--cyan);
+    background: #ffffff;
+    padding: 8px 10px;
+}
+
+html[data-theme="street"] .route-option:hover {
+    background: var(--yellow);
+    border-color: var(--ink);
+}
+
+html[data-theme="street"] .route-option.is-recommended {
+    background: #fffbe0;
+    border-color: var(--ink);
+    box-shadow: 3px 3px 0 var(--magenta);
+}
+
+html[data-theme="street"] .route-option .ro-name {
+    color: var(--ink);
+    font-family: Consolas, monospace;
+    text-transform: uppercase;
+}
+
+html[data-theme="street"] .route-ask-hint {
+    background: var(--yellow);
+    color: var(--ink);
+    border: 2px solid var(--ink);
+    border-left: 4px solid var(--ink);
+    border-radius: 0;
+    font-family: Consolas, "Microsoft YaHei", monospace;
+    animation: none;
+}
+
+html[data-theme="street"] .spot-row {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    box-shadow: 2px 2px 0 var(--ink);
+    font-family: Consolas, "Microsoft YaHei", monospace;
+}
+
+html[data-theme="street"] .spot-add-input {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background: #ffffff;
+}
+
+html[data-theme="street"] .spot-confirm,
+html[data-theme="street"] .spot-skip {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    box-shadow: 2px 2px 0 var(--ink);
+    font-family: Consolas, "Microsoft YaHei", monospace;
+}
+
+html[data-theme="street"] .spot-confirm {
+    background: var(--ink);
+    color: var(--yellow);
+}
+
+html[data-theme="street"] .spot-skip {
+    background: var(--panel);
+    color: var(--ink);
+}
+
+html[data-theme="street"] .trip-cards .trip-card {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    box-shadow: 4px 4px 0 var(--ink);
+}
+
+html[data-theme="street"] .trip-card:hover {
+    background: var(--yellow);
+    border-color: var(--ink);
+    box-shadow: 5px 5px 0 var(--ink);
+}
+
+html[data-theme="street"] .radar-wrap {
+    border: 2px solid var(--ink);
+    box-shadow: 4px 4px 0 var(--magenta);
+}
+
+html[data-theme="street"] .login-box {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    box-shadow: 6px 6px 0 var(--magenta);
+    background: var(--panel);
+}
+
+html[data-theme="street"] .login-brand .logo-icon {
+    background: var(--ink);
+    color: var(--yellow);
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    box-shadow: 2px 2px 0 var(--magenta);
+}
+
+html[data-theme="street"] .login-input {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background: #ffffff;
+}
+
+html[data-theme="street"] .login-btn {
+    background: var(--ink);
+    color: var(--yellow);
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    box-shadow: 3px 3px 0 var(--magenta);
+}
+
+html[data-theme="street"] .login-guest,
+html[data-theme="street"] .login-entry {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background: var(--panel);
+    color: var(--ink);
+}
+
+html[data-theme="street"] .login-guest:hover,
+html[data-theme="street"] .login-entry:hover {
+    background: var(--yellow);
+    color: var(--ink);
+}
+
+html[data-theme="street"] .logout-btn {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background: var(--danger-dim);
+    color: var(--danger);
+}
+
+html[data-theme="street"] .feedback-entry {
+    border: 2px dashed var(--ink);
+    border-radius: 0;
+    background: var(--panel);
+    color: var(--ink);
+    box-shadow: 2px 2px 0 var(--ink);
+    font-weight: 700;
+}
+
+html[data-theme="street"] .feedback-entry .fe-ic {
+    color: var(--ink);
+    font-size: 14px;
+}
+
+html[data-theme="street"] .trip-quick { max-width: 880px; }
+
+html[data-theme="street"] .feedback-fab {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background: var(--yellow);
+    color: var(--ink);
+    box-shadow: 3px 3px 0 var(--ink);
+}
+
+html[data-theme="street"] .fb-box {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    box-shadow: 6px 6px 0 var(--magenta);
+    background: var(--panel);
+}
+
+html[data-theme="street"] .fb-mood,
+html[data-theme="street"] .fb-input {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background: #ffffff;
+}
+
+html[data-theme="street"] .fb-mood.on {
+    background: var(--yellow);
+    color: var(--ink);
+    border-color: var(--ink);
+    box-shadow: 2px 2px 0 var(--ink);
+}
+
+html[data-theme="street"] .fb-btn {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    box-shadow: 2px 2px 0 var(--ink);
+}
+
+html[data-theme="street"] .fb-btn.primary {
+    background: var(--ink);
+    color: var(--yellow);
+}
+
+html[data-theme="street"] .fb-btn.ghost {
+    background: var(--panel);
+    color: var(--ink);
+}
+
+html[data-theme="street"] .theme-btn {
+    background: var(--panel);
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    box-shadow: 2px 2px 0 var(--ink);
+    font-family: Consolas, monospace;
+    color: var(--ink);
+    font-weight: 700;
+}
+
+html[data-theme="street"] .theme-btn:hover {
+    background: var(--yellow);
+    color: var(--ink);
+    border-color: var(--ink);
+}
+
+html[data-theme="street"] .theme-menu {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    box-shadow: 5px 5px 0 var(--ink);
+    background: var(--panel);
+}
+
+html[data-theme="street"] .theme-option { border-radius: 0; }
+html[data-theme="street"] .theme-option:hover,
+html[data-theme="street"] .theme-option.is-active {
+    background: var(--yellow);
+    color: var(--ink);
+    border-color: var(--ink);
+}
+
+html[data-theme="street"] .theme-option small { color: var(--text-muted); }
+html[data-theme="street"] .theme-option.is-active small { color: var(--ink); }
+
+html[data-theme="street"] .sidebar-toggle {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background: var(--panel);
+    box-shadow: 2px 2px 0 var(--ink);
+}
+
+html[data-theme="street"] .sidebar-mask { background: rgba(12, 12, 14, 0.45); }
+
+@media (max-width: 768px) {
+    .theme-label { display: none; }
+    .theme-btn { padding: 6px 8px; }
+}
