@@ -40,6 +40,40 @@ const TRIP_EXAMPLES = [
   { q: "下周去杭州玩3天，带老人",             meta: "旅游攻略 · 3 天" }
 ];
 
+// 开场页的预设问题：点一下直接发出去，像闲聊页的快捷按钮
+const TRIP_QUICK_QUESTIONS = [
+  "从杭州东站到灵隐寺怎么走",
+  "从浙江大学紫金港校区到西湖断桥怎么走",
+  "下周去杭州玩3天，带老人",
+  "成都4天，带小孩"
+];
+
+function tripQuickPromptsHTML(){
+  return TRIP_QUICK_QUESTIONS.map((question) =>
+    `<button class="prompt-btn trip-quick-btn" type="button">${esc(question)}</button>`
+  ).join("");
+}
+
+function tripRenderQuickPrompts(){
+  ["trip-quick-hero", "trip-quick-bottom"].forEach((id) => {
+    const box = $(id);
+    if (box) box.innerHTML = tripQuickPromptsHTML();
+  });
+
+  document.querySelectorAll(".trip-quick-btn").forEach((button) => {
+    button.onclick = () => {
+      if (tripBusy) return;
+
+      // 开场态用中间那个输入框，对话态用底部那个
+      const input = tripHeroVisible() ? $("trip-input-hero") : $("trip-input");
+      if (!input) return;
+
+      input.value = button.textContent.trim();
+      sendTrip();
+    };
+  });
+}
+
 let tripBusy = false;
 let tripHistory = [];
 let tripRecords = [];
@@ -1445,6 +1479,7 @@ function tripNewSession(){
 function tripInit(){
   tripMode = "TRAVEL";
   tripRenderShell();
+  tripRenderQuickPrompts();
 
   const feed = tripFeed();
   if (feed) feed.innerHTML = "";
