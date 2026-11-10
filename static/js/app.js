@@ -238,6 +238,12 @@ async function sendChat(){
   const text = input.value.trim();
   if (!text) return;
 
+  // 页面刚打开时访客会话可能还在创建，等它完成再发，避免发出没 token 的请求
+  if (!(await ensureSession(false))){
+    appendNotice(feed, "会话还没准备好，请刷新页面重试");
+    return;
+  }
+
   chatBusy = true;
   input.value = "";
 
@@ -495,6 +501,19 @@ window.addEventListener("resize", () => {
 
 // ===== 启动 =====
 
+let appModulesInited = false;
+
+// 出行 / 客服只初始化一次。
+// 正常路径在启动时调用；如果首屏自动进入失败、用户从登录框兜底登录，
+// 也要在这里补一次，否则出行模块的壳子没有渲染。
+function initAppModules(){
+  if (appModulesInited) return;
+  appModulesInited = true;
+  if (typeof tripInit === "function") tripInit();
+  if (typeof customerInit === "function") customerInit();
+  syncStickyHeads();
+}
+
 // 登录成功后要重置界面：清掉上一个用户的残留数据
 window.onLoginSuccess = async function(){
   state.sessions = [];
@@ -503,6 +522,7 @@ window.onLoginSuccess = async function(){
   state.view = "chat";
 
   renderUserBadge();
+  initAppModules();
 
   // 出行模块的本地状态也要清，否则会带着上一个用户的会话
   if (typeof tripNewSession === "function") tripNewSession();
@@ -514,9 +534,29 @@ window.onLoginSuccess = async function(){
   await syncTripRecords();
 };
 
-// 登录过期时弹回登录页
-window.onAuthExpired = function(){
-  showLogin();
+// 登录过期：
+//   - 访客：静默换一个新访客身份，刷新后继续用，不再弹登录页
+//   - 真实账号：弹登录框，让用户重新登录自己的账号
+let authExpiredHandling = false;
+
+window.onAuthExpired = async function(wasTrial){
+  // 页面启动时可能同时发好几个请求，token 一过期就会一起 401。
+  // 这里加个闸，避免同时创建多个访客账号。
+  if (authExpiredHandling) return;
+  authExpiredHandling = true;
+
+  try{
+    if (!wasTrial){
+      showLogin();
+      return;
+    }
+
+    const ok = await ensureSession(true);
+    if (ok) location.reload();
+    else showLogin();
+  }finally{
+    authExpiredHandling = false;
+  }
 };
 
 // 出行记录刷新（登录后要用当前用户的数据重新拉）
@@ -540,32 +580,22 @@ window.addEventListener("DOMContentLoaded", async () => {
   bindEnter("login-email", () => submitAuth());
   bindEnter("login-password", () => submitAuth());
 
-  // 没 token：显示登录页，不加载任何数据
-  if (!getToken()){
+  // 先确保有会话：
+  //   有 token → 校验；没 token / token 失效 → 静默创建一个访客账号。
+  // 页面本身已经直接显示主界面，这一步在后台完成，不会先闪登录框。
+  const ok = await ensureSession(true);
+  if (!ok){
+    // 连访客账号都建不出来（通常是后端或数据库异常），才退回登录框兜底
     switchLoginMode("login");
     showLogin();
+    loginError(sessionError ? "自动进入失败：" + sessionError : "自动进入失败，请刷新重试");
     return;
   }
 
-  // 有 token：先验证它还有效
-  const me = await authJson("/auth/me");
-  if (!me){
-    // token 失效（过期或被吊销）
-    clearAuth();
-    switchLoginMode("login");
-    showLogin();
-    return;
-  }
-
-  // token 有效：进入主界面
-  saveAuth(getToken(), me);
+  // 会话就绪：进入主界面
   showApp();
   renderUserBadge();
-
-  // 出行和客服各自初始化
-  if (typeof tripInit === "function") tripInit();
-  if (typeof customerInit === "function") customerInit();
-  syncStickyHeads();
+  initAppModules();
 
   await loadSessions();
 

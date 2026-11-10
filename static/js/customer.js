@@ -52,6 +52,12 @@ async function sendCustomer(){
   const query = input.value.trim();
   if (!query) return;
 
+  // 等访客会话就绪再发，避免页面刚打开时抢跑
+  if (!(await ensureSession(false))){
+    customerError(feed, "会话还没准备好，请刷新页面重试");
+    return;
+  }
+
   customerBusy = true;
   input.value = "";
 

@@ -16,9 +16,14 @@
 
     <div id="cursor-aura"></div>
 
-    <!-- 登录页：没有 token 时显示，主界面隐藏 -->
-    <div id="login-screen" class="login-screen">
+    <!-- 登录页：默认隐藏。
+         首次打开不再要求登录，前端会自动创建一个访客空间直接进入；
+         这个弹层只在用户主动点侧栏「账号登录」或自动进入失败时出现。 -->
+    <div id="login-screen" class="login-screen" style="display:none">
         <div class="login-box">
+            <button id="login-close" class="login-close" type="button"
+                    onclick="closeLogin()" aria-label="关闭">×</button>
+
             <div class="login-brand">
                 <div class="logo-icon">i</div>
                 <div class="logo-text">
@@ -27,8 +32,8 @@
                 </div>
             </div>
 
-            <h2 id="login-title" class="login-title">登录 ctOS</h2>
-            <p id="login-sub" class="login-sub">登录后继续你的对话</p>
+            <h2 id="login-title" class="login-title">登录已有账号</h2>
+            <p id="login-sub" class="login-sub">登录后会话记录会跟着账号走；不登录也能直接用</p>
 
             <div class="login-form">
                 <label class="login-label">邮箱</label>
@@ -49,17 +54,15 @@
                     还没有账号？去注册
                 </button>
 
-                <!-- 预设账号：一键体验，不需要注册。不需要了删掉这个块即可 -->
-                <div class="login-divider"><span>或</span></div>
-                <button id="login-trial" class="login-trial-btn" type="button" onclick="loginAsTrial()">
-                    用预设账号体验（无需注册）
+                <!-- 从登录弹层回到免登录的访客模式 -->
+                <button id="login-guest" class="login-guest" type="button" onclick="continueAsGuest()">
+                    不登录，直接以访客身份使用
                 </button>
-                <p class="login-trial-hint">会创建一个临时测试账号，三秒进入完整功能</p>
             </div>
         </div>
     </div>
 
-    <!-- 主界面：登录后才显示 -->
+    <!-- 主界面：默认直接显示；拿到访客/账号会话后再加载数据 -->
     <div id="app-root" class="app-root">
 
     <!-- 手机上侧栏收成抽屉，用这个按钮展开；桌面上被 CSS 隐藏 -->
@@ -99,7 +102,12 @@
             <button id="feedback-entry" class="feedback-entry" type="button" onclick="openFeedback()">
                 <span class="fe-ic">💬</span> 提交反馈
             </button>
-            <button class="logout-btn" onclick="logout()">退出登录</button>
+            <!-- 访客模式下显示「账号登录」；登录真实账号后改为「退出当前账号」。
+                 两个按钮的显隐由 renderUserBadge() 控制。 -->
+            <button id="login-entry" class="login-entry" type="button"
+                    onclick="showLogin()" style="display:none">账号登录</button>
+            <button id="logout-btn" class="logout-btn" type="button"
+                    onclick="logout()" style="display:none">退出当前账号</button>
         </div>
     </div>
 
@@ -148,7 +156,7 @@
 
                 <div class="hero-input">
                     <div class="b-left"></div><div class="b-right"></div>
-                    <input type="text" id="trip-input-hero" placeholder="告诉我想去哪儿玩...">
+                    <input type="text" id="trip-input-hero" placeholder="说个目的地，或问从哪到哪怎么走...">
                     <button class="send-btn" onclick="sendTrip()">➤</button>
                 </div>
             </div>
@@ -162,7 +170,7 @@
             <div class="bottom-section" id="trip-bottom" style="display:none">
                 <div class="input-wrapper">
                     <div class="b-left"></div><div class="b-right"></div>
-                    <input type="text" id="trip-input" placeholder="告诉我想去哪儿玩...">
+                    <input type="text" id="trip-input" placeholder="说个目的地，或问从哪到哪怎么走...">
                     <button class="send-btn" onclick="sendTrip()">➤</button>
                 </div>
                 <div class="bottom-status"><span>READY</span><span id="trip-status">TRIP AGENT</span></div>
