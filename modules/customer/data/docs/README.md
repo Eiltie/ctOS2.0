@@ -17,7 +17,7 @@
 | 模块 | 路由 | 说明 |
 | --- | --- | --- |
 | 闲聊 / 对话 | `/chat` | 基于 LangGraph 的对话图，流式返回纯文本 |
-| 智能出行 | `/trip/chat` | 旅行规划 agent（天气 → 景点推荐 → 行程 → 路线），SSE 事件流 |
+| 智能出行 | `/trip/chat` | 双模式：路线决策（查真实多方案、人工选一条）+ 旅游攻略（天气 → 景点 → 人工勾选 → 行程 → 路线），SSE 事件流 |
 | 智能客服 | `/customer/chat` | RAG 三层检索问答（关键词 → 向量 → 混合），SSE 事件流 |
 
 出行模块和客服模块都不是独立 app，它们是 ctOS 的能力。
@@ -25,7 +25,8 @@
 三个模块各有一张 LangGraph 图，互不干扰：
 
 - 闲聊：`START → chat_node → END`，最简单的一张图
-- 出行：`START → weather → spots_agent →（工具循环）→ planner → route_agent → END`
+- 出行·路线决策：`START → collect_routes → ask_user（暂停等选方案）→ compare_routes → decide_route → write_tips → END`
+- 出行·旅游攻略：`START → weather → spots_agent →（工具循环）→ ask_spots（暂停等勾选）→ planner → route_agent → END`
 - 客服：`START → retrieve → generate → END`，一条直线
 
 三者的一个重要区别：**闲聊和出行会把我说的内容存进数据库**，左侧栏能翻到历史记录；
@@ -45,10 +46,13 @@
 | `GET` | `/sessions` | 闲聊 | 会话列表，最近更新的排前面 |
 | `GET` | `/sessions/{id}/messages` | 闲聊 | 某个会话的全部消息 |
 | `DELETE` | `/sessions/{id}` | 闲聊 | 删除会话，消息级联删除 |
-| `POST` | `/trip/chat` | 出行 | 请求 `{"query": "...", "history": [...]}`，返回 SSE |
+| `POST` | `/trip/chat` | 出行 | 请求 `{"query": "...", "history": [...], "chat_id": 可选}`，返回 SSE |
+| `POST` | `/trip/route/choose` | 出行 | 路线决策暂停后，用户选了哪个方案，继续写结论 |
+| `POST` | `/trip/guide/spots` | 出行 | 旅游攻略暂停后，用户勾掉/补充了哪些景点，继续排行程 |
+| `POST` | `/trip/guide/route` | 出行 | 旅游攻略跑完后，用户要不要查真实路线 |
 | `GET` | `/trip/ping` | 出行 | 存活检测 |
 | `GET` | `/trip/list` | 出行 | 最近的出行记录，默认最多 50 条 |
-| `GET` | `/trip/{id}` | 出行 | 单条出行记录，含四段产出和用户原话 |
+| `GET` | `/trip/{id}` | 出行 | 单条出行记录，含各段产出和用户原话 |
 | `DELETE` | `/trip/{id}` | 出行 | 删除出行记录，两个子表级联删除 |
 | `POST` | `/trip/delete-batch` | 出行 | 批量删除，请求 `{"ids": [...]}` |
 | `POST` | `/customer/chat` | 客服 | 请求 `{"query": "...", "history": [...]}`，返回 SSE |
@@ -57,7 +61,8 @@
 | `GET` | `/` | —— | 前端页面 `static/index.html` |
 
 SSE 事件名统一是：`SAY`、`START`、`STEP`、`TOKEN`、`DONE`、`CHAT`、`ERROR`，外加出行结束时的一条 `SAVED`。
-客服模块只用到 `START` / `TOKEN` / `DONE` / `ERROR`；`SAY`、`STEP`、`CHAT`、`SAVED` 是出行模块专有的。
+出行模块还会发三种“等你操作”的事件：`ASK`（选路线方案）、`ASK_SPOTS`（勾选景点）、`ASK_ROUTE`（问要不要查真实路线）。
+客服模块只用到 `START` / `TOKEN` / `DONE` / `ERROR`。
 
 ## 界面预览
 
@@ -65,9 +70,9 @@ SSE 事件名统一是：`SAY`、`START`、`STEP`、`TOKEN`、`DONE`、`CHAT`、
 
 ![闲聊模式](../../../../screenshot/ctOS_chat.png)
 
-**智能出行**（`/trip/chat`）——查询天气 → 推荐景点 → 安排行程 → 规划路线：
+**智能出行**（`/trip/chat`）——两种模式，中途都会暂停让你确认：
 
-![智能出行](../../../../screenshot/ctOS_trip02.png)
+![智能出行](../../../../screenshot/ctOS_trip01.png)
 
 线上可以直接看：<https://ctos2.cn>（注册后点顶栏切换模块）。
 
@@ -92,14 +97,20 @@ ctOS2.0/
 ├── modules/                    # 三个业务模块
 │   ├── chat/                   # 闲聊：graph / node / prompts / state / stream / sessions
 │   ├── trip/                   # 智能出行
-│   │   ├── graph.py            # 组装图（天气 → 景点 → 行程 → 路线）
-│   │   ├── node.py             # 四个节点
+│   │   ├── graph.py            # 攻略图（天气 → 景点 → 等勾选 → 行程 → 路线）
+│   │   ├── node.py             # 攻略的四个节点
 │   │   ├── route.py            # 条件边：景点 agent 要不要继续搜
 │   │   ├── tools.py            # 三个工具：天气 / 联网搜索 / 路线
-│   │   ├── prompts.py          # 6 个提示词
+│   │   ├── prompts.py          # 攻略提示词 + 意图分流提示词
 │   │   ├── state.py            # 图状态定义
-│   │   ├── understand.py       # 第一句分流：出行需求还是闲聊
+│   │   ├── understand.py       # 第一句分流：路线 / 攻略 / 闲聊
 │   │   ├── stream.py           # 对外唯一入口 trip_stream()，产出 SSE
+│   │   ├── guide_ask.py        # 攻略暂停节点：收用户勾选的景点
+│   │   ├── guide_stream.py     # 攻略出口：暂停、恢复、问要不要查真实路线
+│   │   ├── route_decision_tools.py   # 高德路线数据：地点 / 驾车 / 公交 / 步行 / 骑行
+│   │   ├── route_decision_prompts.py # 路线决策的 4 个提示词
+│   │   ├── route_decision_graph.py   # 路线决策图：查候选 → 暂停 → 写结论
+│   │   ├── route_decision_stream.py  # 路线决策出口：解析 / 校验 / 暂停恢复 / 存库
 │   │   └── cli.py              # 终端调试入口
 │   └── customer/               # 智能客服（RAG）
 │       ├── graph.py            # START → retrieve → generate → END
@@ -125,7 +136,7 @@ ctOS2.0/
 │       ├── common/             # 公用：配置、工具、SSE 解析、打字机、多选、中断……
 │       ├── auth.js             # 登录页
 │       ├── app.js              # 核心：状态、侧边栏、闲聊、模块切换
-│       ├── trip.js             # 智能出行
+│       ├── trip.js             # 智能出行（双模式、方案选择、景点勾选）
 │       └── customer.js         # 智能客服
 ├── screenshot/                 # README 用的界面截图
 ├── docs/                       # 项目文档
@@ -147,7 +158,7 @@ ctOS2.0/
 | `trip_chats` | 出行 | 一次出行对话（左侧列表的一条） |
 | `trip_sessions` | 出行 | 一轮出行规划，主键 `id` |
 | `trip_user_inputs` | 出行 | 用户输入，外键 `trip_id` → `trip_sessions.id` |
-| `trip_ai_outputs` | 出行 | AI 四段产出，外键 `trip_id` → `trip_sessions.id` |
+| `trip_ai_outputs` | 出行 | AI 各段产出，外键 `trip_id` → `trip_sessions.id` |
 
 外键都设了 `ON DELETE CASCADE`：删掉主记录，子记录自动跟着删。
 
@@ -161,9 +172,10 @@ ctOS2.0/
 - `sessions.title`：会话标题，取用户第一句话的前 14 个字
 - `sessions.updated_at`：每次追加消息都会刷新，会话列表按它倒序排
 - `messages.role`：只能是 `user` 或 `assistant`
-- `trip_sessions.turn_kind`：`TRAVEL` 表示真跑了出行图，`CHAT` 表示被判为闲聊、只回了一句话
+- `trip_sessions.turn_kind`：`ROUTE` 表示路线决策，`TRAVEL` 表示旅游攻略，`CHAT` 表示被判为闲聊、只回了一句话
 - `trip_sessions.destination / days / start_date`：从需求里解析出来的出行要素
-- `trip_ai_outputs`：`weather` / `spots` / `itinerary` / `route_plan` 四段产出，加 `chat_reply`
+- `trip_ai_outputs`：攻略四段 `weather` / `spots` / `itinerary` / `route_plan`；
+  路线决策四段 `route_need` / `route_compare` / `route_decision` / `route_tips`；再加 `chat_reply`
 
 连接层 `core/db.py` 的 `get_conn()` 每个操作开一个短连接，用完自动关，
 出错自动回滚；`transaction()` 把多条写入包成一个事务。

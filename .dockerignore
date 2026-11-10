@@ -31,6 +31,11 @@ config/.env
 *.db-shm
 *.sqlite
 *.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+
+# 人工确认的暂停现场（运行时挂卷）
+databases/checkpoints/
 
 # Chroma 向量库（运行时生成或挂载）
 modules/customer/data/chroma/

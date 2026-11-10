@@ -285,10 +285,12 @@ def build_route_graph(checkpointer):
     return graph.compile(checkpointer=checkpointer)
 
 
-# 检查点文件：刷新页面不影响，服务重启也能接着选
+# 检查点文件：刷新页面不影响，服务重启也能接着选。
+# 放在单独的子目录里，Docker 部署时挂一个卷进去，容器重建也不会丢暂停中的流程。
 CHECKPOINT_PATH = (
     Path(__file__).resolve().parent.parent.parent
     / "databases"
+    / "checkpoints"
     / "route_checkpoints.sqlite"
 )
 

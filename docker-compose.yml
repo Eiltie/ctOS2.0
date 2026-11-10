@@ -76,6 +76,8 @@ services:
     volumes:
       # Chroma 向量库挂进来，容器重建不用重新入库
       - ./modules/customer/data/chroma:/app/modules/customer/data/chroma
+      # 人工确认的暂停现场：容器重建后，没选完的方案还能接着选
+      - ./databases/checkpoints:/app/databases/checkpoints
     ports:
       - "8080:8080"
     networks:
