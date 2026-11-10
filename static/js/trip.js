@@ -51,6 +51,10 @@ let activeTripId = null;
 let tripT0 = 0;
 let tripClock = null;
 
+// 中途停下来等用户选择的时间，不算进这一轮的用时
+let tripWaitedTotal = 0;
+let tripWaitStart = 0;
+
 
 function tripCardsHTML(){
   return TRIP_EXAMPLES.map((e) =>
@@ -636,17 +640,24 @@ function createFlow(target){
 }
 
 
+// 整轮用时 = 从这一轮开始到现在的全部时间，扣掉中途等你选择的时间。
+// 中途恢复时不重新计时，否则最后算出来的只有最后一段。
 function tripSeconds(){
   if (!tripT0) return 0;
-  return Math.max(0, Math.round((Date.now() - tripT0) / 1000));
+  const waiting = tripWaitStart ? Date.now() - tripWaitStart : 0;
+  const used = Date.now() - tripT0 - tripWaitedTotal - waiting;
+  return Math.max(0, Math.round(used / 1000));
 }
 
 function fmtSec(s){
   return s >= 60 ? `${Math.floor(s / 60)}分${String(s % 60).padStart(2, "0")}秒` : `${s} 秒`;
 }
 
+// 开始计时。只有一轮真正开始时才调用，中途恢复不要调
 function tripClockStart(){
   tripT0 = Date.now();
+  tripWaitedTotal = 0;
+  tripWaitStart = 0;
   clearInterval(tripClock);
 
   const status = $("trip-status");
@@ -655,12 +666,43 @@ function tripClockStart(){
   }, 1000);
 }
 
+// 停在等用户选择：暂停计时，这段时间不算进用时
+function tripClockPause(){
+  if (!tripT0 || tripWaitStart) return;
+
+  tripWaitStart = Date.now();
+  clearInterval(tripClock);
+  tripClock = null;
+
+  const status = $("trip-status");
+  if (status) status.textContent = "等待选择";
+}
+
+// 用户选完了，接着计时；等待的那一段累加进“已等待”
+function tripClockResume(){
+  if (!tripT0 || !tripWaitStart) return;
+
+  tripWaitedTotal += Date.now() - tripWaitStart;
+  tripWaitStart = 0;
+
+  clearInterval(tripClock);
+  tripClock = setInterval(() => {
+    const status = $("trip-status");
+    if (status) status.textContent = `规划中 ${tripSeconds()}s`;
+  }, 1000);
+}
+
+// 停表并把这一轮的计时清掉，避免下一轮沿用旧起点
 function tripClockStop(finalText){
   clearInterval(tripClock);
   tripClock = null;
 
   const status = $("trip-status");
   if (status) status.textContent = finalText || "TRIP AGENT";
+
+  tripT0 = 0;
+  tripWaitedTotal = 0;
+  tripWaitStart = 0;
 }
 
 
@@ -843,18 +885,19 @@ async function sendTrip(){
       tripStepsInterrupt();
     }
 
-    // 状态行收尾：如果停在选方案，就保持"等你选"，时钟也改成"等待选择"
+    // 状态行收尾：如果停在选方案，就暂停计时，等用户选完再接着算
     if (awaitingChoice){
-      tripClockStop("等待选择");
+      tripClockPause();
     }else{
-      tripClockStop(failed ? "FAILED" : `用时 ${fmtSec(tripSeconds())}`);
+      const usedText = `用时 ${fmtSec(tripSeconds())}`;
+      tripClockStop(failed ? "FAILED" : usedText);
 
       if (chatTurn){
         flow.finish("CTOS任务完成", false);
       }else if (failed || stepError >= 0){
         flow.finish("CTOS任务失败", true);
       }else if (touched){
-        flow.finish(`CTOS规划结束 · 用时 ${fmtSec(tripSeconds())}`, false);
+        flow.finish(`CTOS规划结束 · ${usedText}`, false);
       }
     }
 
@@ -1105,7 +1148,7 @@ async function sendGuideStep(url, body, turn, flow, panel, pendingText){
   if (tripBusy) return;
 
   tripBusy = true;
-  tripClockStart();
+  tripClockResume();
   panel.classList.add("is-locked");
   panel.querySelectorAll("button").forEach((button) => { button.disabled = true; });
   flow.status(pendingText);
@@ -1199,12 +1242,14 @@ async function sendGuideStep(url, body, turn, flow, panel, pendingText){
       panel.classList.remove("is-locked");
       panel.querySelectorAll("button").forEach((button) => { button.disabled = false; });
     }else if (awaiting){
-      tripClockStop("等待选择");
+      // 又停下来问用户了：暂停计时，等用户选完再接着算
+      tripClockPause();
       return;
     }else{
-      tripClockStop(`用时 ${fmtSec(tripSeconds())}`);
+      const usedText = `用时 ${fmtSec(tripSeconds())}`;
+      tripClockStop(usedText);
       tripStepsFinish(false);
-      flow.finish(`CTOS规划结束 · 用时 ${fmtSec(tripSeconds())}`, false);
+      flow.finish(`CTOS规划结束 · ${usedText}`, false);
       panel.remove();
       const hint = turn.querySelector(".route-ask-hint");
       if (hint) hint.remove();
@@ -1266,7 +1311,7 @@ async function chooseRoute(threadId, choiceId, turn, flow, panel){
   if (!threadId || !choiceId) return;
 
   tripBusy = true;
-  tripClockStart();
+  tripClockResume();
   panel.classList.add("is-locked");
   panel.querySelectorAll("button").forEach((button) => { button.disabled = true; });
 
@@ -1348,7 +1393,10 @@ async function chooseRoute(threadId, choiceId, turn, flow, panel){
   }finally{
     finishAbort(ctl);
     tripBusy = false;
-    tripClockStop(failed || hadError ? "FAILED" : `用时 ${fmtSec(tripSeconds())}`);
+
+    // 先把用时算出来，再停表：停表会把这一轮的起点清掉
+    const usedText = `用时 ${fmtSec(tripSeconds())}`;
+    tripClockStop(failed || hadError ? "FAILED" : usedText);
 
     if (failed || hadError){
       tripStepsInterrupt();
@@ -1358,7 +1406,7 @@ async function chooseRoute(threadId, choiceId, turn, flow, panel){
       panel.querySelectorAll("button").forEach((button) => { button.disabled = false; });
     }else{
       tripStepsFinish(false);
-      flow.finish(`CTOS路线决策结束 · 用时 ${fmtSec(tripSeconds())}`, false);
+      flow.finish(`CTOS路线决策结束 · ${usedText}`, false);
       panel.remove();
 
       const hint = turn.querySelector(".route-ask-hint");
