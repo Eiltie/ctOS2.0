@@ -10,11 +10,14 @@
 
 ## 界面
 
-**智能出行** — 两种模式：问“从 A 到 B 怎么走”会查真实路线、给出多方案对比，并暂停让你选一条；问“去某地玩几天”还是原来的攻略流程：
+**智能出行** — 两种模式，都会在中途停下来让你确认：
+
+- 问“从 A 到 B 怎么走”：查真实的多条方案，**你选一条**，再写对比和推荐
+- 问“去某地玩几天”：出完景点清单**让你勾选**，确认后再排行程、算路线
 
 <p>
-  <img src="screenshot/ctOS_trip01.png" width="49%" alt="出行开场页">
-  <img src="screenshot/ctOS_trip02.png" width="49%" alt="出行规划结果">
+  <img src="screenshot/ctOS_trip01.png" width="49%" alt="路线决策：等你选方案">
+  <img src="screenshot/ctOS_trip02.png" width="49%" alt="旅游攻略：勾选景点">
 </p>
 
 **闲聊** — 多轮记忆、会话切换：
