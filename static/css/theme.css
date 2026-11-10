@@ -55,6 +55,13 @@ html[data-theme="street"] {
 
 /* ---------- 主题切换按钮：三套主题共用 ---------- */
 
+/* 顶栏用了毛玻璃（backdrop-filter）会自己形成一个层叠上下文，
+   不抬高整条顶栏的话，下拉菜单会被下面的聊天区盖住。 */
+.top-nav {
+    position: relative;
+    z-index: 100;
+}
+
 .theme-switcher { position: relative; flex-shrink: 0; }
 
 .theme-btn {
