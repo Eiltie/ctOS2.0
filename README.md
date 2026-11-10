@@ -77,6 +77,10 @@ docker exec ctos2-app python -m core.db    # 首次要建表
 # http://127.0.0.1:8080/
 ```
 
+> `static/` 已挂载进容器：改前端文件后刷新页面即可生效；
+> 改 Python 代码（`core/`、`api/`、`modules/`）才需要重新构建：
+> `docker compose --env-file config/.env up -d --build app`。
+
 详细说明见 [docs/deployment.md](docs/deployment.md)。
 
 ### 方式二：本地运行

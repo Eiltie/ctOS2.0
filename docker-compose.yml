@@ -74,6 +74,8 @@ services:
 
       TZ: Asia/Shanghai
     volumes:
+      # 前端文件直接挂进来：改完刷新页面就生效，不用重建镜像
+      - ./static:/app/static
       # Chroma 向量库挂进来，容器重建不用重新入库
       - ./modules/customer/data/chroma:/app/modules/customer/data/chroma
       # 人工确认的暂停现场：容器重建后，没选完的方案还能接着选
