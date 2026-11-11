@@ -6,6 +6,7 @@
   每个请求解析出 tenant_id，传给下层做数据隔离。
 """
 
+import asyncio
 from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException
@@ -25,9 +26,17 @@ from modules.trip.stream import (
 from modules.trip.route_decision_stream import route_choose_stream
 from modules.customer.stream import customer_stream
 from modules.roleplay.presets import all_presets, get_preset, public_role
+from modules.roleplay.memory import refresh_memory
 from modules.roleplay.stream import role_play_stream
 from databases.db_trip import list_trips, get_trip, delete_trip, delete_trips
-from databases.db_roleplay import get_role_id, is_my_session, link_role_session
+from databases.db_roleplay import (
+    add_one_round,
+    clear_memory,
+    get_memory,
+    get_role_id,
+    is_my_session,
+    link_role_session,
+)
 from modules.chat.sessions import (
     resolve_session,
     save_ai_reply,
@@ -85,6 +94,10 @@ class ChatRequest(BaseModel):
 
 
 class RoleStartRequest(BaseModel):
+    role_id: str
+
+
+class RoleMemoryClearRequest(BaseModel):
     role_id: str
 
 
@@ -166,6 +179,7 @@ def roleplay_start(req: RoleStartRequest, authorization: str | None = Header(def
         "session_id": session_id,
         "role": public_role(role),
         "opening": role["opening"],
+        "memory": get_memory(tenant_id, role["id"]),
     }
 
 
@@ -181,7 +195,33 @@ def roleplay_session(session_id: int, authorization: str | None = Header(default
     if role is None:
         raise HTTPException(status_code=404, detail="这个角色已经不存在了")
 
-    return {"session_id": session_id, "role": public_role(role)}
+    return {
+        "session_id": session_id,
+        "role": public_role(role),
+        "memory": get_memory(tenant_id, role_id),
+    }
+
+
+@app.get("/roleplay/memory/{role_id}")
+def roleplay_memory(role_id: str, authorization: str | None = Header(default=None)):
+    """查这个角色记住了什么，前端可以显示“它还记着……”。"""
+    tenant_id = tenant_of(authorization)
+    if get_preset(role_id) is None:
+        raise HTTPException(status_code=404, detail="没有这个角色")
+
+    return {"role_id": role_id, "memory": get_memory(tenant_id, role_id)}
+
+
+@app.post("/roleplay/memory/clear")
+def roleplay_memory_clear(req: RoleMemoryClearRequest,
+                          authorization: str | None = Header(default=None)):
+    """把这个角色的记忆全部清掉。"""
+    tenant_id = tenant_of(authorization)
+    if get_preset(req.role_id) is None:
+        raise HTTPException(status_code=404, detail="没有这个角色")
+
+    clear_memory(tenant_id, req.role_id)
+    return {"ok": True}
 
 
 @app.post("/chat")
@@ -217,15 +257,20 @@ async def chat(req: ChatRequest, authorization: str | None = Header(default=None
 
         async def role_gen():
             """逐块产出角色的回复，全部发完再写库。"""
+            memory = get_memory(tenant_id, role["id"])
             history = load_history(session_id, tenant_id=tenant_id)
             collection = []
 
-            async for chunk in role_play_stream(role, history, req.messages):
+            async for chunk in role_play_stream(role, history, req.messages, memory):
                 collection.append(chunk)
                 yield chunk
 
             save_user_message(session_id, req.messages, tenant_id=tenant_id)
             save_ai_reply(session_id, "".join(collection), tenant_id=tenant_id)
+
+            # 每聊 6 轮整理一次记忆；放到后台做，不让用户等
+            if add_one_round(tenant_id, role["id"]):
+                asyncio.create_task(refresh_memory(tenant_id, role["id"], role["name"]))
 
         headers = {"X-Session-Id": str(session_id)}
         return StreamingResponse(role_gen(), media_type="text/plain", headers=headers)

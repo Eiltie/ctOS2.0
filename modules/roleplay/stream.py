@@ -9,12 +9,13 @@ from modules.roleplay.prompts import build_role_prompt
 ROLE_TEMPERATURE = 0.8
 
 
-async def role_play_stream(role, history, query):
+async def role_play_stream(role, history, query, memory=""):
     """流式产出角色的回复。
 
-    history 是 LangChain 的消息列表，query 是用户刚说的一句话。
+    history 是 LangChain 的消息列表，query 是用户刚说的一句话，
+    memory 是这个角色记住的事（可以没有）。
     """
-    messages = [SystemMessage(content=build_role_prompt(role))]
+    messages = [SystemMessage(content=build_role_prompt(role, memory))]
     messages.extend(history)
     messages.append(HumanMessage(content=query))
 

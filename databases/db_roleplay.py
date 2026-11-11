@@ -1,13 +1,13 @@
-"""角色扮演的表：记录“这个会话用的是哪个角色”。
+"""角色扮演的表：会话对应哪个角色，以及每个角色的记忆。
 
-为什么单独一张表：
-    角色扮演的聊天还是用原来的 sessions / messages 存，
-    只在旁边记一句“这个会话是哪个角色”，普通闲聊不受影响。
+两张表：
+    role_play_sessions  这个聊天会话是哪个角色
+    role_play_memories   这个角色记住了什么（按租户 + 角色存一份）
 
 注意：预设角色不存这里，直接写在 modules/roleplay/presets.py。
 """
 
-from core.db import execute, query_one
+from core.db import execute, query, query_one, transaction
 
 CREATE_ROLE_SESSIONS_TABLE = """
 CREATE TABLE IF NOT EXISTS role_play_sessions (
@@ -18,15 +18,28 @@ CREATE TABLE IF NOT EXISTS role_play_sessions (
 )
 """
 
-CREATE_ROLE_SESSIONS_INDEX = (
+CREATE_ROLE_MEMORIES_TABLE = """
+CREATE TABLE IF NOT EXISTS role_play_memories (
+    tenant_id   INTEGER     NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    role_id     TEXT        NOT NULL,
+    summary     TEXT        NOT NULL DEFAULT '',
+    rounds      INTEGER     NOT NULL DEFAULT 0,
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (tenant_id, role_id)
+)
+"""
+
+CREATE_ROLE_INDEXES = (
     "CREATE INDEX IF NOT EXISTS ix_role_sessions_tenant ON role_play_sessions (tenant_id)",
+    "CREATE INDEX IF NOT EXISTS ix_role_memories_tenant ON role_play_memories (tenant_id)",
 )
 
 
 def create_roleplay_tables():
     """建角色扮演的表，已存在就跳过。"""
     execute(CREATE_ROLE_SESSIONS_TABLE)
-    for sql in CREATE_ROLE_SESSIONS_INDEX:
+    execute(CREATE_ROLE_MEMORIES_TABLE)
+    for sql in CREATE_ROLE_INDEXES:
         execute(sql)
 
 
@@ -57,3 +70,77 @@ def is_my_session(session_id, tenant_id):
         (session_id, tenant_id),
     )
     return row is not None
+
+
+def get_memory(tenant_id, role_id):
+    """取这个角色的记忆摘要；没有就返回空字符串。"""
+    row = query_one(
+        "SELECT summary FROM role_play_memories "
+        "WHERE tenant_id = %s AND role_id = %s",
+        (tenant_id, role_id),
+    )
+    return row["summary"] if row else ""
+
+
+def save_memory(tenant_id, role_id, summary):
+    """写入记忆摘要，并把“已经聊了几轮”清零。"""
+    execute(
+        "INSERT INTO role_play_memories (tenant_id, role_id, summary, rounds) "
+        "VALUES (%s, %s, %s, 0) "
+        "ON CONFLICT (tenant_id, role_id) DO UPDATE SET "
+        "summary = EXCLUDED.summary, rounds = 0, updated_at = CURRENT_TIMESTAMP",
+        (tenant_id, role_id, summary),
+    )
+
+
+def clear_memory(tenant_id, role_id):
+    """把这个角色的记忆全部删掉。"""
+    execute(
+        "DELETE FROM role_play_memories WHERE tenant_id = %s AND role_id = %s",
+        (tenant_id, role_id),
+    )
+
+
+def add_one_round(tenant_id, role_id, every=6):
+    """记一轮对话，返回“是不是该总结了”。
+
+    每聊一轮加一；到 6 轮返回 True，并清零重新数。
+    """
+    with transaction() as cur:
+        cur.execute(
+            "SELECT rounds FROM role_play_memories "
+            "WHERE tenant_id = %s AND role_id = %s FOR UPDATE",
+            (tenant_id, role_id),
+        )
+        row = cur.fetchone()
+        old_rounds = row["rounds"] if row else 0
+        new_rounds = old_rounds + 1
+        should_summarize = new_rounds >= every
+        next_rounds = 0 if should_summarize else new_rounds
+
+        if row:
+            cur.execute(
+                "UPDATE role_play_memories SET rounds = %s, updated_at = CURRENT_TIMESTAMP "
+                "WHERE tenant_id = %s AND role_id = %s",
+                (next_rounds, tenant_id, role_id),
+            )
+        else:
+            cur.execute(
+                "INSERT INTO role_play_memories (tenant_id, role_id, rounds) "
+                "VALUES (%s, %s, %s)",
+                (tenant_id, role_id, next_rounds),
+            )
+
+        return should_summarize
+
+
+def get_role_messages(tenant_id, role_id, limit=12):
+    """取这个角色最近几条消息，用来做记忆摘要（所有会话合在一起）。"""
+    rows = query(
+        "SELECT m.role, m.content FROM messages m "
+        "JOIN role_play_sessions r ON r.session_id = m.session_id "
+        "WHERE m.tenant_id = %s AND r.role_id = %s "
+        "ORDER BY m.id DESC LIMIT %s",
+        (tenant_id, role_id, limit),
+    )
+    return list(reversed(rows))
