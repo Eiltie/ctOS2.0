@@ -815,10 +815,11 @@ async function startRole(roleId){
 
   let s = state.sessions.find((x) => x.id === roleSessionId);
   if (!s){
-    s = { id: roleSessionId, title: activeRole.name };
+    s = { id: roleSessionId, title: activeRole.name, role_id: activeRole.id };
     state.sessions.unshift(s);
   }
   s.title = activeRole.name;
+  s.role_id = activeRole.id;
   s.messages = [{ role: "assistant", text: data.opening || "" }];
 
   chatMode = "role-chat";
@@ -1072,6 +1073,13 @@ async function loadSessions(){
     if (old && Array.isArray(old.messages)){
       item.messages = old.messages;
     }
+
+    // 有些旧服务或旧副本不返回 role_id，
+    // 不要因此把本地已经认出来的角色会话降级成普通聊天
+    if (item.role_id == null && old && old.role_id){
+      item.role_id = old.role_id;
+    }
+
     return item;
   });
 
@@ -1079,7 +1087,6 @@ async function loadSessions(){
   // 切回普通聊天时就不会误把角色会话当普通聊天打开
   state.sessions.forEach((s) => {
     if (s.role_id) roleSessionCache.add(Number(s.id));
-    else roleSessionCache.delete(Number(s.id));
   });
 
   // 被删掉的会话，把“已加载”标记也清掉
@@ -1109,8 +1116,10 @@ async function openSession(id){
     state.loaded.add(id);
   }
 
-  // 这个会话是角色扮演还是普通闲聊？
-  const roleInfo = s.role_id ? await getJson(`/roleplay/session/${id}`) : null;
+  // 每次都问一下这个会话是不是角色会话。
+  // 这样即使会话列表因为旧服务没有返回 role_id，点开时也能认出来，
+  // 不会把角色聊天当成普通闲聊打开。
+  const roleInfo = await getJson(`/roleplay/session/${id}`);
 
   if (roleInfo && roleInfo.role){
     activeRole = roleInfo.role;
