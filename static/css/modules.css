@@ -2563,3 +2563,31 @@ html[data-theme="cyber"] .role-card-del:hover {
     background: rgba(34, 211, 238, 0.08);
     color: #f87171;
 }
+
+/* ===== 手机端：角色页面细节 ===== */
+
+/* 角色选择 / 表单页面，反馈浮标会压住内容 */
+body.role-mode .feedback-fab {
+    display: none;
+}
+
+/* 给底部留出滚动余量，最后一排按钮不会被挡住 */
+@media (max-width: 900px) {
+    .role-select {
+        padding-bottom: 96px;
+    }
+}
+
+/* 更窄的手机上，角色条的按钮换到下一行 */
+@media (max-width: 360px) {
+    .role-banner {
+        flex-wrap: wrap;
+        row-gap: 6px;
+    }
+
+    .role-actions {
+        width: 100%;
+        margin-left: 0;
+        justify-content: flex-end;
+    }
+}

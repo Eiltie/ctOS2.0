@@ -122,6 +122,9 @@ function showChatPanels(mode){
   const view = $("view-chat");
   if (!view) return;
 
+  // 手机端的反馈浮标在角色页面会压住内容，进入角色玩法时先藏起来
+  document.body.classList.toggle("role-mode", mode === "role-select" || mode === "role-chat");
+
   view.classList.toggle("role-select-mode", mode === "role-select");
   view.classList.toggle("role-chat-mode", mode === "role-chat");
 
@@ -1298,6 +1301,11 @@ function switchView(viewName){
   if (!VIEW_ORDER.includes(viewName)) return;
 
   state.view = viewName;
+
+  // 角色页面才隐藏反馈浮标；切到出行/客服时恢复
+  if (viewName !== "chat"){
+    document.body.classList.remove("role-mode");
+  }
 
   // 主区域：只显示当前视图
   VIEW_ORDER.forEach((name) => {
