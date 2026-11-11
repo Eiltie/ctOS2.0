@@ -55,10 +55,8 @@ function tripQuickPromptsHTML(){
 }
 
 function tripRenderQuickPrompts(){
-  ["trip-quick-hero", "trip-quick-bottom"].forEach((id) => {
-    const box = $(id);
-    if (box) box.innerHTML = tripQuickPromptsHTML();
-  });
+  const box = $("trip-quick-hero");
+  if (box) box.innerHTML = tripQuickPromptsHTML();
 
   document.querySelectorAll(".trip-quick-btn").forEach((button) => {
     button.onclick = () => {
