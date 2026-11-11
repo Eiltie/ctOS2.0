@@ -603,11 +603,12 @@ async function sendChat(){
 
   appendRow(feed, "user", text);
 
-  // 先放一个「接入中」的占位气泡，第一块字到了再换成打字机
+  // 先放一个「接入中」的占位气泡，第一块字到了再换成打字机。
+  // 角色扮演不显示这种技术提示，免得破坏角色感。
   const aiRow = appendRow(feed, "ai", null);
   const bubble = aiRow.querySelector(".bubble");
   bubble.classList.add("loading-bubble");
-  bubble.textContent = "接入大模型中...";
+  bubble.textContent = (chatMode === "role-chat" && activeRole) ? "……" : "接入大模型中...";
 
   const typer = createTyper(feed, bubble);
   let failed = null;
@@ -656,9 +657,15 @@ async function sendChat(){
       failed = err;
       const partial = typer.cut();
       if (!partial) removeRow(aiRow);
-      appendNotice(feed,
-        "请求失败：" + (err && err.message ? err.message : err) +
-        "\n请确认后端已启动：python -m api.main");
+
+      // 角色聊天不用技术化的报错，免得破坏角色感
+      if (chatMode === "role-chat" && activeRole){
+        appendNotice(feed, "角色暂时没接上话，请稍后再试");
+      }else{
+        appendNotice(feed,
+          "请求失败：" + (err && err.message ? err.message : err) +
+          "\n请确认后端已启动：python -m api.main");
+      }
     }
   }finally{
     finishAbort(ctl);
