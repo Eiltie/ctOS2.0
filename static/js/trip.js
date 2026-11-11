@@ -1065,7 +1065,7 @@ function showPlaceChoices(turn, flow, event){
   scrollToWaitingPanel();
 }
 
-// 用选中的地点名替换用户原话里的那个名字，然后重新发一次
+// 用选中的地点名替换原话里的那个名字，然后在当前这一轮里继续查，不再开新的一轮
 function pickPlace(event, option, panel){
   if (tripBusy) return;
 
@@ -1080,17 +1080,206 @@ function pickPlace(event, option, panel){
     query = placeName;
   }
 
+  // 旧面板、旧提示一起清掉，不留残影
+  const turn = panel.closest(".trip-turn");
   panel.remove();
-  const hint = document.querySelector(".route-ask-hint");
-  if (hint) hint.remove();
+  if (turn){
+    turn.querySelectorAll(".route-ask-hint").forEach((hint) => hint.remove());
+    turn.querySelectorAll(".route-ask").forEach((item) => item.remove());
+    // “地点没认准”这类过程状态行，在真正开始查时换成新的，别留在中间
+    turn.querySelectorAll(".trip-status-line").forEach((line) => line.remove());
+  }
 
   lastTripText = query;
   tripHistory = tripHistory.filter((item) => item !== asked);
 
-  const input = tripHeroVisible() ? $("trip-input-hero") : $("trip-input");
-  if (input){
-    input.value = query;
-    sendTrip();
+  // 在原轮继续：不新建气泡，只把这句话接着交给后端
+  resumeInTurn(turn, query);
+}
+
+// 在已有的一轮里继续跑，用户看不到新的气泡
+async function resumeInTurn(turn, text){
+  const feed = tripFeed();
+  if (!turn || !feed || tripBusy) return;
+
+  tripBusy = true;
+  tripCanRetry = false;
+  setTripSendState("stop");
+  tripStepsReset();
+  tripClockStart();
+
+  const flow = createFlow(turn);
+  const ctl = newAbortController();
+
+  let failed = null;
+  let aborted = false;
+  let chatTurn = false;
+  let awaitingChoice = false;
+  let touched = false;
+  let stepError = -1;
+
+  try{
+    const res = await fetch(API.base + "/trip/chat", {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json", "Accept": "text/event-stream" }),
+      body: JSON.stringify({ query: text, history: tripHistory, chat_id: openChatId }),
+      signal: ctl.signal
+    });
+
+    if (res.status === 401){
+      handleAuthExpired();
+      throw new Error("登录已过期，请重新登录");
+    }
+
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    if (!res.body) throw new Error("当前浏览器不支持流式读取（res.body 为空）");
+
+    tripHistory.push(text);
+
+    const parser = createSseParser((ev) => {
+      switch (ev.kind){
+        case "SAY":
+          touched = true;
+          flow.status(ev.text);
+          break;
+
+        case "START":
+          touched = true;
+          if (ev.mode) tripSetMode(ev.mode);
+          tripStepSet(0, "busy");
+          break;
+
+        case "STEP": {
+          const idx = tripModeConfig().steps.indexOf(ev.key);
+          if (idx >= 0){ touched = true; tripStepSet(idx, "busy"); }
+          flow.status(ev.text);
+          break;
+        }
+
+        case "TOKEN":
+          touched = true;
+          flow.token(ev.key, ev.text);
+          break;
+
+        case "DONE":
+          touched = true;
+          flow.done(ev.key, ev.text);
+          break;
+
+        case "ASK":
+          touched = true;
+          awaitingChoice = true;
+          clearWaitingPanels(turn);
+          showRouteChoices(turn, flow, ev);
+          flow.status("查到了候选路线，在下面点一个方案，我再继续写推荐");
+          break;
+
+        case "ASK_SPOTS":
+          touched = true;
+          awaitingChoice = true;
+          clearWaitingPanels(turn);
+          showSpotChoices(turn, flow, ev);
+          flow.status("景点清单出来了，勾掉不想要的，或者在下面补一个");
+          break;
+
+        case "ASK_PLACE":
+          touched = true;
+          awaitingChoice = true;
+          clearWaitingPanels(turn);
+          if (ev.chat_id) rememberChatId(ev.chat_id, turn);
+          showPlaceChoices(turn, flow, ev);
+          flow.status("地点没认准，点一个候选就行");
+          break;
+
+        case "ASK_ROUTE":
+          touched = true;
+          awaitingChoice = true;
+          clearWaitingPanels(turn);
+          showRouteQuestion(turn, flow, ev);
+          flow.status("攻略写好了，要不要再查一遍真实路线？");
+          break;
+
+        case "CHAT":
+          chatTurn = true;
+          if (ev.chat_id) rememberChatId(ev.chat_id, turn);
+          appendTripChat(ev.message || "", turn);
+          break;
+
+        case "SAVED":
+          if (ev.chat_id) rememberChatId(ev.chat_id, turn);
+          break;
+
+        case "ERROR":
+          stepError = 0;
+          appendTripError(ev.message || "出行模块出错了", turn);
+          break;
+      }
+    });
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+
+    while (true){
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      parser.push(decoder.decode(value, { stream: true }));
+    }
+
+    parser.push(decoder.decode());
+    parser.end();
+  }catch(err){
+    if (err && err.name === "AbortError"){
+      aborted = true;
+    }else{
+      failed = err;
+      appendTripError(
+        "请求失败：" + (err && err.message ? err.message : err), turn);
+    }
+  }finally{
+    finishAbort(ctl);
+    tripBusy = false;
+
+    if (failed || aborted){
+      tripCanRetry = true;
+      setTripSendState("retry");
+    }else{
+      tripCanRetry = false;
+      setTripSendState("send");
+    }
+
+    if (!failed && stepError < 0 && touched && !chatTurn && !awaitingChoice && !aborted){
+      tripStepsFinish(false);
+    }else if (failed || stepError >= 0 || aborted){
+      tripStepsInterrupt();
+    }
+
+    if (awaitingChoice && !aborted){
+      tripClockPause();
+    }else if (aborted){
+      tripClockStop("已停止");
+      flow.finish("已停止，可重试", true);
+    }else{
+      const usedText = `用时 ${fmtSec(tripSeconds())}`;
+      tripClockStop(failed ? "FAILED" : usedText);
+
+      if (chatTurn){
+        flow.finish("CTOS任务完成", false);
+      }else if (failed || stepError >= 0){
+        flow.finish("CTOS任务失败", true);
+      }else if (touched){
+        flow.finish(`CTOS规划结束 · ${usedText}`, false);
+      }
+    }
+
+    tripScroll();
+    if (awaitingChoice) scrollToWaitingPanel();
+
+    await loadTripRecords();
+    if (state.view === "trip") renderTripHistory();
+
+    const input = $("trip-input");
+    if (input) input.focus();
   }
 }
 
