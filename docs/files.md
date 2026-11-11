@@ -265,7 +265,7 @@ modules/<模块名>/
 | `docs/architecture.md` | 请求地图：用户点一下，代码经过哪些文件 |
 | `docs/files.md` | **本文档**：每个文件做什么 |
 | `docs/deployment.md` | 部署说明：线上实例、Docker、本地运行、上线流程 |
-| `eval/cases.json` | 测评题库：14 条，覆盖闲聊/角色/客服/出行/平台 |
+| `eval/cases.json` | 测评题库：32 条，覆盖闲聊/角色/客服/出行/平台 |
 | `eval/run_eval.py` | 跑测评、自动检查、生成 JSON + Markdown 报告 |
 | `eval/results/` | 每次测评的报告，保留最新一版基线 |
 | `eval/README.md` | 怎么跑、怎么加题、怎么读结果 |

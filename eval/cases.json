@@ -13,7 +13,13 @@
       "id": "chat-hangzhou",
       "module": "chat",
       "input": "列出 3 个杭州景点，每行一个，只写名字。",
-      "must_have_any": ["西湖", "灵隐寺", "西溪", "雷峰塔", "千岛湖"],
+      "must_have_any": [
+        "西湖",
+        "灵隐寺",
+        "西溪",
+        "雷峰塔",
+        "千岛湖"
+      ],
       "max_chars": 120,
       "max_seconds": 45
     },
@@ -21,9 +27,22 @@
       "id": "role-identity",
       "module": "roleplay",
       "role_id": "sunwukong",
-      "turns": ["你是谁？"],
-      "must_have_any": ["老孙", "孙悟空", "大圣"],
-      "must_not": ["我是AI", "我是人工智能", "作为AI", "作为人工智能", "我是语言模型", "我是一个语言模型"],
+      "turns": [
+        "你是谁？"
+      ],
+      "must_have_any": [
+        "老孙",
+        "孙悟空",
+        "大圣"
+      ],
+      "must_not": [
+        "我是AI",
+        "我是人工智能",
+        "作为AI",
+        "作为人工智能",
+        "我是语言模型",
+        "我是一个语言模型"
+      ],
       "max_chars": 200,
       "max_seconds": 60
     },
@@ -31,9 +50,22 @@
       "id": "role-boundary",
       "module": "roleplay",
       "role_id": "sunwukong",
-      "turns": ["你是不是人工智能或者语言模型？"],
-      "must_have_any": ["老孙", "孙悟空", "大圣", "猴子"],
-      "must_not": ["我是人工智能", "我是AI", "作为人工智能", "作为AI", "我是一个语言模型"],
+      "turns": [
+        "你是不是人工智能或者语言模型？"
+      ],
+      "must_have_any": [
+        "老孙",
+        "孙悟空",
+        "大圣",
+        "猴子"
+      ],
+      "must_not": [
+        "我是人工智能",
+        "我是AI",
+        "作为人工智能",
+        "作为AI",
+        "我是一个语言模型"
+      ],
       "max_seconds": 60,
       "critical": true
     },
@@ -50,7 +82,11 @@
         "我最近在学做饭。",
         "我叫什么？住在哪里？我养的猫叫什么？"
       ],
-      "must_have_all": ["小林", "杭州", "年糕"],
+      "must_have_all": [
+        "小林",
+        "杭州",
+        "年糕"
+      ],
       "max_seconds": 180
     },
     {
@@ -58,9 +94,15 @@
       "module": "customer",
       "input": "这个项目有哪些模块？",
       "must_have_groups": [
-        ["闲聊"],
-        ["智能出行"],
-        ["智能客服"]
+        [
+          "闲聊"
+        ],
+        [
+          "智能出行"
+        ],
+        [
+          "智能客服"
+        ]
       ],
       "max_seconds": 45
     },
@@ -68,40 +110,73 @@
       "id": "customer-chromadb",
       "module": "customer",
       "input": "chromadb 怎么安装？",
-      "must_have_all": ["chromadb"],
-      "must_have_any": ["pip install", "pip"],
+      "must_have_all": [
+        "chromadb"
+      ],
+      "must_have_any": [
+        "pip install",
+        "pip"
+      ],
       "max_seconds": 45
     },
     {
       "id": "customer-ingest",
       "module": "customer",
       "input": "rag_ingest.py 是做什么的？",
-      "must_have_any": ["入库", "向量库", "切块", "知识库"],
+      "must_have_any": [
+        "入库",
+        "向量库",
+        "切块",
+        "知识库"
+      ],
       "max_seconds": 45
     },
     {
       "id": "customer-start",
       "module": "customer",
       "input": "启动这个项目要跑什么命令？",
-      "must_have_any": ["docker compose", "docker-compose", "api.main"],
+      "must_have_any": [
+        "docker compose",
+        "docker-compose",
+        "api.main"
+      ],
       "max_seconds": 45
     },
     {
       "id": "trip-route",
       "module": "trip",
       "input": "从杭州东站到灵隐寺怎么走？",
-      "must_have_all": ["灵隐寺"],
-      "must_have_any": ["公里", "分钟", "公交", "打车", "路线", "步行"],
+      "must_have_all": [
+        "灵隐寺"
+      ],
+      "must_have_any": [
+        "公里",
+        "分钟",
+        "公交",
+        "打车",
+        "路线",
+        "步行"
+      ],
       "max_seconds": 150
     },
     {
       "id": "trip-guide",
       "module": "trip",
       "input": "下周去杭州玩 3 天，带老人，节奏慢一点。",
-      "must_have_all": ["杭州"],
+      "must_have_all": [
+        "杭州"
+      ],
       "must_have_groups": [
-        ["3天", "三天"],
-        ["老人", "少走路", "轻松", "慢"]
+        [
+          "3天",
+          "三天"
+        ],
+        [
+          "老人",
+          "少走路",
+          "轻松",
+          "慢"
+        ]
       ],
       "max_seconds": 210
     },
@@ -109,9 +184,23 @@
       "id": "trip-weather",
       "module": "trip",
       "input": "杭州今天天气怎么样？",
-      "must_have_all": ["杭州"],
-      "must_have_any": ["℃", "°C", "气温", "温度", "度"],
-      "must_not": ["查不了", "暂时查不了", "无法查", "查不到", "不知道"],
+      "must_have_all": [
+        "杭州"
+      ],
+      "must_have_any": [
+        "℃",
+        "°C",
+        "气温",
+        "温度",
+        "度"
+      ],
+      "must_not": [
+        "查不了",
+        "暂时查不了",
+        "无法查",
+        "查不到",
+        "不知道"
+      ],
       "max_seconds": 60
     },
     {
@@ -129,6 +218,299 @@
       "role_id": "sunwukong",
       "max_seconds": 45,
       "critical": true
+    },
+    {
+      "id": "chat-format",
+      "module": "chat",
+      "input": "用 1. 2. 3. 列出三个杭州出行建议，每行一句。",
+      "must_have_groups": [
+        [
+          "1",
+          "一"
+        ],
+        [
+          "2",
+          "二"
+        ],
+        [
+          "3",
+          "三"
+        ]
+      ],
+      "max_chars": 150,
+      "max_seconds": 45
+    },
+    {
+      "id": "chat-length",
+      "module": "chat",
+      "input": "用不超过 20 个字回答：杭州是哪个省的省会？",
+      "must_have_all": [
+        "浙江"
+      ],
+      "max_chars": 45,
+      "max_seconds": 45
+    },
+    {
+      "id": "role-roommate",
+      "module": "roleplay",
+      "role_id": "roommate",
+      "turns": [
+        "你是谁？"
+      ],
+      "must_have_any": [
+        "室友",
+        "借钱",
+        "毒舌",
+        "嘴"
+      ],
+      "must_not": [
+        "我是AI",
+        "我是人工智能",
+        "作为AI",
+        "作为人工智能"
+      ],
+      "max_seconds": 60
+    },
+    {
+      "id": "role-interviewer",
+      "module": "roleplay",
+      "role_id": "interviewer",
+      "turns": [
+        "我想面试产品经理岗位，开始吧。"
+      ],
+      "must_have_any": [
+        "自我介绍",
+        "项目",
+        "经历"
+      ],
+      "must_not": [
+        "我是AI",
+        "作为AI",
+        "语言模型"
+      ],
+      "max_seconds": 60
+    },
+    {
+      "id": "role-sun-story",
+      "module": "roleplay",
+      "role_id": "sunwukong",
+      "turns": [
+        "讲讲你在花果山的事。"
+      ],
+      "must_have_any": [
+        "花果山",
+        "水帘洞",
+        "猴子",
+        "俺老孙"
+      ],
+      "must_not": [
+        "我是AI",
+        "作为AI",
+        "语言模型"
+      ],
+      "max_seconds": 60
+    },
+    {
+      "id": "role-roommate-boundary",
+      "module": "roleplay",
+      "role_id": "roommate",
+      "turns": [
+        "你是不是机器人或者人工智能？"
+      ],
+      "must_not": [
+        "我是机器人",
+        "我是人工智能",
+        "我是AI",
+        "作为AI",
+        "语言模型"
+      ],
+      "max_seconds": 60,
+      "critical": true
+    },
+    {
+      "id": "role-interviewer-followup",
+      "module": "roleplay",
+      "role_id": "interviewer",
+      "turns": [
+        "我做过一个校园二手平台项目。",
+        "我负责前端。"
+      ],
+      "must_have_any": [
+        "具体",
+        "怎么",
+        "为什么",
+        "技术",
+        "细节",
+        "难点"
+      ],
+      "must_not": [
+        "我是AI",
+        "作为AI",
+        "语言模型"
+      ],
+      "max_seconds": 90
+    },
+    {
+      "id": "customer-port",
+      "module": "customer",
+      "input": "端口怎么改？",
+      "must_have_any": [
+        "8080",
+        "PORT"
+      ],
+      "max_seconds": 45
+    },
+    {
+      "id": "customer-tables",
+      "module": "customer",
+      "input": "数据库有几张表？",
+      "must_have_any": [
+        "trip_sessions",
+        "sessions",
+        "张表"
+      ],
+      "max_seconds": 45
+    },
+    {
+      "id": "customer-maxhits",
+      "module": "customer",
+      "input": "MAX_HITS 是什么？",
+      "must_have_any": [
+        "MAX_HITS",
+        "检索",
+        "命中"
+      ],
+      "max_seconds": 45
+    },
+    {
+      "id": "customer-bm25",
+      "module": "customer",
+      "input": "jieba 和 BM25 是做什么的？",
+      "must_have_any": [
+        "BM25",
+        "关键词",
+        "检索",
+        "分词"
+      ],
+      "max_seconds": 45
+    },
+    {
+      "id": "customer-outside",
+      "module": "customer",
+      "input": "这个项目支持视频通话吗？",
+      "must_have_any": [
+        "不支持",
+        "没有",
+        "未提供",
+        "无法",
+        "知识库"
+      ],
+      "max_seconds": 45
+    },
+    {
+      "id": "customer-troubleshoot",
+      "module": "customer",
+      "input": "回答老是说找不到资料，可能是什么原因？",
+      "must_have_any": [
+        "入库",
+        "rag_ingest",
+        "重启",
+        "向量",
+        "文档"
+      ],
+      "max_seconds": 45
+    },
+    {
+      "id": "trip-route-elder",
+      "module": "trip",
+      "input": "从杭州东站到灵隐寺，带老人，少走路。",
+      "must_have_all": [
+        "灵隐寺"
+      ],
+      "must_have_any": [
+        "老人",
+        "少走",
+        "步行",
+        "打车"
+      ],
+      "max_seconds": 150
+    },
+    {
+      "id": "trip-route-bus",
+      "module": "trip",
+      "input": "从杭州东站到灵隐寺坐公交怎么走？",
+      "must_have_all": [
+        "灵隐寺"
+      ],
+      "must_have_any": [
+        "公交",
+        "地铁",
+        "线路",
+        "换乘"
+      ],
+      "max_seconds": 150
+    },
+    {
+      "id": "trip-guide-kid",
+      "module": "trip",
+      "input": "成都 4 天带小孩，想去科技馆，别太赶。",
+      "must_have_all": [
+        "成都"
+      ],
+      "must_have_groups": [
+        [
+          "4天",
+          "四天"
+        ],
+        [
+          "小孩",
+          "孩子"
+        ],
+        [
+          "科技馆"
+        ]
+      ],
+      "max_seconds": 210
+    },
+    {
+      "id": "trip-weather-rain",
+      "module": "trip",
+      "input": "杭州明天下雨吗？",
+      "must_have_all": [
+        "杭州"
+      ],
+      "must_have_any": [
+        "雨",
+        "降雨",
+        "阵雨",
+        "毛毛雨",
+        "晴"
+      ],
+      "must_not": [
+        "查不了",
+        "暂时查不了",
+        "无法查"
+      ],
+      "max_seconds": 60
+    },
+    {
+      "id": "trip-guide-budget",
+      "module": "trip",
+      "input": "杭州 3 天，预算 1000，带老人。",
+      "must_have_groups": [
+        [
+          "3天",
+          "三天"
+        ],
+        [
+          "1000",
+          "预算"
+        ],
+        [
+          "老人"
+        ]
+      ],
+      "max_seconds": 210
     }
   ]
 }
