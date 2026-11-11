@@ -234,7 +234,7 @@ modules/<模块名>/
 | --- | --- | --- |
 | `config.js` | 24 | API 地址、视图顺序、状态文案、打字机参数 |
 | `utils.js` | 53 | `$`、`esc`、`now`、`scrollDown`、`getJson`、`bindEnter` |
-| `announcement.js` | 58 | **更新公告**：版本 id、标题、日期、更新条目；同一浏览器只自动弹一次 |
+| `announcement.js` | 64 | **更新公告前端**：从 `GET /notice` 拉内容，记录本浏览器看过的版本 |
 | `auth.js` | 154 | token 存取、访客会话引导、登录弹层逻辑、带认证的 fetch |
 | `abort.js` | 28 | 请求中断控制（同一时刻只跑一个流） |
 | `sse.js` | 57 | SSE 事件解析器 |
@@ -260,6 +260,7 @@ modules/<模块名>/
 | --- | --- |
 | `config/.env` | **所有密钥和连接配置**（不进 git） |
 | `config/YOUR_config.env` | 配置模板，告诉别人要填什么 |
+| `config/notice.json` | **更新公告**：id、标题、日期、正文、条目；改完刷新页面生效 |
 | `config/requirements.txt` | Python 依赖清单 |
 | `docs/architecture.md` | 请求地图：用户点一下，代码经过哪些文件 |
 | `docs/files.md` | **本文档**：每个文件做什么 |
@@ -279,6 +280,7 @@ modules/<模块名>/
 | 加外部工具 | `modules/trip/tools.py` |
 | 改前端样式 | `static/css/modules.css` |
 | 改前端逻辑 | `static/js/app.js`（闲聊）/ `trip.js` / `customer.js` |
+| 改更新公告 | `config/notice.json` |
 | 加公用前端函数 | `static/js/common/` 下新建文件，并在 `index.html` 里按顺序引入 |
 | 改端口 | 环境变量 `PORT`（容器/线上）/ `api/main.py` 底部（本地） |
 | 改数据库连接 | `config/.env` 的 `PG_*` 变量 |

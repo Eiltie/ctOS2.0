@@ -7,6 +7,7 @@
 """
 
 import asyncio
+import json
 from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException
@@ -56,6 +57,41 @@ from modules.chat.sessions import (
 app = FastAPI(title="ctOS 2.0")
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+
+# 公告内容放在 config/notice.json，改完保存、刷新页面就生效，不用改前端代码
+NOTICE_FILE = Path(__file__).resolve().parent.parent / "config" / "notice.json"
+
+
+def read_notice():
+    """读公告文件；文件不存在或格式不对就返回 None。"""
+    try:
+        with open(NOTICE_FILE, "r", encoding="utf-8-sig") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return None
+    except Exception as e:
+        print(f"[公告] 读取失败：{e}")
+        return None
+
+    if not isinstance(data, dict):
+        return None
+
+    notice_id = str(data.get("id") or "").strip()
+    if not notice_id:
+        return None
+
+    items = data.get("items")
+    if not isinstance(items, list):
+        items = []
+
+    return {
+        "id": notice_id,
+        "title": str(data.get("title") or "更新公告"),
+        "date": str(data.get("date") or ""),
+        "version": str(data.get("version") or ""),
+        "intro": str(data.get("intro") or ""),
+        "items": [str(item) for item in items if str(item).strip()],
+    }
 
 
 class NoCacheStaticFiles(StaticFiles):
@@ -360,6 +396,12 @@ def roleplay_memory_clear(req: RoleMemoryClearRequest,
 
     clear_memory(tenant_id, req.role_id)
     return {"ok": True}
+
+
+@app.get("/notice")
+def get_notice():
+    """给前端读更新公告；没有公告就返回 null。"""
+    return {"notice": read_notice()}
 
 
 @app.post("/chat")
