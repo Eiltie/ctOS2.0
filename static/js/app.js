@@ -230,21 +230,62 @@ async function renderRoleSelect(){
   });
 }
 
+// 发一次「开始角色」的请求。
+// 不用 getJson，是因为要把 HTTP 状态码带出来，方便判断是旧服务器还是别的问题。
+async function postStartRole(roleId){
+  const res = await fetch(API.base + "/roleplay/start", {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ role_id: roleId })
+  });
+
+  if (res.status === 401){
+    handleAuthExpired();
+    const err = new Error("登录已过期，请重新登录");
+    err.status = 401;
+    throw err;
+  }
+
+  const text = await res.text();
+  let data = null;
+  try { data = JSON.parse(text); } catch(e){}
+
+  if (!res.ok){
+    const detail = data && data.detail ? data.detail : text.slice(0, 80);
+    const err = new Error(`HTTP ${res.status}${detail ? "：" + detail : ""}`);
+    err.status = res.status;
+    throw err;
+  }
+
+  return data;
+}
+
 // 选了角色，开一个新会话
 async function startRole(roleId){
   if (chatBusy) return;
   chatBusy = true;
 
-  const data = await getJson("/roleplay/start", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ role_id: roleId })
-  });
+  let data = null;
+  let lastError = null;
+
+  // 线上可能有两台服务器在轮换，旧的那台会 404。
+  // 试两次，至少多一次机会落到新版本上。
+  for (let attempt = 0; attempt < 2; attempt++){
+    try{
+      data = await postStartRole(roleId);
+      break;
+    }catch(err){
+      lastError = err;
+      if (err.status === 401) break;
+      if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 400));
+    }
+  }
 
   chatBusy = false;
 
   if (!data || !data.session_id){
-    alert("开始角色失败，请确认后端正常");
+    const message = lastError ? lastError.message : "后端没有返回会话";
+    alert(`开始角色失败：${message}\n\n如果线上有两台服务器，可能有一台还是旧版本。\n请先停掉旧的副本再试。`);
     return;
   }
 

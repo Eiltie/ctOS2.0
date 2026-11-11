@@ -358,3 +358,27 @@
 | `static/css/theme.css` | 街头和赛博主题下的角色页样式 |
 | `api/main.py` | `/sessions` 返回 `role_id`；普通会话查角色返回 `role: null` |
 | `databases/db_roleplay.py` | 新增 `all_role_session_ids()` |
+
+---
+
+## 七、线上部署注意：同一个隧道不要挂两台机器
+
+Cloudflare Tunnel 如果同时有两个副本（比如笔记本 + 家里台式机），
+访问会被随机分到其中一台。只要有一台代码旧，就会出现：
+
+- 页面能打开（静态文件是新的那台给的）
+- 点「角色扮演」里的角色却失败（`/roleplay/start` 被分到旧的那台，返回 404）
+
+**处理办法：**
+
+1. 在 Cloudflare Dashboard → Tunnels → `inori` → 「副本」里，
+   把 `DESKTOP-350EO5K` 之类的旧副本断开/删除
+2. 如果断开后又自己连回来，就在同一个页面点「刷新令牌 → 轮换令牌」，
+   让旧机器的 token 失效，然后在这台笔记本上更新 token 并重启 Cloudflared
+3. 只保留一台机器提供线上服务
+
+**排查时看哪里：**
+
+- 本机 `docker logs ctos2-app -t | grep roleplay/start`
+  如果线上报错时这里完全没有记录，说明请求被分到另一台机器了
+- 浏览器弹窗现在会显示 `HTTP 404` 之类的状态码，先看状态码再判断
