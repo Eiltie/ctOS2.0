@@ -24,7 +24,10 @@ from modules.trip.stream import (
 )
 from modules.trip.route_decision_stream import route_choose_stream
 from modules.customer.stream import customer_stream
+from modules.roleplay.presets import all_presets, get_preset, public_role
+from modules.roleplay.stream import role_play_stream
 from databases.db_trip import list_trips, get_trip, delete_trip, delete_trips
+from databases.db_roleplay import get_role_id, is_my_session, link_role_session
 from modules.chat.sessions import (
     resolve_session,
     save_ai_reply,
@@ -77,6 +80,12 @@ app.include_router(trial_router)
 class ChatRequest(BaseModel):
     messages: str
     session_id: int | None = None
+    # 传了就是角色扮演，不传就是普通闲聊
+    role_id: str | None = None
+
+
+class RoleStartRequest(BaseModel):
+    role_id: str
 
 
 class TripRequest(BaseModel):
@@ -131,11 +140,97 @@ def tenant_of(authorization: str | None) -> int:
     return current_tenant(authorization)
 
 
+@app.get("/roleplay/roles")
+def roleplay_roles(authorization: str | None = Header(default=None)):
+    """列出所有预设角色，前端用来画角色卡片。"""
+    tenant_of(authorization)
+    return {"roles": all_presets()}
+
+
+@app.post("/roleplay/start")
+def roleplay_start(req: RoleStartRequest, authorization: str | None = Header(default=None)):
+    """选一个角色开始：建一个聊天会话，把角色和会话绑起来，存下开场白。"""
+    tenant_id = tenant_of(authorization)
+    role = get_preset(req.role_id)
+    if role is None:
+        raise HTTPException(status_code=404, detail="没有这个角色")
+
+    session_id = resolve_session(None, role["name"], tenant_id=tenant_id)
+    if session_id is None:
+        raise HTTPException(status_code=500, detail="创建角色会话失败")
+
+    link_role_session(session_id, tenant_id, role["id"])
+    save_ai_reply(session_id, role["opening"], tenant_id=tenant_id)
+
+    return {
+        "session_id": session_id,
+        "role": public_role(role),
+        "opening": role["opening"],
+    }
+
+
+@app.get("/roleplay/session/{session_id}")
+def roleplay_session(session_id: int, authorization: str | None = Header(default=None)):
+    """查一个会话是哪个角色，刷新页面后前端用它恢复角色。"""
+    tenant_id = tenant_of(authorization)
+    role_id = get_role_id(session_id, tenant_id)
+    if role_id is None:
+        raise HTTPException(status_code=404, detail="这个会话不是角色扮演")
+
+    role = get_preset(role_id)
+    if role is None:
+        raise HTTPException(status_code=404, detail="这个角色已经不存在了")
+
+    return {"session_id": session_id, "role": public_role(role)}
+
+
 @app.post("/chat")
 async def chat(req: ChatRequest, authorization: str | None = Header(default=None)):
-    """闲聊：流式返回纯文本，会话 id 放在响应头 X-Session-Id。"""
+    """闲聊：流式返回纯文本，会话 id 放在响应头 X-Session-Id。
+
+    传了 role_id 就是角色扮演，没传就是普通闲聊，两条路共用会话和消息表。
+    """
     tenant_id = tenant_of(authorization)
 
+    # ---------- 角色扮演 ----------
+    if req.role_id:
+        role = get_preset(req.role_id)
+        if role is None:
+            raise HTTPException(status_code=404, detail="没有这个角色")
+
+        session_id = req.session_id
+        if session_id is None:
+            # 前端没先调 /roleplay/start，这里补一个会话和开场白
+            session_id = resolve_session(None, role["name"], tenant_id=tenant_id)
+            if session_id is None:
+                raise HTTPException(status_code=500, detail="创建角色会话失败")
+            link_role_session(session_id, tenant_id, role["id"])
+            save_ai_reply(session_id, role["opening"], tenant_id=tenant_id)
+        else:
+            linked_role = get_role_id(session_id, tenant_id)
+            if linked_role is None:
+                if not is_my_session(session_id, tenant_id):
+                    raise HTTPException(status_code=404, detail="没有这个会话")
+                link_role_session(session_id, tenant_id, role["id"])
+            elif linked_role != role["id"]:
+                raise HTTPException(status_code=400, detail="这个会话不是这个角色")
+
+        async def role_gen():
+            """逐块产出角色的回复，全部发完再写库。"""
+            history = load_history(session_id, tenant_id=tenant_id)
+            collection = []
+
+            async for chunk in role_play_stream(role, history, req.messages):
+                collection.append(chunk)
+                yield chunk
+
+            save_user_message(session_id, req.messages, tenant_id=tenant_id)
+            save_ai_reply(session_id, "".join(collection), tenant_id=tenant_id)
+
+        headers = {"X-Session-Id": str(session_id)}
+        return StreamingResponse(role_gen(), media_type="text/plain", headers=headers)
+
+    # ---------- 普通闲聊 ----------
     session_id = resolve_session(req.session_id, req.messages, tenant_id=tenant_id)
 
     async def gen():

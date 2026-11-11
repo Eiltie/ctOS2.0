@@ -250,3 +250,53 @@
 - `/chat`、`/trip/chat`、`/customer/chat` 也都没有
 - 三档方案：访客注册限流（按 IP）→ 按账号限流 → 全站总闸
 - 单机单进程，用内存字典就够，参考 `main.py` 里 `/feedback` 的写法
+
+---
+
+## 六、实施进度
+
+### 第 1 步：预设角色 + 角色对话（后端已完成）
+
+**新增文件：**
+
+| 文件 | 作用 |
+| --- | --- |
+| `modules/roleplay/presets.py` | 预设角色数据，现在放了 3 个示例 |
+| `modules/roleplay/prompts.py` | 把角色档案拼成提示词 |
+| `modules/roleplay/stream.py` | 角色对话的流式出口 |
+| `databases/db_roleplay.py` | 记录"哪个会话是哪个角色" |
+
+**修改文件：**
+
+| 文件 | 改了什么 |
+| --- | --- |
+| `api/main.py` | `/chat` 加 `role_id` 参数；新增 `/roleplay/roles`、`/roleplay/start`、`/roleplay/session/{id}` |
+| `core/db.py` | 建表列表加了一行 `db_roleplay` |
+
+**新增表：** `role_play_sessions`（会话 → 角色）
+
+**接口：**
+
+| 接口 | 作用 |
+| --- | --- |
+| `GET /roleplay/roles` | 列出预设角色 |
+| `POST /roleplay/start` | 选角色开始，返回会话 id 和开场白 |
+| `GET /roleplay/session/{id}` | 刷新页面后查这个会话是哪个角色 |
+| `POST /chat`（带 `role_id`） | 角色对话，流式返回纯文本 |
+
+**预设角色怎么写：** 打开 `modules/roleplay/presets.py`，照着里面 3 个示例复制一份，
+改字段即可。现在只有孙悟空、毒舌室友、严格面试官三个占位。
+
+**已验证：**
+
+- 选角色、开场白、角色对话正常
+- 普通闲聊没有被改坏
+- 用错角色去聊会返回 400
+- 拿别人的会话 id 会返回 404
+- Docker 8080 和本机 8091 都测过
+
+**还没做的：**
+
+- 第 2 步：记忆（每 6 轮摘要、按角色存、可全清）
+- 第 3 步：自定义角色（AI 搜索生成、用户手写）
+- 前端界面（插件条、角色卡片、聊天界面）
