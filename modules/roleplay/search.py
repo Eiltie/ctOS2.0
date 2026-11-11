@@ -7,6 +7,7 @@
 import json
 
 from core.llm import get_llm
+from modules.roleplay.roles import DEFAULT_ROLE_BOUNDARIES
 from modules.trip.tools import web_search
 
 # 搜索和整理都要稳一点，不要自由发挥
@@ -33,15 +34,13 @@ ROLE_SEARCH_PROMPT = """你是一个角色档案整理器。用户想扮演：{q
   "tagline": "很短的标签",
   "personality": "性格",
   "speaking": "说话方式",
-  "boundaries": "不会做什么",
   "opening": "角色说的第一句话"
 }}
 
 要求：
 1. 名字优先用用户说的名字。
 2. 用第一人称设计说话方式，不要照抄百科原文。
-3. boundaries 必须包含“不承认自己是 AI、不跳出角色”。
-4. 资料不足就按人物常识写，不要编造具体事实。
+3. 资料不足就按人物常识写，不要编造具体事实。
 """
 
 
@@ -77,11 +76,8 @@ def search_role(query):
     tagline = clean_text(data.get("tagline"), TAGLINE_LIMIT) or "AI 生成"
     personality = clean_text(data.get("personality"), TEXT_LIMIT)
     speaking = clean_text(data.get("speaking"), TEXT_LIMIT)
-    boundaries = clean_text(data.get("boundaries"), TEXT_LIMIT)
+    boundaries = DEFAULT_ROLE_BOUNDARIES
     opening = clean_text(data.get("opening"), TEXT_LIMIT) or f"我是{name}，你想聊点什么？"
-
-    if "AI" not in boundaries:
-        boundaries = ("不说自己是 AI，不跳出角色。" + boundaries)[:TEXT_LIMIT]
 
     role = {
         "name": name,

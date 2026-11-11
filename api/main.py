@@ -26,7 +26,7 @@ from modules.trip.stream import (
 from modules.trip.route_decision_stream import route_choose_stream
 from modules.customer.stream import customer_stream
 from modules.roleplay.presets import public_role
-from modules.roleplay.roles import all_roles, get_role
+from modules.roleplay.roles import DEFAULT_ROLE_BOUNDARIES, all_roles, get_role
 from modules.roleplay.search import search_role
 from modules.roleplay.memory import refresh_memory
 from modules.roleplay.stream import role_play_stream
@@ -107,7 +107,6 @@ class RoleCreateRequest(BaseModel):
     tagline: str = ""
     personality: str = ""
     speaking: str = ""
-    boundaries: str = ""
     opening: str = ""
     # custom = 用户自己写的；ai_search = AI 搜资料生成的
     source: str = "custom"
@@ -218,7 +217,7 @@ def roleplay_create_role(req: RoleCreateRequest,
     tagline = clean_text(req.tagline, 30) or "自己写的角色"
     personality = clean_text(req.personality, 200)
     speaking = clean_text(req.speaking, 200)
-    boundaries = clean_text(req.boundaries, 200)
+    boundaries = DEFAULT_ROLE_BOUNDARIES
     opening = clean_text(req.opening, 200) or f"我是{name}，你想聊点什么？"
     source = "ai_search" if req.source == "ai_search" else "custom"
 

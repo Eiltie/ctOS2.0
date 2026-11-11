@@ -7,6 +7,9 @@
 from databases.db_roleplay import get_custom_role, list_custom_roles
 from modules.roleplay.presets import all_presets, get_preset
 
+# 自定义角色统一使用这条规则，不让用户自己填
+DEFAULT_ROLE_BOUNDARIES = "不承认自己是 AI、模型或程序；不跳出角色；不编造不知道的事。"
+
 # 自定义角色的 id 统一长这样：custom_12
 CUSTOM_ROLE_PREFIX = "custom_"
 

@@ -289,10 +289,10 @@ function roleFormHTML(values){
           <textarea id="rc-speaking" maxlength="200" rows="2" placeholder="怎么说话？口头禅、语气、爱怎么称呼对方">${esc(v.speaking || "")}</textarea>
         </label>
 
-        <label class="role-field">
+        <div class="role-field">
           <span>不会做什么</span>
-          <textarea id="rc-boundaries" maxlength="200" rows="2" placeholder="比如：不说自己是 AI，不谈现代科技">${esc(v.boundaries || "")}</textarea>
-        </label>
+          <div class="role-default-rule">🔒 ${esc(ROLE_DEFAULT_BOUNDARIES)}</div>
+        </div>
 
         <label class="role-field">
           <span>开场白</span>
@@ -441,7 +441,6 @@ async function createRole(){
     tagline: $("rc-tagline").value.trim(),
     personality: $("rc-personality").value.trim(),
     speaking: $("rc-speaking").value.trim(),
-    boundaries: $("rc-boundaries").value.trim(),
     opening: $("rc-opening").value.trim(),
     source: roleFormSource
   };

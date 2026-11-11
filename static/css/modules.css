@@ -1795,3 +1795,14 @@ textarea.fb-input { height: 84px; line-height: 1.6; }
 @media (max-width: 700px) {
     .role-adv-row { grid-template-columns: 1fr; }
 }
+
+.role-default-rule {
+    padding: 9px 11px;
+    border: 1px dashed var(--border-color);
+    border-radius: 10px;
+    background: var(--panel-2);
+    color: var(--text-muted);
+    font-size: 12.5px;
+    line-height: 1.55;
+    cursor: default;
+}
