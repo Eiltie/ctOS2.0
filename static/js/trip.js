@@ -1183,6 +1183,12 @@ async function sendGuideStep(url, body, turn, flow, panel, pendingText){
   tripClockResume();
   panel.classList.add("is-locked");
   panel.querySelectorAll("button").forEach((button) => { button.disabled = true; });
+
+  // 点完先把表单收起来，别让它一直挡在输出前面；失败再放回来
+  panel.classList.add("is-submitted");
+  const oldHint = turn.querySelector(".route-ask-hint");
+  if (oldHint) oldHint.remove();
+
   flow.status(pendingText);
 
   const ctl = newAbortController();
@@ -1270,7 +1276,8 @@ async function sendGuideStep(url, body, turn, flow, panel, pendingText){
       tripClockStop("FAILED");
       tripStepsInterrupt();
       flow.finish("CTOS任务失败", true);
-      // 出错时把按钮放开，允许再试一次
+      // 出错时把表单和按钮放回来，允许再试一次
+      panel.classList.remove("is-submitted");
       panel.classList.remove("is-locked");
       panel.querySelectorAll("button").forEach((button) => { button.disabled = false; });
     }else if (awaiting){

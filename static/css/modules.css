@@ -448,6 +448,9 @@
     flex-direction: column;
     gap: 8px;
 }
+.route-ask.is-submitted {
+    display: none;
+}
 .route-ask-question {
     font-size: 14px;
     color: var(--text-main);
@@ -2900,5 +2903,45 @@ html[data-theme="street"] .sidebar-actions .notice-btn {
 @media (max-width: 700px) {
     .sidebar-actions .theme-label {
         display: inline;
+    }
+}
+
+/* 手机端：行程进度压成一行，尽量把高度让给输出 */
+@media (max-width: 600px) {
+    .trip-fixed {
+        padding: 6px 10px 5px;
+    }
+
+    .trip-fixed .process-flow {
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        gap: 4px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding-bottom: 2px;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .trip-fixed .process-flow::-webkit-scrollbar {
+        display: none;
+    }
+
+    .trip-fixed .process-step {
+        flex: 0 0 auto;
+        gap: 4px;
+        font-size: 10.5px;
+        white-space: nowrap;
+    }
+
+    .trip-fixed .step-num {
+        width: 18px;
+        height: 18px;
+        font-size: 9px;
+    }
+
+    .trip-fixed .step-arrow {
+        width: 9px;
+        flex: 0 0 auto;
     }
 }
