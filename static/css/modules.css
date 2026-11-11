@@ -2332,3 +2332,182 @@ html[data-theme="cyber"] .role-menu-new {
     .rcp-actions { flex-wrap: wrap; }
     .rcp-btn { flex: 1; }
 }
+
+/* ===== 档案下载 / 确认单：跟随主题 ===== */
+
+/* 简洁现代：浅色数据卡片 */
+html[data-theme="clean"] .role-download-modal,
+html[data-theme="clean"] .role-confirm-modal {
+    background: rgba(15, 23, 42, 0.28);
+}
+
+html[data-theme="clean"] .rd-box,
+html[data-theme="clean"] .rcp-box {
+    border: 1px solid var(--cyan-border);
+    border-radius: 16px;
+    background-color: var(--panel);
+    background-image: none;
+    box-shadow: var(--soft-shadow);
+    color: var(--text-main);
+}
+
+html[data-theme="clean"] .rd-box::before,
+html[data-theme="clean"] .rd-box::after {
+    border-color: var(--cyan);
+}
+
+html[data-theme="clean"] .rd-kicker,
+html[data-theme="clean"] .rd-status,
+html[data-theme="clean"] .rd-status::before,
+html[data-theme="clean"] .rcp-kicker,
+html[data-theme="clean"] .rcp-label {
+    color: var(--cyan);
+}
+
+html[data-theme="clean"] .rd-title,
+html[data-theme="clean"] .rcp-title {
+    color: var(--text-main);
+}
+
+html[data-theme="clean"] .rd-bar {
+    border-color: var(--cyan-border);
+    background: var(--panel-3);
+}
+
+html[data-theme="clean"] .rd-bar span {
+    background: linear-gradient(90deg, transparent, var(--cyan), var(--cyan-border), var(--cyan), transparent);
+}
+
+html[data-theme="clean"] .rd-meta,
+html[data-theme="clean"] .rcp-sub,
+html[data-theme="clean"] .rcp-close {
+    color: var(--text-muted);
+}
+
+html[data-theme="clean"] .rcp-close:hover {
+    color: var(--cyan);
+}
+
+html[data-theme="clean"] .rcp-field {
+    border-top-color: var(--border-color);
+}
+
+html[data-theme="clean"] .rcp-value {
+    color: var(--text-main);
+}
+
+html[data-theme="clean"] .rcp-value.empty {
+    color: var(--text-muted);
+    opacity: .55;
+}
+
+html[data-theme="clean"] .rcp-btn {
+    border-color: var(--border-color);
+    background: var(--bg-sidebar);
+    color: var(--text-main);
+}
+
+html[data-theme="clean"] .rcp-btn:hover {
+    border-color: var(--cyan-border);
+    background: var(--cyan-dim);
+    color: var(--cyan);
+}
+
+html[data-theme="clean"] .rcp-btn.primary {
+    border-color: var(--cyan);
+    background: var(--cyan);
+    color: var(--accent-ink);
+}
+
+html[data-theme="clean"] .rcp-btn.primary:hover {
+    background: var(--cyan);
+    color: var(--accent-ink);
+    filter: brightness(1.06);
+}
+
+/* 街头黑客：硬边、黑白黄 */
+html[data-theme="street"] .role-download-modal,
+html[data-theme="street"] .role-confirm-modal {
+    background: rgba(17, 24, 39, 0.34);
+}
+
+html[data-theme="street"] .rd-box,
+html[data-theme="street"] .rcp-box {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background-color: var(--panel);
+    background-image: none;
+    box-shadow: 6px 6px 0 var(--ink);
+    color: var(--ink);
+}
+
+html[data-theme="street"] .rd-box::before,
+html[data-theme="street"] .rd-box::after {
+    border-color: var(--ink);
+}
+
+html[data-theme="street"] .rd-kicker,
+html[data-theme="street"] .rd-title,
+html[data-theme="street"] .rd-status,
+html[data-theme="street"] .rd-status::before,
+html[data-theme="street"] .rd-meta,
+html[data-theme="street"] .rcp-kicker,
+html[data-theme="street"] .rcp-title,
+html[data-theme="street"] .rcp-sub,
+html[data-theme="street"] .rcp-label,
+html[data-theme="street"] .rcp-value,
+html[data-theme="street"] .rcp-close {
+    color: var(--ink);
+}
+
+html[data-theme="street"] .rd-bar {
+    border: 2px solid var(--ink);
+    background: var(--panel);
+}
+
+html[data-theme="street"] .rd-bar span {
+    background: var(--yellow);
+}
+
+html[data-theme="street"] .rcp-field {
+    border-top: 2px solid var(--ink);
+}
+
+html[data-theme="street"] .rcp-value.empty {
+    color: var(--text-muted);
+}
+
+html[data-theme="street"] .rcp-btn {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background: var(--panel);
+    color: var(--ink);
+}
+
+html[data-theme="street"] .rcp-btn:hover {
+    background: var(--yellow);
+    color: var(--ink);
+}
+
+html[data-theme="street"] .rcp-btn.primary {
+    border-color: var(--ink);
+    background: var(--ink);
+    color: var(--yellow);
+}
+
+html[data-theme="street"] .rcp-btn.primary:hover {
+    background: var(--ink);
+    color: var(--yellow);
+}
+
+/* 赛博暗色：保留暗底霓虹 */
+html[data-theme="cyber"] .rd-box,
+html[data-theme="cyber"] .rcp-box {
+    border-color: rgba(34, 211, 238, 0.42);
+    background-color: #060d16;
+    background-image:
+        linear-gradient(rgba(34, 211, 238, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(34, 211, 238, 0.02) 1px, transparent 1px);
+    background-size: 100% 22px, 28px 100%;
+    box-shadow: 0 0 50px rgba(34, 211, 238, 0.16), inset 0 0 50px rgba(34, 211, 238, 0.03);
+}
