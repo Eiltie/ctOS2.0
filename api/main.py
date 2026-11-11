@@ -26,8 +26,8 @@ from modules.trip.stream import (
 from modules.trip.route_decision_stream import route_choose_stream
 from modules.customer.stream import customer_stream
 from modules.roleplay.presets import public_role
-from modules.roleplay.roles import DEFAULT_ROLE_BOUNDARIES, all_roles, get_role
-from modules.roleplay.openings import make_opening, take_opening
+from modules.roleplay.roles import DEFAULT_ROLE_BOUNDARIES, all_roles, get_role, public_profile
+from modules.roleplay.openings import make_opening, split_opening
 from modules.roleplay.search import search_role
 from modules.roleplay.memory import refresh_memory
 from modules.roleplay.stream import role_play_stream
@@ -190,6 +190,17 @@ def roleplay_roles(authorization: str | None = Header(default=None)):
     return {"roles": all_roles(tenant_id)}
 
 
+@app.get("/roleplay/roles/{role_id}")
+def roleplay_role_detail(role_id: str, authorization: str | None = Header(default=None)):
+    """查看一个角色的完整档案，角色聊天里的「查看档案」用。"""
+    tenant_id = tenant_of(authorization)
+    role = get_role(role_id, tenant_id)
+    if role is None:
+        raise HTTPException(status_code=404, detail="没有这个角色")
+
+    return {"role": public_profile(role)}
+
+
 @app.post("/roleplay/roles/search")
 def roleplay_search_role(req: RoleSearchRequest,
                          authorization: str | None = Header(default=None)):
@@ -230,7 +241,7 @@ def roleplay_create_role(req: RoleCreateRequest,
     source = "ai_search" if req.source == "ai_search" else "custom"
 
     # 用户可以在补充说明里写“开场白：xxx”；没写就让模型说一句
-    opening = take_opening(extra)
+    opening, extra = split_opening(extra)
     if not opening:
         opening = make_opening({
             "name": name,

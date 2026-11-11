@@ -11,14 +11,20 @@ OPENING_LIMIT = 200
 OPENING_TEMPERATURE = 0.7
 
 
-def take_opening(extra):
-    """从补充说明里找“开场白：xxx”，找到就返回。"""
+def split_opening(extra):
+    """把补充说明拆成（开场白，去掉开场白后的补充说明）。"""
     match = re.search(r"开场白\s*[:：]\s*(.+)", extra or "")
     if not match:
-        return ""
+        return "", extra or ""
 
-    text = match.group(1).strip()
-    return text[:OPENING_LIMIT]
+    opening = match.group(1).strip()[:OPENING_LIMIT]
+    cleaned = ((extra or "")[:match.start()] + (extra or "")[match.end():]).strip()
+    return opening, cleaned
+
+
+def take_opening(extra):
+    """从补充说明里找“开场白：xxx”，找到就返回。"""
+    return split_opening(extra)[0]
 
 
 def role_lines(role):

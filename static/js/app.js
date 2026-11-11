@@ -166,10 +166,70 @@ function renderRoleBar(){
     <div class="role-banner">
       <span>${esc(activeRole.emoji || "")}</span>
       <span>正在和 <b>${esc(activeRole.name)}</b> 聊天</span>
-      <button class="role-change" type="button" onclick="chatSetMode('role-select')">换角色</button>
+      <div class="role-actions">
+        <button class="role-profile-btn" type="button" onclick="openRoleProfile()">查看档案</button>
+        <button class="role-change" type="button" onclick="chatSetMode('role-select')">换角色</button>
+      </div>
     </div>
     ${memoryHtml}`;
 }
+
+// 打开当前角色的完整档案（不显示“不会做什么”这类内部规则）
+async function openRoleProfile(){
+  if (!activeRole) return;
+
+  const roleId = activeRole.id;
+  const data = await getJson(`/roleplay/roles/${encodeURIComponent(roleId)}`);
+  if (!activeRole || activeRole.id !== roleId) return;
+
+  if (!data || !data.role){
+    alert("档案加载失败，请稍后再试");
+    return;
+  }
+
+  renderRoleProfile(data.role);
+
+  const modal = $("role-profile-modal");
+  if (modal) modal.classList.add("show");
+}
+
+function renderRoleProfile(role){
+  const emoji = $("rp-emoji");
+  const name = $("rp-name");
+  const tagline = $("rp-tagline");
+  const fields = $("rp-fields");
+
+  if (emoji) emoji.textContent = role.emoji || "🎭";
+  if (name) name.textContent = role.name || "未命名角色";
+  if (tagline) tagline.textContent = role.tagline || "";
+  if (!fields) return;
+
+  const rows = [
+    ["年龄", role.age],
+    ["性别", role.gender],
+    ["性格", role.personality],
+    ["人物事迹", role.deeds],
+    ["背景故事", role.background],
+    ["补充说明", role.extra],
+    ["说话方式", role.speaking],
+    ["开场白", role.opening],
+  ].filter(([label, value]) => (value || "").trim());
+
+  fields.innerHTML = rows.map(([label, value]) => `
+    <div class="rp-field">
+      <div class="rp-label">${esc(label)}</div>
+      <div class="rp-value">${esc(value)}</div>
+    </div>`).join("") || `<div class="rp-empty">这个角色还没有填写档案。</div>`;
+}
+
+function closeRoleProfile(){
+  const modal = $("role-profile-modal");
+  if (modal) modal.classList.remove("show");
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeRoleProfile();
+});
 
 // 选角色页
 async function renderRoleSelect(){

@@ -1929,3 +1929,161 @@ html[data-theme="cyber"] .role-menu-toggle:hover {
 html[data-theme="cyber"] .role-menu-new {
     border-color: rgba(34, 211, 238, 0.3);
 }
+
+/* ===== 角色聊天：查看档案按钮 + 档案弹窗 ===== */
+
+.role-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.role-change { margin-left: 0; }
+
+.role-profile-btn {
+    padding: 3px 9px;
+    border: 1px solid var(--cyan-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--cyan);
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.role-profile-btn:hover {
+    background: var(--bg-sidebar);
+}
+
+.role-profile-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    padding: 20px;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.38);
+}
+
+.role-profile-modal.show {
+    display: flex;
+}
+
+.rp-box {
+    position: relative;
+    width: min(560px, 92vw);
+    max-height: 82vh;
+    overflow-y: auto;
+    padding: 22px;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    background: var(--panel);
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+}
+
+.rp-close {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.rp-close:hover {
+    background: var(--cyan-dim);
+    color: var(--cyan);
+}
+
+.rp-head {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding-right: 26px;
+    margin-bottom: 16px;
+}
+
+.rp-emoji {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    border: 1px solid var(--cyan-border);
+    border-radius: 12px;
+    background: var(--cyan-dim);
+    font-size: 20px;
+}
+
+.rp-title h3 {
+    margin: 0;
+    font-size: 17px;
+    letter-spacing: -.01em;
+}
+
+.rp-title p {
+    margin: 3px 0 0;
+    font-size: 11.5px;
+    color: var(--text-muted);
+}
+
+.rp-fields {
+    display: flex;
+    flex-direction: column;
+}
+
+.rp-field {
+    padding: 9px 0;
+    border-top: 1px dashed var(--border-color);
+}
+
+.rp-label {
+    margin-bottom: 3px;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.rp-value {
+    color: var(--text-main);
+    font-size: 12.5px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.rp-empty {
+    padding: 16px 0;
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.rp-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 18px;
+}
+
+.rp-btn {
+    padding: 7px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--bg-sidebar);
+    color: var(--text-main);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.rp-btn:hover {
+    border-color: var(--cyan-border);
+    color: var(--cyan);
+}

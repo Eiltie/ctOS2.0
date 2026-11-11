@@ -31,3 +31,22 @@ def get_role(role_id, tenant_id):
         return get_custom_role(tenant_id, role_id)
 
     return get_preset(role_id)
+
+
+def public_profile(role):
+    """给前端看的完整档案，不包含“不会做什么”这类内部规则。"""
+    return {
+        "id": role.get("id", ""),
+        "name": role.get("name", ""),
+        "group": role.get("group", ""),
+        "emoji": role.get("emoji", ""),
+        "tagline": role.get("tagline", ""),
+        "age": role.get("age", ""),
+        "gender": role.get("gender", ""),
+        "personality": role.get("personality", ""),
+        "deeds": role.get("deeds", ""),
+        "background": role.get("background", ""),
+        "extra": role.get("extra", ""),
+        "speaking": role.get("speaking", ""),
+        "opening": role.get("opening", ""),
+    }

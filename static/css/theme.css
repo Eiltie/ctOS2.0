@@ -1898,3 +1898,67 @@ html[data-theme="cyber"] .role-field textarea:focus {
 html[data-theme="cyber"] .role-save-btn {
     box-shadow: 0 0 16px rgba(34, 211, 238, 0.25);
 }
+
+/* ============================================================
+   角色档案：街头 / 赛博
+   ============================================================ */
+
+html[data-theme="street"] .role-profile-btn {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background: var(--panel);
+    color: var(--ink);
+}
+
+html[data-theme="street"] .role-profile-btn:hover {
+    background: var(--yellow);
+}
+
+html[data-theme="street"] .rp-box {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    box-shadow: 6px 6px 0 var(--ink);
+}
+
+html[data-theme="street"] .rp-close {
+    border-radius: 0;
+}
+
+html[data-theme="street"] .rp-emoji {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background: var(--yellow);
+}
+
+html[data-theme="street"] .rp-btn {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background: var(--panel);
+    color: var(--ink);
+}
+
+html[data-theme="street"] .rp-btn:hover {
+    background: var(--yellow);
+    color: var(--ink);
+}
+
+html[data-theme="cyber"] .role-profile-btn {
+    border-color: rgba(34, 211, 238, 0.3);
+    background: rgba(34, 211, 238, 0.06);
+}
+
+html[data-theme="cyber"] .rp-box {
+    border-color: rgba(34, 211, 238, 0.22);
+    background: #0b1420;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+
+html[data-theme="cyber"] .rp-emoji {
+    border-color: rgba(34, 211, 238, 0.3);
+    background: rgba(34, 211, 238, 0.1);
+}
+
+html[data-theme="cyber"] .rp-btn {
+    border-color: rgba(148, 163, 184, 0.2);
+    background: rgba(6, 11, 18, 0.7);
+}

@@ -283,6 +283,29 @@
     </div>
     <!-- ===== 反馈结束 ===== -->
 
+    <!-- ===== 角色档案 ===== -->
+    <div id="role-profile-modal" class="role-profile-modal"
+         onclick="if (event.target === this) closeRoleProfile()">
+        <div class="rp-box">
+            <button class="rp-close" type="button" onclick="closeRoleProfile()" aria-label="关闭">×</button>
+
+            <div class="rp-head">
+                <div class="rp-emoji" id="rp-emoji"></div>
+                <div class="rp-title">
+                    <h3 id="rp-name"></h3>
+                    <p id="rp-tagline"></p>
+                </div>
+            </div>
+
+            <div class="rp-fields" id="rp-fields"></div>
+
+            <div class="rp-actions">
+                <button class="rp-btn" type="button" onclick="closeRoleProfile()">关闭</button>
+            </div>
+        </div>
+    </div>
+    <!-- ===== 角色档案结束 ===== -->
+
     <!-- 加载顺序不能乱：
          1. common/ 里都是无状态工具，先加载
          2. app.js 定义全局 state 和闲聊逻辑
