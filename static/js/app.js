@@ -97,7 +97,7 @@ function renderChat(){
   const s = state.sessions.find((x) => x.id === state.activeId);
 
   // 没有会话，或者消息还没拉下来：显示欢迎语
-  if (!s || !state.loaded.has(s.id)){
+  if (!s || !state.loaded.has(s.id) || !Array.isArray(s.messages)){
     appendRow(feed, "ai", WELCOME);
     scrollDown(feed);
     return;
@@ -746,7 +746,18 @@ async function loadSessions(){
     return;
   }
 
-  state.sessions = list;
+  const oldSessions = new Map(state.sessions.map((s) => [s.id, s]));
+
+  // 服务器只返回会话标题，不返回消息。
+  // 这里把本地已经拉过的消息带过去，否则切一下角色/发一条消息，
+  // 旧会话的 messages 就被清空了，点回去会变成空白。
+  state.sessions = list.map((item) => {
+    const old = oldSessions.get(item.id);
+    if (old && Array.isArray(old.messages)){
+      item.messages = old.messages;
+    }
+    return item;
+  });
 
   // 后端会告诉每个会话是不是角色会话，先记下来，
   // 切回普通聊天时就不会误把角色会话当普通聊天打开
@@ -754,6 +765,10 @@ async function loadSessions(){
     if (s.role_id) roleSessionCache.add(Number(s.id));
     else roleSessionCache.delete(Number(s.id));
   });
+
+  // 被删掉的会话，把“已加载”标记也清掉
+  const aliveIds = new Set(state.sessions.map((s) => s.id));
+  state.loaded = new Set([...state.loaded].filter((id) => aliveIds.has(id)));
 
   // 当前打开的会话没了（被删了）就切到第一个
   if (!state.sessions.some((s) => s.id === state.activeId)){
@@ -770,8 +785,8 @@ async function openSession(id){
   const s = state.sessions.find((x) => x.id === id);
   if (!s) return;
 
-  // 消息按需拉，拉过一次就缓存
-  if (!state.loaded.has(id)){
+  // 消息按需拉；没有 messages 也重新拉，防止缓存标记还在但内容被覆盖掉了
+  if (!state.loaded.has(id) || !Array.isArray(s.messages)){
     const rows = await getJson(`${API.sessions}/${id}/messages`);
     s.messages = (Array.isArray(rows) ? rows : []).map((m) => ({ role: m.role, text: m.content }));
     state.loaded.add(id);
