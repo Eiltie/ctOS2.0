@@ -94,6 +94,39 @@
             </div>
         </div>
 
+        <div class="sidebar-actions">
+            <button class="new-session-btn sidebar-action-btn" type="button"
+                    onclick="triggerHologram()">新会话</button>
+
+            <div class="theme-switcher sidebar-theme">
+                <button id="theme-btn" class="theme-btn" type="button"
+                        aria-haspopup="true" aria-expanded="false" aria-label="切换主题">
+                    <span class="theme-dots"><i></i><i></i><i></i></span>
+                    <span class="theme-label">主题</span>
+                </button>
+                <div id="theme-menu" class="theme-menu" role="menu">
+                    <button class="theme-option" type="button" data-theme-choice="clean" role="menuitem">
+                        <span class="theme-swatch swatch-clean"></span>
+                        <span><b>简洁现代</b><small>白底 / 紫色</small></span>
+                    </button>
+                    <button class="theme-option" type="button" data-theme-choice="street" role="menuitem">
+                        <span class="theme-swatch swatch-street"></span>
+                        <span><b>街头黑客</b><small>米白 / 荧光</small></span>
+                    </button>
+                    <button class="theme-option" type="button" data-theme-choice="cyber" role="menuitem">
+                        <span class="theme-swatch swatch-cyber"></span>
+                        <span><b>赛博暗色</b><small>原来的样子</small></span>
+                    </button>
+                </div>
+            </div>
+
+            <button id="notice-btn" class="notice-btn sidebar-action-btn" type="button"
+                    onclick="openNotice()" aria-label="更新公告">
+                <span class="notice-icon">📢</span>
+                <span class="notice-label">公告</span>
+            </button>
+        </div>
+
         <div class="history-section custom-scroll">
             <div class="history-title">
                 <span id="history-title-text">会话记录</span>
@@ -134,33 +167,6 @@
                 <div id="status-chat" class="tag-status view-section active">LANGGRAPH · READY</div>
                 <div id="status-trip" class="tag-status view-section">TRIP AGENT · READY</div>
                 <div id="status-customer" class="tag-status view-section">RAG · READY</div>
-                <div class="theme-switcher">
-                    <button id="theme-btn" class="theme-btn" type="button"
-                            aria-haspopup="true" aria-expanded="false" aria-label="切换主题">
-                        <span class="theme-dots"><i></i><i></i><i></i></span>
-                        <span class="theme-label">主题</span>
-                    </button>
-                    <div id="theme-menu" class="theme-menu" role="menu">
-                        <button class="theme-option" type="button" data-theme-choice="clean" role="menuitem">
-                            <span class="theme-swatch swatch-clean"></span>
-                            <span><b>简洁现代</b><small>白底 / 紫色</small></span>
-                        </button>
-                        <button class="theme-option" type="button" data-theme-choice="street" role="menuitem">
-                            <span class="theme-swatch swatch-street"></span>
-                            <span><b>街头黑客</b><small>米白 / 荧光</small></span>
-                        </button>
-                        <button class="theme-option" type="button" data-theme-choice="cyber" role="menuitem">
-                            <span class="theme-swatch swatch-cyber"></span>
-                            <span><b>赛博暗色</b><small>原来的样子</small></span>
-                        </button>
-                    </div>
-                </div>
-                <button id="notice-btn" class="notice-btn" type="button"
-                        onclick="openNotice()" aria-label="更新公告">
-                    <span class="notice-icon">📢</span>
-                    <span class="notice-label">公告</span>
-                </button>
-                <button class="new-session-btn" onclick="triggerHologram()">新会话</button>
             </div>
         </div>
 
