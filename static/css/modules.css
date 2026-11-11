@@ -1608,3 +1608,175 @@ textarea.fb-input { height: 84px; line-height: 1.6; }
     .role-select-head h2 { font-size: 18px; }
     .role-banner { font-size: 11.5px; }
 }
+
+/* ===== 自己写角色：入口卡片 + 表单 ===== */
+
+.role-advanced {
+    margin-top: 24px;
+    padding-top: 18px;
+    border-top: 1px dashed var(--border-color);
+}
+
+.role-advanced-title {
+    margin-bottom: 10px;
+    font-size: 11.5px;
+    color: var(--text-muted);
+}
+
+.role-add-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px dashed var(--cyan-border);
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(79, 70, 229, .05), rgba(124, 58, 237, .04));
+    color: var(--text-main);
+    text-align: left;
+    cursor: pointer;
+    transition: transform .18s ease, border-color .18s ease, background .18s ease;
+}
+
+.role-add-card:hover {
+    border-style: solid;
+    background: var(--cyan-dim);
+    transform: translateY(-1px);
+}
+
+.role-add-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border: 1px solid var(--cyan-border);
+    border-radius: 11px;
+    background: var(--bg-sidebar);
+    font-size: 17px;
+}
+
+.role-add-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.role-add-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.role-add-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.role-create-head {
+    margin-bottom: 18px;
+}
+
+.role-create-head h2 {
+    margin: 10px 0 5px;
+    font-size: 20px;
+    letter-spacing: -.02em;
+}
+
+.role-create-head p {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--text-muted);
+}
+
+.role-back-btn {
+    padding: 6px 11px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--bg-sidebar);
+    color: var(--text-muted);
+    font-size: 11.5px;
+    cursor: pointer;
+}
+
+.role-back-btn:hover {
+    color: var(--cyan);
+    border-color: var(--cyan-border);
+}
+
+.role-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.role-row-two {
+    display: grid;
+    grid-template-columns: 1fr 120px;
+    gap: 12px;
+}
+
+.role-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 11.5px;
+    color: var(--text-muted);
+}
+
+.role-field input,
+.role-field textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 9px 11px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-sidebar);
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.55;
+    outline: none;
+    resize: vertical;
+}
+
+.role-field input:focus,
+.role-field textarea:focus {
+    border-color: var(--cyan-border);
+    box-shadow: 0 0 0 3px var(--cyan-dim);
+}
+
+.role-field input::placeholder,
+.role-field textarea::placeholder {
+    color: #9ca3af;
+}
+
+.role-form-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.role-save-btn {
+    padding: 9px 18px;
+    border: 1px solid var(--cyan);
+    border-radius: 10px;
+    background: var(--cyan);
+    color: var(--accent-ink);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.role-save-btn:disabled {
+    opacity: .6;
+    cursor: default;
+}
+
+@media (max-width: 560px) {
+    .role-row-two { grid-template-columns: 1fr; }
+    .role-form-actions { flex-wrap: wrap; }
+    .role-save-btn { flex: 1; }
+}

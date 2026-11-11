@@ -223,11 +223,144 @@ async function renderRoleSelect(){
         <p>选一个角色直接开始</p>
       </div>
       ${groupHtml}
+
+      <div class="role-advanced">
+        <div class="role-advanced-title">想玩点不一样的？</div>
+        <button class="role-add-card" type="button" id="role-add-btn">
+          <span class="role-add-icon">✍️</span>
+          <span class="role-add-text">
+            <span class="role-add-name">自己写一个角色</span>
+            <span class="role-add-desc">名字、性格、说话方式都由你定</span>
+          </span>
+        </button>
+      </div>
     </div>`;
 
   box.querySelectorAll(".role-card").forEach((card) => {
     card.onclick = () => startRole(card.dataset.roleId);
   });
+
+  const addBtn = $("role-add-btn");
+  if (addBtn) addBtn.onclick = () => renderRoleCreate();
+}
+
+// 自己写角色的表单
+function renderRoleCreate(){
+  const box = $("role-select");
+  if (!box) return;
+
+  box.innerHTML = `
+    <div class="role-select-inner">
+      <div class="role-create-head">
+        <button class="role-back-btn" type="button" id="role-back-btn">← 返回角色列表</button>
+        <h2>写一个角色</h2>
+        <p>只有名字是必填的，其他可以先空着。</p>
+      </div>
+
+      <div class="role-form">
+        <div class="role-row-two">
+          <label class="role-field">
+            <span>名字</span>
+            <input id="rc-name" maxlength="20" placeholder="比如：老船长">
+          </label>
+          <label class="role-field">
+            <span>头像</span>
+            <input id="rc-emoji" maxlength="4" value="🙂">
+          </label>
+        </div>
+
+        <label class="role-field">
+          <span>一句话标签</span>
+          <input id="rc-tagline" maxlength="30" placeholder="比如：粗鲁 · 讲义气">
+        </label>
+
+        <label class="role-field">
+          <span>性格</span>
+          <textarea id="rc-personality" maxlength="200" rows="2" placeholder="他是个什么样的人？"></textarea>
+        </label>
+
+        <label class="role-field">
+          <span>说话方式</span>
+          <textarea id="rc-speaking" maxlength="200" rows="2" placeholder="怎么说话？口头禅、语气、爱怎么称呼对方"></textarea>
+        </label>
+
+        <label class="role-field">
+          <span>不会做什么</span>
+          <textarea id="rc-boundaries" maxlength="200" rows="2" placeholder="比如：不说自己是 AI，不谈现代科技"></textarea>
+        </label>
+
+        <label class="role-field">
+          <span>开场白</span>
+          <textarea id="rc-opening" maxlength="200" rows="2" placeholder="角色说的第一句话；不填会自动生成一句"></textarea>
+        </label>
+      </div>
+
+      <div class="role-form-actions">
+        <button class="role-save-btn" type="button" id="role-save-btn">保存并开始聊</button>
+        <button class="role-back-btn" type="button" id="role-back-cancel">取消</button>
+      </div>
+    </div>`;
+
+  $("role-back-btn").onclick = () => renderRoleSelect();
+  $("role-back-cancel").onclick = () => renderRoleSelect();
+  $("role-save-btn").onclick = () => createRole();
+
+  const nameInput = $("rc-name");
+  if (nameInput) nameInput.focus();
+}
+
+// 保存自己写的角色，然后直接开聊
+async function createRole(){
+  const nameInput = $("rc-name");
+  const name = nameInput ? nameInput.value.trim() : "";
+
+  if (!name){
+    alert("先给角色起个名字");
+    if (nameInput) nameInput.focus();
+    return;
+  }
+
+  const payload = {
+    name: name,
+    emoji: ($("rc-emoji").value || "").trim() || "🙂",
+    tagline: $("rc-tagline").value.trim(),
+    personality: $("rc-personality").value.trim(),
+    speaking: $("rc-speaking").value.trim(),
+    boundaries: $("rc-boundaries").value.trim(),
+    opening: $("rc-opening").value.trim()
+  };
+
+  const saveBtn = $("role-save-btn");
+  if (saveBtn){
+    saveBtn.disabled = true;
+    saveBtn.textContent = "保存中...";
+  }
+
+  const data = await getJson("/roleplay/roles", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!data || !data.role){
+    if (saveBtn){
+      saveBtn.disabled = false;
+      saveBtn.textContent = "保存并开始聊";
+    }
+    alert("保存失败，请检查内容后再试");
+    return;
+  }
+
+  if (!roleList) roleList = [];
+  roleList.push(data.role);
+
+  await startRole(data.role.id);
+
+  // 开聊失败时还留在表单里，把按钮恢复
+  if (chatMode !== "role-chat" && saveBtn){
+    saveBtn.disabled = false;
+    saveBtn.textContent = "保存并开始聊";
+  }
 }
 
 // 发一次「开始角色」的请求。

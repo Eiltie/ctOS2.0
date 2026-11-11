@@ -78,7 +78,7 @@
 | `db_auth.py` | 91 | `users` | 用户注册、按邮箱/ID 查人、记录最后登录时间 |
 | `db_chat.py` | 112 | `sessions` `messages` | 闲聊会话的增删改查、消息读写（**不再建 tenants**） |
 | `db_trip.py` | 218 | `trip_chats` `trip_sessions` `trip_user_inputs` `trip_ai_outputs` | 出行会话、每一轮、用户原话、AI 四段产出 |
-| `db_roleplay.py` | — | `role_play_sessions` `role_play_memories` | 记录“哪个聊天会话用的是哪个角色”，以及每个角色记住的事 |
+| `db_roleplay.py` | — | `role_play_sessions` `role_play_memories` `role_play_roles` | 记录“哪个聊天会话用的是哪个角色”、每个角色记住的事，以及用户自己写的角色 |
 | `db_view.py` | 283 | 全部 | **命令行查看工具**，不参与 Web 服务 |
 | `clean_db.py` | 300+ | 全部 | **命令行清理工具**：访客账号、某个账号的数据、全部闲聊/出行/反馈 |
 
@@ -178,6 +178,7 @@ modules/<模块名>/
 | 文件 | 行数 | 职责 |
 | --- | --- | --- |
 | `presets.py` | — | 预设角色：名字、性格、说话方式、边界、开场白 |
+| `roles.py` | — | 统一找角色：预设从代码找，自定义从数据库找 |
 | `prompts.py` | — | 把角色档案拼成提示词，以及整理记忆的提示词 |
 | `stream.py` | — | 角色对话的流式出口 |
 | `memory.py` | — | 每 6 轮把对话压缩成 200 字以内的记忆摘要 |
@@ -244,7 +245,7 @@ modules/<模块名>/
 
 | 文件 | 行数 | 职责 |
 | --- | --- | --- |
-| `app.js` | 775 | **闲聊 + 角色扮演 + 视图切换 + 启动**。全局 `state` 也定义在这里；末尾有手机端抽屉开关 |
+| `app.js` | 927 | **闲聊 + 角色扮演 + 视图切换 + 启动**。全局 `state` 也定义在这里；末尾有手机端抽屉开关 |
 | `trip.js` | 616 | 出行：四段卡片、进度条、出行记录 |
 | `customer.js` | 138 | 客服：一问一答，本地维护上下文 |
 

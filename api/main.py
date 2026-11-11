@@ -25,7 +25,8 @@ from modules.trip.stream import (
 )
 from modules.trip.route_decision_stream import route_choose_stream
 from modules.customer.stream import customer_stream
-from modules.roleplay.presets import all_presets, get_preset, public_role
+from modules.roleplay.presets import public_role
+from modules.roleplay.roles import all_roles, get_role
 from modules.roleplay.memory import refresh_memory
 from modules.roleplay.stream import role_play_stream
 from databases.db_trip import list_trips, get_trip, delete_trip, delete_trips
@@ -33,6 +34,7 @@ from databases.db_roleplay import (
     add_one_round,
     all_role_session_ids,
     clear_memory,
+    create_custom_role,
     get_memory,
     get_role_id,
     is_my_session,
@@ -98,6 +100,16 @@ class RoleStartRequest(BaseModel):
     role_id: str
 
 
+class RoleCreateRequest(BaseModel):
+    name: str
+    emoji: str = "🙂"
+    tagline: str = ""
+    personality: str = ""
+    speaking: str = ""
+    boundaries: str = ""
+    opening: str = ""
+
+
 class RoleMemoryClearRequest(BaseModel):
     role_id: str
 
@@ -154,18 +166,58 @@ def tenant_of(authorization: str | None) -> int:
     return current_tenant(authorization)
 
 
+def clean_text(value, limit):
+    """去掉首尾空格，并限制长度。"""
+    return (value or "").strip()[:limit]
+
+
 @app.get("/roleplay/roles")
 def roleplay_roles(authorization: str | None = Header(default=None)):
-    """列出所有预设角色，前端用来画角色卡片。"""
-    tenant_of(authorization)
-    return {"roles": all_presets()}
+    """列出所有角色：预设 + 用户自己写的。"""
+    tenant_id = tenant_of(authorization)
+    return {"roles": all_roles(tenant_id)}
+
+
+@app.post("/roleplay/roles")
+def roleplay_create_role(req: RoleCreateRequest,
+                         authorization: str | None = Header(default=None)):
+    """用户自己写一个角色，存进数据库。"""
+    tenant_id = tenant_of(authorization)
+
+    name = clean_text(req.name, 20)
+    if not name:
+        raise HTTPException(status_code=400, detail="角色名字不能为空")
+
+    emoji = clean_text(req.emoji, 4) or "🙂"
+    tagline = clean_text(req.tagline, 30) or "自己写的角色"
+    personality = clean_text(req.personality, 200)
+    speaking = clean_text(req.speaking, 200)
+    boundaries = clean_text(req.boundaries, 200)
+    opening = clean_text(req.opening, 200) or f"我是{name}，你想聊点什么？"
+
+    role_number = create_custom_role(
+        tenant_id=tenant_id,
+        name=name,
+        emoji=emoji,
+        tagline=tagline,
+        personality=personality,
+        speaking=speaking,
+        boundaries=boundaries,
+        opening=opening,
+    )
+
+    role = get_role(f"custom_{role_number}", tenant_id)
+    if role is None:
+        raise HTTPException(status_code=500, detail="角色保存失败")
+
+    return {"role": public_role(role)}
 
 
 @app.post("/roleplay/start")
 def roleplay_start(req: RoleStartRequest, authorization: str | None = Header(default=None)):
     """选一个角色开始：建一个聊天会话，把角色和会话绑起来，存下开场白。"""
     tenant_id = tenant_of(authorization)
-    role = get_preset(req.role_id)
+    role = get_role(req.role_id, tenant_id)
     if role is None:
         raise HTTPException(status_code=404, detail="没有这个角色")
 
@@ -198,7 +250,7 @@ def roleplay_session(session_id: int, authorization: str | None = Header(default
             raise HTTPException(status_code=404, detail="没有这个会话")
         return {"session_id": session_id, "role": None, "memory": ""}
 
-    role = get_preset(role_id)
+    role = get_role(role_id, tenant_id)
     if role is None:
         raise HTTPException(status_code=404, detail="这个角色已经不存在了")
 
@@ -213,7 +265,7 @@ def roleplay_session(session_id: int, authorization: str | None = Header(default
 def roleplay_memory(role_id: str, authorization: str | None = Header(default=None)):
     """查这个角色记住了什么，前端可以显示“它还记着……”。"""
     tenant_id = tenant_of(authorization)
-    if get_preset(role_id) is None:
+    if get_role(role_id, tenant_id) is None:
         raise HTTPException(status_code=404, detail="没有这个角色")
 
     return {"role_id": role_id, "memory": get_memory(tenant_id, role_id)}
@@ -224,7 +276,7 @@ def roleplay_memory_clear(req: RoleMemoryClearRequest,
                           authorization: str | None = Header(default=None)):
     """把这个角色的记忆全部清掉。"""
     tenant_id = tenant_of(authorization)
-    if get_preset(req.role_id) is None:
+    if get_role(req.role_id, tenant_id) is None:
         raise HTTPException(status_code=404, detail="没有这个角色")
 
     clear_memory(tenant_id, req.role_id)
@@ -241,7 +293,7 @@ async def chat(req: ChatRequest, authorization: str | None = Header(default=None
 
     # ---------- 角色扮演 ----------
     if req.role_id:
-        role = get_preset(req.role_id)
+        role = get_role(req.role_id, tenant_id)
         if role is None:
             raise HTTPException(status_code=404, detail="没有这个角色")
 

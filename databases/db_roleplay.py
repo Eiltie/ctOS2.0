@@ -29,9 +29,26 @@ CREATE TABLE IF NOT EXISTS role_play_memories (
 )
 """
 
+CREATE_CUSTOM_ROLES_TABLE = """
+CREATE TABLE IF NOT EXISTS role_play_roles (
+    id           INTEGER     GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id    INTEGER     NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    name         TEXT        NOT NULL,
+    emoji        TEXT        NOT NULL DEFAULT '🙂',
+    tagline      TEXT        NOT NULL DEFAULT '',
+    personality  TEXT        NOT NULL DEFAULT '',
+    speaking     TEXT        NOT NULL DEFAULT '',
+    boundaries   TEXT        NOT NULL DEFAULT '',
+    opening      TEXT        NOT NULL DEFAULT '',
+    source       TEXT        NOT NULL DEFAULT 'custom',
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
 CREATE_ROLE_INDEXES = (
     "CREATE INDEX IF NOT EXISTS ix_role_sessions_tenant ON role_play_sessions (tenant_id)",
     "CREATE INDEX IF NOT EXISTS ix_role_memories_tenant ON role_play_memories (tenant_id)",
+    "CREATE INDEX IF NOT EXISTS ix_role_roles_tenant ON role_play_roles (tenant_id)",
 )
 
 
@@ -39,6 +56,7 @@ def create_roleplay_tables():
     """建角色扮演的表，已存在就跳过。"""
     execute(CREATE_ROLE_SESSIONS_TABLE)
     execute(CREATE_ROLE_MEMORIES_TABLE)
+    execute(CREATE_CUSTOM_ROLES_TABLE)
     for sql in CREATE_ROLE_INDEXES:
         execute(sql)
 
@@ -70,6 +88,70 @@ def is_my_session(session_id, tenant_id):
         (session_id, tenant_id),
     )
     return row is not None
+
+
+# 自定义角色的 id 统一长这样：custom_12
+CUSTOM_ROLE_PREFIX = "custom_"
+
+
+def custom_row_to_role(row):
+    """把数据库里的一行自定义角色，转成和预设角色一样的结构。"""
+    return {
+        "id": f"{CUSTOM_ROLE_PREFIX}{row['id']}",
+        "name": row["name"],
+        "group": "我的角色",
+        "emoji": row["emoji"],
+        "tagline": row["tagline"],
+        "personality": row["personality"],
+        "speaking": row["speaking"],
+        "boundaries": row["boundaries"],
+        "opening": row["opening"],
+        "source": row["source"],
+    }
+
+
+def create_custom_role(tenant_id, name, emoji, tagline, personality,
+                       speaking, boundaries, opening, source="custom"):
+    """新建一个自定义角色，返回数据库里的数字 id。"""
+    with transaction() as cur:
+        cur.execute(
+            "INSERT INTO role_play_roles "
+            "(tenant_id, name, emoji, tagline, personality, speaking, boundaries, opening, source) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            "RETURNING id",
+            (tenant_id, name, emoji, tagline, personality,
+             speaking, boundaries, opening, source),
+        )
+        row = cur.fetchone()
+        return row["id"]
+
+
+def list_custom_roles(tenant_id):
+    """列出这个租户自己写的角色，老的排前面。"""
+    rows = query(
+        "SELECT id, name, emoji, tagline, personality, speaking, boundaries, opening, source "
+        "FROM role_play_roles WHERE tenant_id = %s ORDER BY id",
+        (tenant_id,),
+    )
+    return [custom_row_to_role(row) for row in rows]
+
+
+def get_custom_role(tenant_id, role_id):
+    """按 custom_12 这样的 id 找自定义角色，找不到返回 None。"""
+    if not role_id or not role_id.startswith(CUSTOM_ROLE_PREFIX):
+        return None
+
+    try:
+        role_number = int(role_id[len(CUSTOM_ROLE_PREFIX):])
+    except ValueError:
+        return None
+
+    row = query_one(
+        "SELECT id, name, emoji, tagline, personality, speaking, boundaries, opening, source "
+        "FROM role_play_roles WHERE id = %s AND tenant_id = %s",
+        (role_number, tenant_id),
+    )
+    return custom_row_to_role(row) if row else None
 
 
 def all_role_session_ids(tenant_id):
