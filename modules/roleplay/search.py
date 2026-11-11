@@ -50,6 +50,7 @@ ROLE_SEARCH_PROMPT = """你是一个角色档案整理器。用户想扮演：{q
 1. 名字优先用用户说的名字。
 2. 用第一人称设计说话方式，不要照抄百科原文。
 3. 资料不足就按人物常识写，不要编造具体事实。
+4. opening 必须是角色对用户说的第一句话，不能写“数据不足”“无法判断”之类的说明。
 """
 
 
@@ -110,6 +111,8 @@ def search_role(query):
     }
 
     if not opening:
+        role["opening"] = make_opening(role)
+    elif any(word in opening for word in ("数据不足", "无法判断", "无法提供", "无法回答")):
         role["opening"] = make_opening(role)
 
     if "没搜到" in search_text or "没有找到" in search_text:

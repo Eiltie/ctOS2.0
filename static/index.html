@@ -306,6 +306,37 @@
     </div>
     <!-- ===== 角色档案结束 ===== -->
 
+    <!-- ===== 角色档案下载中 ===== -->
+    <div id="role-download-modal" class="role-download-modal">
+        <div class="rd-box">
+            <div class="rd-kicker">[ PROFILE UPLINK ]</div>
+            <div class="rd-title">角色档案下载中</div>
+            <div class="rd-bar"><span></span></div>
+            <div class="rd-status" id="rd-status">正在建立连接...</div>
+            <div class="rd-meta">CTOS // ROLE ARCHIVE // SECURE CHANNEL</div>
+        </div>
+    </div>
+    <!-- ===== 角色档案下载结束 ===== -->
+
+    <!-- ===== 角色档案确认 ===== -->
+    <div id="role-confirm-modal" class="role-confirm-modal">
+        <div class="rcp-box">
+            <button class="rcp-close" type="button" onclick="backFromRoleConfirm()" aria-label="关闭">×</button>
+
+            <div class="rcp-kicker">[ PROFILE READY ]</div>
+            <h3 class="rcp-title">档案信息已录入</h3>
+            <p class="rcp-sub" id="rcp-sub">请确认下面的内容，确认后开始角色对话。</p>
+
+            <div class="rcp-fields" id="rcp-fields"></div>
+
+            <div class="rcp-actions">
+                <button class="rcp-btn ghost" type="button" onclick="backFromRoleConfirm()">返回修改</button>
+                <button class="rcp-btn primary" type="button" id="rcp-confirm" onclick="confirmRoleCreate()">确认并开始</button>
+            </div>
+        </div>
+    </div>
+    <!-- ===== 角色档案确认结束 ===== -->
+
     <!-- 加载顺序不能乱：
          1. common/ 里都是无状态工具，先加载
          2. app.js 定义全局 state 和闲聊逻辑

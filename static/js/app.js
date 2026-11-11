@@ -42,6 +42,10 @@ let roleList = null;              // 预设角色列表，拉一次就缓存
 let roleListLoading = false;
 let roleFormSource = "custom";    // 当前表单保存成 custom 还是 ai_search
 let roleMenuOpen = false;         // 侧栏「角色扮演」菜单是否展开
+let pendingRole = null;           // 确认单里等待保存的角色
+let pendingRoleSource = "custom";
+let pendingRoleNote = "";
+let roleDownloadTimer = null;
 
 // 一条消息的 HTML 骨架（头像 + 时间 + 气泡），内容后面再填
 function rowHTML(kind){
@@ -228,7 +232,14 @@ function closeRoleProfile(){
 }
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") closeRoleProfile();
+  if (e.key !== "Escape") return;
+
+  closeRoleProfile();
+
+  const confirmModal = $("role-confirm-modal");
+  if (confirmModal && confirmModal.classList.contains("show")){
+    backFromRoleConfirm();
+  }
 });
 
 // 选角色页
@@ -399,7 +410,7 @@ function renderRoleForm(values, title, subtitle, buttonText, source){
 }
 
 function renderRoleCreate(){
-  renderRoleForm({}, "写一个角色", "所有字段都可以不填，留空的交给角色自己。", "保存并开始聊", "custom");
+  renderRoleForm({}, "写一个角色", "所有字段都可以不填，留空的交给角色自己。", "下一步：确认档案", "custom");
 }
 
 function renderRoleDraft(role, note){
@@ -411,8 +422,8 @@ function renderRoleDraft(role, note){
     draft.extra = (extra ? extra + "\n" : "") + "开场白：" + draft.opening;
   }
 
-  renderRoleForm(draft, "这个角色可以吗？",
-    note || "AI 查资料整理的，可以直接改。", "就这样开始聊", "ai_search");
+  renderRoleForm(draft, "核对档案",
+    note || "AI 查资料整理的，可以直接改。", "下一步：确认档案", "ai_search");
 }
 
 // AI 帮我查：先输入名字，再等搜索和整理
@@ -454,6 +465,36 @@ function renderRoleSearch(){
   }
 }
 
+// 下载终端：转动的状态文字
+function showRoleDownload(){
+  const modal = $("role-download-modal");
+  if (modal) modal.classList.add("show");
+
+  const status = $("rd-status");
+  const lines = [
+    "正在检索人物资料...",
+    "正在解析性格与背景...",
+    "正在写入角色档案...",
+  ];
+  let index = 0;
+
+  if (status) status.textContent = lines[0];
+
+  clearInterval(roleDownloadTimer);
+  roleDownloadTimer = setInterval(() => {
+    index = (index + 1) % lines.length;
+    if (status) status.textContent = lines[index];
+  }, 2600);
+}
+
+function hideRoleDownload(){
+  clearInterval(roleDownloadTimer);
+  roleDownloadTimer = null;
+
+  const modal = $("role-download-modal");
+  if (modal) modal.classList.remove("show");
+}
+
 async function searchRoleDraft(){
   const input = $("rs-query");
   const query = input ? input.value.trim() : "";
@@ -472,6 +513,8 @@ async function searchRoleDraft(){
   }
   if (status) status.textContent = "正在上网搜索，再整理角色...";
 
+  showRoleDownload();
+
   const timer = setTimeout(() => {
     if (status) status.textContent = "资料有点多，再等一下...";
   }, 8000);
@@ -483,6 +526,7 @@ async function searchRoleDraft(){
   });
 
   clearTimeout(timer);
+  hideRoleDownload();
 
   if (!data || !data.role){
     if (btn){
@@ -494,11 +538,143 @@ async function searchRoleDraft(){
     return;
   }
 
-  renderRoleDraft(data.role, data.note);
+  const draft = Object.assign({}, data.role);
+  const extra = (draft.extra || "").trim();
+  if (draft.opening && !/开场白\s*[:：]/.test(extra)){
+    draft.extra = (extra ? extra + "\n" : "") + "开场白：" + draft.opening;
+  }
+
+  previewRole({
+    name: draft.name || "",
+    age: draft.age || "",
+    gender: draft.gender || "",
+    personality: draft.personality || "",
+    deeds: draft.deeds || "",
+    background: draft.background || "",
+    extra: draft.extra || "",
+    emoji: draft.emoji || "🎭",
+    tagline: draft.tagline || "",
+    speaking: draft.speaking || ""
+  }, "ai_search", data.note || "AI 查资料整理的，可以直接改。");
 }
 
-// 保存角色，然后直接开聊
-async function createRole(){
+// 把补充说明里的开场白拆出来，确认单里单独显示
+function splitRoleOpening(extra){
+  const text = extra || "";
+  const match = text.match(/开场白\s*[:：]\s*(.+)/);
+  if (!match){
+    return { opening: "", extra: text };
+  }
+
+  const opening = match[1].trim();
+  const rest = (text.slice(0, match.index) + text.slice(match.index + match[0].length)).trim();
+  return { opening: opening, extra: rest };
+}
+
+function renderRoleConfirm(payload, source){
+  const sub = $("rcp-sub");
+  if (sub){
+    sub.textContent = (source === "ai_search" ? "来源：AI 检索。" : "来源：手动录入。") +
+      "请确认下面内容，确认后开始角色对话。";
+  }
+
+  const split = splitRoleOpening(payload.extra);
+  const rows = [
+    ["昵称", payload.name, "未填写"],
+    ["年龄", payload.age, "未填写"],
+    ["性别", payload.gender, "未填写"],
+    ["性格", payload.personality, "未填写"],
+    ["人物事迹", payload.deeds, "未填写"],
+    ["背景故事", payload.background, "未填写"],
+    ["补充说明", split.extra, "未填写"],
+    ["开场白", split.opening || "将由系统自动生成", ""],
+  ];
+
+  const fields = $("rcp-fields");
+  if (!fields) return;
+
+  fields.innerHTML = rows.map(([label, value, emptyText]) => {
+    const text = (value || "").trim();
+    const shown = text || emptyText || "";
+    return `<div class="rcp-field">
+      <div class="rcp-label">${esc(label)}</div>
+      <div class="rcp-value${text ? "" : " empty"}">${esc(shown)}</div>
+    </div>`;
+  }).join("");
+}
+
+function previewRole(payload, source, note){
+  pendingRole = payload;
+  pendingRoleSource = source;
+  pendingRoleNote = note || "";
+
+  const confirmBtn = $("rcp-confirm");
+  if (confirmBtn){
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = "确认并开始";
+  }
+
+  renderRoleConfirm(payload, source);
+
+  const modal = $("role-confirm-modal");
+  if (modal) modal.classList.add("show");
+}
+
+function closeRoleConfirm(){
+  const modal = $("role-confirm-modal");
+  if (modal) modal.classList.remove("show");
+}
+
+function backFromRoleConfirm(){
+  closeRoleConfirm();
+  if (!pendingRole) return;
+
+  if (pendingRoleSource === "ai_search"){
+    renderRoleDraft(pendingRole, pendingRoleNote);
+  }else{
+    renderRoleForm(pendingRole, "写一个角色",
+      "所有字段都可以不填，留空的交给角色自己。", "下一步：确认档案", "custom");
+  }
+}
+
+// 确认单里点“确认并开始”，这时才真正写数据库
+async function confirmRoleCreate(){
+  if (!pendingRole) return;
+
+  const btn = $("rcp-confirm");
+  const oldText = btn ? btn.textContent : "确认并开始";
+  if (btn){
+    btn.disabled = true;
+    btn.textContent = "写入档案中...";
+  }
+
+  const payload = Object.assign({}, pendingRole, { source: pendingRoleSource });
+
+  const data = await getJson("/roleplay/roles", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!data || !data.role){
+    if (btn){
+      btn.disabled = false;
+      btn.textContent = oldText;
+    }
+    alert("档案写入失败，请稍后再试");
+    return;
+  }
+
+  closeRoleConfirm();
+
+  if (!roleList) roleList = [];
+  roleList.push(data.role);
+
+  await startRole(data.role.id);
+}
+
+// 表单里的“下一步”：先出确认单，不直接保存
+function createRole(){
   const payload = {
     name: $("rc-name").value.trim(),
     age: $("rc-age").value.trim(),
@@ -509,42 +685,11 @@ async function createRole(){
     extra: $("rc-extra").value.trim(),
     emoji: ($("rc-emoji").value || "").trim() || "🎭",
     tagline: $("rc-tagline").value.trim(),
-    speaking: $("rc-speaking").value.trim(),
-    source: roleFormSource
+    speaking: $("rc-speaking").value.trim()
   };
 
-  const saveBtn = $("role-save-btn");
-  const saveText = saveBtn ? saveBtn.textContent : "保存并开始聊";
-  if (saveBtn){
-    saveBtn.disabled = true;
-    saveBtn.textContent = "保存中...";
-  }
-
-  const data = await getJson("/roleplay/roles", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-
-  if (!data || !data.role){
-    if (saveBtn){
-      saveBtn.disabled = false;
-      saveBtn.textContent = saveText;
-    }
-    alert("保存失败，请检查内容后再试");
-    return;
-  }
-
-  if (!roleList) roleList = [];
-  roleList.push(data.role);
-
-  await startRole(data.role.id);
-
-  // 开聊失败时还留在表单里，把按钮恢复
-  if (chatMode !== "role-chat" && saveBtn){
-    saveBtn.disabled = false;
-    saveBtn.textContent = saveText;
-  }
+  previewRole(payload, roleFormSource,
+    roleFormSource === "ai_search" ? "AI 查资料整理的，可以直接改。" : "确认一下档案内容。");
 }
 
 // 发一次「开始角色」的请求。
