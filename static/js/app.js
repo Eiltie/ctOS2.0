@@ -41,6 +41,7 @@ let roleSessionCache = new Set(); // 哪些会话是角色会话，切回普通�
 let roleList = null;              // 预设角色列表，拉一次就缓存
 let roleListLoading = false;
 let roleFormSource = "custom";    // 当前表单保存成 custom 还是 ai_search
+let roleMenuOpen = false;         // 侧栏「角色扮演」菜单是否展开
 
 // 一条消息的 HTML 骨架（头像 + 时间 + 气泡），内容后面再填
 function rowHTML(kind){
@@ -561,6 +562,7 @@ async function startRole(roleId){
   s.messages = [{ role: "assistant", text: data.opening || "" }];
 
   chatMode = "role-chat";
+  roleMenuOpen = true;
   showChatPanels(chatMode);
   renderRoleBar();
   renderChat();
@@ -609,6 +611,7 @@ function chatSetMode(mode){
     if (chatMode === "normal") normalSessionId = state.activeId;
 
     chatMode = "role-select";
+    roleMenuOpen = true;
     activeRole = null;
     roleMemory = "";
     roleSessionId = null;
@@ -667,6 +670,11 @@ async function clearRoleMemory(){
 
 // ===== 左侧会话列表 =====
 
+// 这个会话是不是角色会话
+function isRoleSession(session){
+  return Boolean(session.role_id) || roleSessionCache.has(Number(session.id));
+}
+
 function renderHistory(){
   // 出行和客服的列表由各自模块负责，这里只管闲聊
   if (state.view === "trip"){ renderTripHistory(); return; }
@@ -681,14 +689,40 @@ function renderHistory(){
   const alive = new Set(state.sessions.map((s) => Number(s.id)));
   historyPicked = new Set([...historyPicked].filter((id) => alive.has(id)));
 
-  const rows = state.sessions.map((s) => `
+  const normalSessions = state.sessions.filter((s) => !isRoleSession(s));
+  const roleSessions = state.sessions.filter((s) => isRoleSession(s));
+
+  const normalRows = normalSessions.map((s) => `
     <div class="history-item${s.id === state.activeId && !historySelectMode ? " active" : ""}" data-sid="${s.id}">
       ${pickDotHTML(s.id)}
       <span class="hi-title">${esc(s.title || "新对话")}</span>
       <span class="del" title="删除会话" data-del="${s.id}">🗑</span>
     </div>`).join("");
 
-  box.innerHTML = rows + selectBarHTML();
+  const roleRows = roleSessions.map((s) => `
+    <div class="history-item role-history-item${s.id === state.activeId && !historySelectMode ? " active" : ""}" data-sid="${s.id}">
+      <span class="role-mini">🎭</span>
+      <span class="hi-title">${esc(s.title || "新角色")}</span>
+      <span class="del" title="删除会话" data-del="${s.id}">🗑</span>
+    </div>`).join("");
+
+  const normalEmpty = normalSessions.length ? "" :
+    `<div class="history-empty">还没有普通聊天</div>`;
+
+  const roleMenu = `
+    <div class="role-menu">
+      <button class="role-menu-toggle${roleMenuOpen ? " open" : ""}" type="button" id="role-menu-toggle">
+        <span class="role-menu-arrow">▸</span>
+        <span class="role-menu-name">角色扮演</span>
+        <span class="role-menu-count">${roleSessions.length}</span>
+      </button>
+      <div class="role-menu-list" style="display:${roleMenuOpen ? "block" : "none"}">
+        ${roleRows || `<div class="history-empty">还没有角色聊天</div>`}
+        <button class="role-menu-new" type="button" id="role-menu-new">＋ 新的角色聊天</button>
+      </div>
+    </div>`;
+
+  box.innerHTML = normalRows + normalEmpty + roleMenu + selectBarHTML();
 
   box.querySelectorAll(".history-item").forEach((item) => {
     item.onclick = () => {
@@ -704,11 +738,27 @@ function renderHistory(){
     };
   });
 
+  const roleToggle = $("role-menu-toggle");
+  if (roleToggle){
+    roleToggle.onclick = () => {
+      roleMenuOpen = !roleMenuOpen;
+      renderHistory();
+    };
+  }
+
+  const roleNew = $("role-menu-new");
+  if (roleNew){
+    roleNew.onclick = () => {
+      if (historySelectMode) return;
+      chatSetMode("role-select");
+    };
+  }
+
   bindPickDots(box, renderHistory);
   bindSelectBar(
     box,
-    state.sessions.length,
-    () => { historyPicked = new Set(state.sessions.map((s) => Number(s.id))); },
+    normalSessions.length,
+    () => { historyPicked = new Set(normalSessions.map((s) => Number(s.id))); },
     removeSessionsPicked,
     renderHistory,
   );
@@ -806,6 +856,7 @@ async function openSession(id){
     roleMemory = roleInfo.memory || "";
     roleSessionId = id;
     chatMode = "role-chat";
+    roleMenuOpen = true;
     roleSessionCache.add(id);
     showChatPanels("role-chat");
     renderRoleBar();
@@ -1188,6 +1239,7 @@ window.onLoginSuccess = async function(){
   roleSessionId = null;
   normalSessionId = null;
   roleSessionCache = new Set();
+  roleMenuOpen = false;
   roleList = null;
   roleListLoading = false;
 
