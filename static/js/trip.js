@@ -73,6 +73,8 @@ function tripRenderQuickPrompts(){
 }
 
 let tripBusy = false;
+let tripCanRetry = false;
+let lastTripText = "";
 let tripHistory = [];
 let tripRecords = [];
 let activeTripId = null;
@@ -299,11 +301,16 @@ function tripShowChatPane(){
 function tripIntro(){
   tripMode = "TRAVEL";
   tripRenderShell();
-
   tripStepsReset();
   tripCardsShow(true);
   activeTripId = null;
   tripClockStop();
+
+  if (!tripBusy){
+    lastTripText = "";
+    tripCanRetry = false;
+    setTripSendState("send");
+  }
 
   const btn = $("trip-scroll-btn");
   if (btn) btn.style.display = "none";
@@ -738,6 +745,39 @@ function tripClockStop(finalText){
 }
 
 
+function setTripSendState(state){
+  document.querySelectorAll(".trip-send-btn").forEach((btn) => {
+    btn.classList.toggle("is-stop", state === "stop");
+    btn.classList.toggle("is-retry", state === "retry");
+    btn.textContent = state === "stop" ? "■" : state === "retry" ? "↻" : "➤";
+    btn.title = state === "stop" ? "停止生成" : state === "retry" ? "重试上一条" : "发送";
+  });
+}
+
+function tripSendOrStop(){
+  if (tripBusy){
+    abortCurrent();
+    return;
+  }
+
+  const input = tripHeroVisible() ? $("trip-input-hero") : $("trip-input");
+  if (input && input.value.trim()){
+    sendTrip();
+    return;
+  }
+
+  if (tripCanRetry) retryTrip();
+  else sendTrip();
+}
+
+function retryTrip(){
+  const input = tripHeroVisible() ? $("trip-input-hero") : $("trip-input");
+  if (!input || tripBusy || !lastTripText) return;
+
+  input.value = lastTripText;
+  sendTrip();
+}
+
 async function sendTrip(){
   // 两个输入框：开场态用中间那个，对话态用底部那个
   const heroInput = $("trip-input-hero");
@@ -758,6 +798,9 @@ async function sendTrip(){
   tripBusy = true;
   activeTripId = null;
   input.value = "";
+  lastTripText = text;
+  tripCanRetry = false;
+  setTripSendState("stop");
 
   // 之前如果有没选完的路线，先把旧按钮锁掉，避免点了串到新对话里
   lockRoutePanels();
@@ -791,6 +834,7 @@ async function sendTrip(){
   const ctl = newAbortController();
 
   let failed = null;
+  let aborted = false;
   let chatTurn = false;
   let awaitingChoice = false;
   let touched = false;
@@ -901,7 +945,9 @@ async function sendTrip(){
     parser.push(decoder.decode());
     parser.end();
   }catch(err){
-    if (!(err && err.name === "AbortError")){
+    if (err && err.name === "AbortError"){
+      aborted = true;
+    }else{
       failed = err;
       appendTripError(
         "请求失败：" + (err && err.message ? err.message : err) +
@@ -911,15 +957,26 @@ async function sendTrip(){
     finishAbort(ctl);
     tripBusy = false;
 
-    if (!failed && stepError < 0 && touched && !chatTurn && !awaitingChoice){
+    if (failed || aborted){
+      tripCanRetry = true;
+      setTripSendState(input.value.trim() ? "send" : "retry");
+    }else{
+      tripCanRetry = false;
+      setTripSendState("send");
+    }
+
+    if (!failed && stepError < 0 && touched && !chatTurn && !awaitingChoice && !aborted){
       tripStepsFinish(false);
-    }else if (failed || stepError >= 0){
+    }else if (failed || stepError >= 0 || aborted){
       tripStepsInterrupt();
     }
 
     // 状态行收尾：如果停在选方案，就暂停计时，等用户选完再接着算
-    if (awaitingChoice){
+    if (awaitingChoice && !aborted){
       tripClockPause();
+    }else if (aborted){
+      tripClockStop("已停止");
+      flow.finish("已停止，可重试", true);
     }else{
       const usedText = `用时 ${fmtSec(tripSeconds())}`;
       tripClockStop(failed ? "FAILED" : usedText);
@@ -1183,6 +1240,7 @@ async function sendGuideStep(url, body, turn, flow, panel, pendingText){
   tripClockResume();
   panel.classList.add("is-locked");
   panel.querySelectorAll("button").forEach((button) => { button.disabled = true; });
+  setTripSendState("stop");
 
   // 点完先把表单收起来，别让它一直挡在输出前面；失败再放回来
   panel.classList.add("is-submitted");
@@ -1193,6 +1251,7 @@ async function sendGuideStep(url, body, turn, flow, panel, pendingText){
 
   const ctl = newAbortController();
   let failed = null;
+  let aborted = false;
   let hadError = false;
   let awaiting = false;
 
@@ -1263,7 +1322,9 @@ async function sendGuideStep(url, body, turn, flow, panel, pendingText){
     parser.push(decoder.decode());
     parser.end();
   }catch(err){
-    if (!(err && err.name === "AbortError")){
+    if (err && err.name === "AbortError"){
+      aborted = true;
+    }else{
       failed = err;
       appendTripError(
         "请求失败：" + (err && err.message ? err.message : err), turn);
@@ -1272,10 +1333,30 @@ async function sendGuideStep(url, body, turn, flow, panel, pendingText){
     finishAbort(ctl);
     tripBusy = false;
 
+    if (aborted){
+      tripClockStop("已停止");
+      tripStepsInterrupt();
+      flow.finish("已停止，可重新选择", true);
+      setTripSendState("send");
+
+      if (panel.isConnected){
+        panel.classList.remove("is-submitted");
+        panel.classList.remove("is-locked");
+        panel.querySelectorAll("button").forEach((button) => { button.disabled = false; });
+        showWaitingHint(turn, "已停止，可以重新选择 ↑");
+      }
+
+      tripScroll();
+      const stoppedInput = $("trip-input");
+      if (stoppedInput) stoppedInput.focus();
+      return;
+    }
+
     if (failed || hadError){
       tripClockStop("FAILED");
       tripStepsInterrupt();
       flow.finish("CTOS任务失败", true);
+      setTripSendState("send");
       // 出错时把表单和按钮放回来，允许再试一次
       panel.classList.remove("is-submitted");
       panel.classList.remove("is-locked");
@@ -1283,12 +1364,14 @@ async function sendGuideStep(url, body, turn, flow, panel, pendingText){
     }else if (awaiting){
       // 又停下来问用户了：暂停计时，等用户选完再接着算
       tripClockPause();
+      setTripSendState("send");
       return;
     }else{
       const usedText = `用时 ${fmtSec(tripSeconds())}`;
       tripClockStop(usedText);
       tripStepsFinish(false);
       flow.finish(`CTOS规划结束 · ${usedText}`, false);
+      setTripSendState("send");
       panel.remove();
       const hint = turn.querySelector(".route-ask-hint");
       if (hint) hint.remove();
@@ -1353,6 +1436,7 @@ async function chooseRoute(threadId, choiceId, turn, flow, panel){
   tripClockResume();
   panel.classList.add("is-locked");
   panel.querySelectorAll("button").forEach((button) => { button.disabled = true; });
+  setTripSendState("stop");
 
   const compareIndex = tripModeConfig().steps.indexOf("route_compare");
   if (compareIndex >= 0) tripStepSet(compareIndex, "busy");
@@ -1360,6 +1444,7 @@ async function chooseRoute(threadId, choiceId, turn, flow, panel){
 
   const ctl = newAbortController();
   let failed = null;
+  let aborted = false;
   let hadError = false;
 
   try{
@@ -1423,7 +1508,9 @@ async function chooseRoute(threadId, choiceId, turn, flow, panel){
     parser.push(decoder.decode());
     parser.end();
   }catch(err){
-    if (!(err && err.name === "AbortError")){
+    if (err && err.name === "AbortError"){
+      aborted = true;
+    }else{
       failed = err;
       appendTripError(
         "请求失败：" + (err && err.message ? err.message : err) +
@@ -1435,17 +1522,26 @@ async function chooseRoute(threadId, choiceId, turn, flow, panel){
 
     // 先把用时算出来，再停表：停表会把这一轮的起点清掉
     const usedText = `用时 ${fmtSec(tripSeconds())}`;
-    tripClockStop(failed || hadError ? "FAILED" : usedText);
+    tripClockStop(aborted ? "已停止" : (failed || hadError ? "FAILED" : usedText));
 
-    if (failed || hadError){
+    if (aborted){
+      tripStepsInterrupt();
+      flow.finish("已停止，可重新选择", true);
+      setTripSendState("send");
+      panel.classList.remove("is-locked");
+      panel.querySelectorAll("button").forEach((button) => { button.disabled = false; });
+      showWaitingHint(turn, "已停止，可以重新选择 ↑");
+    }else if (failed || hadError){
       tripStepsInterrupt();
       flow.finish("CTOS路线决策失败", true);
+      setTripSendState("send");
       // 出错时把按钮放开，用户可以再点一次
       panel.classList.remove("is-locked");
       panel.querySelectorAll("button").forEach((button) => { button.disabled = false; });
     }else{
       tripStepsFinish(false);
       flow.finish(`CTOS路线决策结束 · ${usedText}`, false);
+      setTripSendState("send");
       panel.remove();
 
       const hint = turn.querySelector(".route-ask-hint");
@@ -1469,6 +1565,9 @@ function tripNewSession(){
   // 新会话里会带上旧对话，模型就会说出上一个城市。
   abortCurrent();
   tripBusy = false;
+  lastTripText = "";
+  tripCanRetry = false;
+  setTripSendState("send");
   tripHistory = [];
   openChatId = null;
   // 本地缓存的出行记录也清掉：换用户登录时不能带着上一个人的列表
@@ -1485,6 +1584,17 @@ function tripInit(){
   tripMode = "TRAVEL";
   tripRenderShell();
   tripRenderQuickPrompts();
+  setTripSendState("send");
+
+  // 停止/出错后按钮变成“重试”，用户一打字就变回“发送”
+  ["trip-input", "trip-input-hero"].forEach((id) => {
+    const input = $(id);
+    if (!input) return;
+    input.oninput = () => {
+      if (tripBusy) return;
+      setTripSendState(input.value.trim() ? "send" : (tripCanRetry ? "retry" : "send"));
+    };
+  });
 
   const feed = tripFeed();
   if (feed) feed.innerHTML = "";

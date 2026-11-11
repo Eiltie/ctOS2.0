@@ -2945,3 +2945,42 @@ html[data-theme="street"] .sidebar-actions .notice-btn {
         flex: 0 0 auto;
     }
 }
+
+/* ===== 发送按钮：停止 / 重试 ===== */
+
+.send-btn.is-stop {
+    background: #ef4444;
+    border-color: #ef4444;
+    color: #fff;
+    box-shadow: none;
+}
+
+.send-btn.is-stop:hover {
+    background: #dc2626;
+    color: #fff;
+    box-shadow: none;
+}
+
+.send-btn.is-retry {
+    font-size: 15px;
+}
+
+html[data-theme="clean"] .send-btn.is-stop {
+    background: #ef4444;
+    border-color: #ef4444;
+    color: #fff;
+}
+
+html[data-theme="street"] .send-btn.is-stop {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--yellow);
+    box-shadow: 2px 2px 0 var(--ink);
+}
+
+html[data-theme="cyber"] .send-btn.is-stop {
+    background: rgba(239, 68, 68, 0.16);
+    border-color: #ef4444;
+    color: #fecaca;
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.25);
+}

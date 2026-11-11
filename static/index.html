@@ -195,7 +195,7 @@
                 <div class="input-wrapper">
                     <div class="b-left"></div><div class="b-right"></div>
                     <input type="text" id="chat-input" placeholder="向 ctOS 发送指令... (Enter 发送)">
-                    <button class="send-btn" onclick="sendChat()">➤</button>
+                    <button class="send-btn" id="chat-send" type="button" onclick="chatSendOrStop()" title="发送">➤</button>
                 </div>
                 <div class="bottom-status"><span>READY</span><span id="char-count">0 字符</span></div>
             </div>
@@ -213,7 +213,7 @@
                 <div class="hero-input">
                     <div class="b-left"></div><div class="b-right"></div>
                     <input type="text" id="trip-input-hero" placeholder="说个目的地，或问从哪到哪怎么走...">
-                    <button class="send-btn" onclick="sendTrip()">➤</button>
+                    <button class="send-btn trip-send-btn" id="trip-send-hero" type="button" onclick="tripSendOrStop()" title="发送">➤</button>
                 </div>
 
                 <!-- 预设问题，由 trip.js 填进来 -->
@@ -230,7 +230,7 @@
                 <div class="input-wrapper">
                     <div class="b-left"></div><div class="b-right"></div>
                     <input type="text" id="trip-input" placeholder="说个目的地，或问从哪到哪怎么走...">
-                    <button class="send-btn" onclick="sendTrip()">➤</button>
+                    <button class="send-btn trip-send-btn" id="trip-send" type="button" onclick="tripSendOrStop()" title="发送">➤</button>
                 </div>
                 <div class="bottom-status"><span>READY</span><span id="trip-status">TRIP AGENT</span></div>
             </div>
@@ -249,7 +249,7 @@
                 <div class="input-wrapper">
                     <div class="b-left"></div><div class="b-right"></div>
                     <input type="text" id="customer-input" placeholder="问一个关于本项目的问题...">
-                    <button class="send-btn" onclick="sendCustomer()">➤</button>
+                    <button class="send-btn" id="customer-send" type="button" onclick="customerSendOrStop()" title="发送">➤</button>
                 </div>
             </div>
         </div>

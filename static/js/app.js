@@ -30,6 +30,8 @@ const state = {
 // ===== 消息渲染 =====
 
 let chatBusy = false;
+let chatCanRetry = false;
+let lastChatText = "";
 
 // 闲聊现在有两种玩法：普通聊天 / 角色扮演
 let chatMode = "normal";          // normal / role-select / role-chat
@@ -840,6 +842,10 @@ async function startRole(roleId){
 function chatSetMode(mode){
   if (chatBusy) return;
 
+  lastChatText = "";
+  chatCanRetry = false;
+  setChatSendState("send");
+
   if (mode === "normal"){
     if (chatMode === "normal" && state.activeId !== null
         && !roleSessionCache.has(state.activeId)){
@@ -1106,6 +1112,10 @@ async function loadSessions(){
 }
 
 async function openSession(id){
+  lastChatText = "";
+  chatCanRetry = false;
+  setChatSendState("send");
+
   state.activeId = id;
   if (state.view === "chat") renderHistory();
 
@@ -1173,6 +1183,41 @@ async function removeSession(id){
 
 // ===== 发送消息 =====
 
+function setChatSendState(state){
+  const btn = $("chat-send");
+  if (!btn) return;
+
+  btn.classList.toggle("is-stop", state === "stop");
+  btn.classList.toggle("is-retry", state === "retry");
+  btn.textContent = state === "stop" ? "■" : state === "retry" ? "↻" : "➤";
+  btn.title = state === "stop" ? "停止生成" : state === "retry" ? "重试上一条" : "发送";
+}
+
+function chatSendOrStop(){
+  const input = $("chat-input");
+
+  if (chatBusy){
+    abortCurrent();
+    return;
+  }
+
+  if (input && input.value.trim()){
+    sendChat();
+    return;
+  }
+
+  if (chatCanRetry) retryChat();
+  else sendChat();
+}
+
+function retryChat(){
+  const input = $("chat-input");
+  if (!input || chatBusy || !lastChatText) return;
+
+  input.value = lastChatText;
+  sendChat();
+}
+
 async function sendChat(){
   const input = $("chat-input");
   const feed = $("chat-feed");
@@ -1189,6 +1234,9 @@ async function sendChat(){
 
   chatBusy = true;
   input.value = "";
+  lastChatText = text;
+  chatCanRetry = false;
+  setChatSendState("stop");
 
   const count = $("char-count");
   if (count) count.textContent = "0 字符";
@@ -1207,6 +1255,7 @@ async function sendChat(){
 
   const typer = createTyper(feed, bubble);
   let failed = null;
+  let aborted = false;
 
   try{
     const payload = { messages: text };
@@ -1247,7 +1296,9 @@ async function sendChat(){
     typer.done();
   }catch(err){
     if (err && err.name === "AbortError"){
-      typer.cut();
+      aborted = true;
+      const partial = typer.cut();
+      if (!partial) removeRow(aiRow);
     }else{
       failed = err;
       const partial = typer.cut();
@@ -1265,6 +1316,14 @@ async function sendChat(){
   }finally{
     finishAbort(ctl);
     chatBusy = false;
+
+    if (failed || aborted){
+      chatCanRetry = true;
+      setChatSendState(input.value.trim() ? "send" : "retry");
+    }else{
+      chatCanRetry = false;
+      setChatSendState("send");
+    }
 
     await loadSessions();
 
@@ -1393,6 +1452,9 @@ function triggerHologram(){
     if (state.view !== "chat") return;
     abortCurrent();
     chatBusy = false;
+    lastChatText = "";
+    chatCanRetry = false;
+    setChatSendState("send");
     state.activeId = null;
     normalSessionId = null;
     renderHistory();
@@ -1423,6 +1485,11 @@ document.querySelectorAll(".custom-scroll").forEach((el) => {
 
   chatInput.addEventListener("input", (e) => {
     if (charCount) charCount.textContent = `${e.target.value.length} 字符`;
+
+    // 停止/出错后是“重试”图标；用户一打字就变回发送
+    if (!chatBusy){
+      setChatSendState(e.target.value.trim() ? "send" : (chatCanRetry ? "retry" : "send"));
+    }
   });
 
   chatInput.addEventListener("keydown", (e) => {
@@ -1521,12 +1588,19 @@ window.onLoginSuccess = async function(){
   roleList = null;
   roleListLoading = false;
 
+  lastChatText = "";
+  chatCanRetry = false;
+  chatBusy = false;
+  setChatSendState("send");
+
   renderUserBadge();
   initAppModules();
 
   // 出行模块的本地状态也要清，否则会带着上一个用户的会话
   if (typeof tripNewSession === "function") tripNewSession();
   if (typeof customerIntro === "function") customerIntro();
+
+  if (typeof customerResetSend === "function") customerResetSend();
 
   switchView("chat");
   await loadSessions();

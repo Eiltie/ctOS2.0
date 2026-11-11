@@ -1,4 +1,6 @@
 let customerBusy = false;
+let customerCanRetry = false;
+let lastCustomerText = "";
 
 // 最近几轮对话，每轮调接口时带给后端。
 // 后端用它理解「那它怎么配」这种省略主语的追问。
@@ -44,6 +46,41 @@ function customerRow(feed, kind){
 }
 
 
+function setCustomerSendState(state){
+  const btn = $("customer-send");
+  if (!btn) return;
+
+  btn.classList.toggle("is-stop", state === "stop");
+  btn.classList.toggle("is-retry", state === "retry");
+  btn.textContent = state === "stop" ? "■" : state === "retry" ? "↻" : "➤";
+  btn.title = state === "stop" ? "停止生成" : state === "retry" ? "重试上一条" : "发送";
+}
+
+function customerSendOrStop(){
+  const input = $("customer-input");
+
+  if (customerBusy){
+    abortCurrent();
+    return;
+  }
+
+  if (input && input.value.trim()){
+    sendCustomer();
+    return;
+  }
+
+  if (customerCanRetry) retryCustomer();
+  else sendCustomer();
+}
+
+function retryCustomer(){
+  const input = $("customer-input");
+  if (!input || customerBusy || !lastCustomerText) return;
+
+  input.value = lastCustomerText;
+  sendCustomer();
+}
+
 async function sendCustomer(){
   const input = $("customer-input");
   const feed = $("customer-feed");
@@ -60,6 +97,9 @@ async function sendCustomer(){
 
   customerBusy = true;
   input.value = "";
+  lastCustomerText = query;
+  customerCanRetry = false;
+  setCustomerSendState("stop");
 
   const intro = feed.querySelector(".customer-welcome");
   if (intro) intro.remove();
@@ -73,6 +113,7 @@ async function sendCustomer(){
 
   const ctl = newAbortController();
   let failed = null;
+  let aborted = false;
   let answerText = "";   // 攒下最终答案，用来记进历史
 
   try{
@@ -135,6 +176,7 @@ async function sendCustomer(){
     }
   }catch(err){
     if (err && err.name === "AbortError"){
+      aborted = true;
       const partial = typer.cut();
       if (!partial) answer.parentNode.remove();
     }else{
@@ -148,6 +190,15 @@ async function sendCustomer(){
   }finally{
     finishAbort(ctl);
     customerBusy = false;
+
+    if (failed || aborted){
+      customerCanRetry = true;
+      setCustomerSendState(input.value.trim() ? "send" : "retry");
+    }else{
+      customerCanRetry = false;
+      setCustomerSendState("send");
+    }
+
     input.focus();
   }
 }
@@ -171,11 +222,18 @@ function pushCustomerHistory(question, answer){
 }
 
 
+function customerResetSend(){
+  customerBusy = false;
+  lastCustomerText = "";
+  customerCanRetry = false;
+  setCustomerSendState("send");
+}
+
 function customerNewSession(){
   setTimeout(() => {
     if (state.view !== "customer") return;
     abortCurrent();
-    customerBusy = false;
+    customerResetSend();
     // 新会话清掉上下文，避免上一轮的问题影响这一轮
     customerHistory = [];
     customerIntro();
@@ -184,4 +242,13 @@ function customerNewSession(){
 
 function customerInit(){
   customerIntro();
+  setCustomerSendState("send");
+
+  const input = $("customer-input");
+  if (input){
+    input.oninput = () => {
+      if (customerBusy) return;
+      setCustomerSendState(input.value.trim() ? "send" : (customerCanRetry ? "retry" : "send"));
+    };
+  }
 }
