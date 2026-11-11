@@ -40,6 +40,7 @@ let normalSessionId = null;       // 切到角色玩法前，普通聊天停在�
 let roleSessionCache = new Set(); // 哪些会话是角色会话，切回普通聊天时避开
 let roleList = null;              // 预设角色列表，拉一次就缓存
 let roleListLoading = false;
+let roleFormSource = "custom";    // 当前表单保存成 custom 还是 ai_search
 
 // 一条消息的 HTML 骨架（头像 + 时间 + 气泡），内容后面再填
 function rowHTML(kind){
@@ -226,13 +227,22 @@ async function renderRoleSelect(){
 
       <div class="role-advanced">
         <div class="role-advanced-title">想玩点不一样的？</div>
-        <button class="role-add-card" type="button" id="role-add-btn">
-          <span class="role-add-icon">✍️</span>
-          <span class="role-add-text">
-            <span class="role-add-name">自己写一个角色</span>
-            <span class="role-add-desc">名字、性格、说话方式都由你定</span>
-          </span>
-        </button>
+        <div class="role-adv-row">
+          <button class="role-add-card" type="button" id="role-ai-btn">
+            <span class="role-add-icon">🔍</span>
+            <span class="role-add-text">
+              <span class="role-add-name">AI 帮我查</span>
+              <span class="role-add-desc">说个名字，我上网查资料写成角色</span>
+            </span>
+          </button>
+          <button class="role-add-card" type="button" id="role-add-btn">
+            <span class="role-add-icon">✍️</span>
+            <span class="role-add-text">
+              <span class="role-add-name">自己写一个角色</span>
+              <span class="role-add-desc">名字、性格、说话方式都由你定</span>
+            </span>
+          </button>
+        </div>
       </div>
     </div>`;
 
@@ -240,63 +250,75 @@ async function renderRoleSelect(){
     card.onclick = () => startRole(card.dataset.roleId);
   });
 
+  const aiBtn = $("role-ai-btn");
+  if (aiBtn) aiBtn.onclick = () => renderRoleSearch();
+
   const addBtn = $("role-add-btn");
   if (addBtn) addBtn.onclick = () => renderRoleCreate();
 }
 
-// 自己写角色的表单
-function renderRoleCreate(){
-  const box = $("role-select");
-  if (!box) return;
+// 自己写角色的表单（AI 生成的草稿也用同一套表单）
+function roleFormHTML(values){
+  const v = values || {};
 
-  box.innerHTML = `
-    <div class="role-select-inner">
-      <div class="role-create-head">
-        <button class="role-back-btn" type="button" id="role-back-btn">← 返回角色列表</button>
-        <h2>写一个角色</h2>
-        <p>只有名字是必填的，其他可以先空着。</p>
-      </div>
-
+  return `
       <div class="role-form">
         <div class="role-row-two">
           <label class="role-field">
             <span>名字</span>
-            <input id="rc-name" maxlength="20" placeholder="比如：老船长">
+            <input id="rc-name" maxlength="20" placeholder="比如：老船长" value="${esc(v.name || "")}">
           </label>
           <label class="role-field">
             <span>头像</span>
-            <input id="rc-emoji" maxlength="4" value="🙂">
+            <input id="rc-emoji" maxlength="4" value="${esc(v.emoji || "🙂")}">
           </label>
         </div>
 
         <label class="role-field">
           <span>一句话标签</span>
-          <input id="rc-tagline" maxlength="30" placeholder="比如：粗鲁 · 讲义气">
+          <input id="rc-tagline" maxlength="30" placeholder="比如：粗鲁 · 讲义气" value="${esc(v.tagline || "")}">
         </label>
 
         <label class="role-field">
           <span>性格</span>
-          <textarea id="rc-personality" maxlength="200" rows="2" placeholder="他是个什么样的人？"></textarea>
+          <textarea id="rc-personality" maxlength="200" rows="2" placeholder="他是个什么样的人？">${esc(v.personality || "")}</textarea>
         </label>
 
         <label class="role-field">
           <span>说话方式</span>
-          <textarea id="rc-speaking" maxlength="200" rows="2" placeholder="怎么说话？口头禅、语气、爱怎么称呼对方"></textarea>
+          <textarea id="rc-speaking" maxlength="200" rows="2" placeholder="怎么说话？口头禅、语气、爱怎么称呼对方">${esc(v.speaking || "")}</textarea>
         </label>
 
         <label class="role-field">
           <span>不会做什么</span>
-          <textarea id="rc-boundaries" maxlength="200" rows="2" placeholder="比如：不说自己是 AI，不谈现代科技"></textarea>
+          <textarea id="rc-boundaries" maxlength="200" rows="2" placeholder="比如：不说自己是 AI，不谈现代科技">${esc(v.boundaries || "")}</textarea>
         </label>
 
         <label class="role-field">
           <span>开场白</span>
-          <textarea id="rc-opening" maxlength="200" rows="2" placeholder="角色说的第一句话；不填会自动生成一句"></textarea>
+          <textarea id="rc-opening" maxlength="200" rows="2" placeholder="角色说的第一句话；不填会自动生成一句">${esc(v.opening || "")}</textarea>
         </label>
+      </div>`;
+}
+
+function renderRoleForm(values, title, subtitle, buttonText, source){
+  const box = $("role-select");
+  if (!box) return;
+
+  roleFormSource = source || "custom";
+
+  box.innerHTML = `
+    <div class="role-select-inner">
+      <div class="role-create-head">
+        <button class="role-back-btn" type="button" id="role-back-btn">← 返回角色列表</button>
+        <h2>${esc(title)}</h2>
+        <p>${esc(subtitle)}</p>
       </div>
 
+      ${roleFormHTML(values)}
+
       <div class="role-form-actions">
-        <button class="role-save-btn" type="button" id="role-save-btn">保存并开始聊</button>
+        <button class="role-save-btn" type="button" id="role-save-btn">${esc(buttonText)}</button>
         <button class="role-back-btn" type="button" id="role-back-cancel">取消</button>
       </div>
     </div>`;
@@ -305,11 +327,104 @@ function renderRoleCreate(){
   $("role-back-cancel").onclick = () => renderRoleSelect();
   $("role-save-btn").onclick = () => createRole();
 
-  const nameInput = $("rc-name");
-  if (nameInput) nameInput.focus();
+  if (!values || !values.name){
+    const nameInput = $("rc-name");
+    if (nameInput) nameInput.focus();
+  }
 }
 
-// 保存自己写的角色，然后直接开聊
+function renderRoleCreate(){
+  renderRoleForm({}, "写一个角色", "只有名字是必填的，其他可以先空着。", "保存并开始聊", "custom");
+}
+
+function renderRoleDraft(role, note){
+  renderRoleForm(role, "这个角色可以吗？",
+    note || "AI 查资料整理的，可以直接改。", "就这样开始聊", "ai_search");
+}
+
+// AI 帮我查：先输入名字，再等搜索和整理
+function renderRoleSearch(){
+  const box = $("role-select");
+  if (!box) return;
+
+  box.innerHTML = `
+    <div class="role-select-inner">
+      <div class="role-create-head">
+        <button class="role-back-btn" type="button" id="role-search-back">← 返回角色列表</button>
+        <h2>AI 帮我查</h2>
+        <p>说一个名字或描述，我上网查资料，整理成角色。</p>
+      </div>
+
+      <label class="role-field">
+        <span>想扮演谁？</span>
+        <input id="rs-query" maxlength="60" placeholder="比如：孙悟空 / 晚清商人 / 高冷侦探">
+      </label>
+
+      <div class="role-form-actions">
+        <button class="role-save-btn" type="button" id="rs-start">开始查资料</button>
+        <span class="role-search-status" id="rs-status">大约需要 10~20 秒</span>
+      </div>
+    </div>`;
+
+  $("role-search-back").onclick = () => renderRoleSelect();
+  $("rs-start").onclick = () => searchRoleDraft();
+
+  const input = $("rs-query");
+  if (input){
+    input.focus();
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.isComposing){
+        e.preventDefault();
+        searchRoleDraft();
+      }
+    });
+  }
+}
+
+async function searchRoleDraft(){
+  const input = $("rs-query");
+  const query = input ? input.value.trim() : "";
+  if (!query){
+    alert("先说一个角色名或描述");
+    if (input) input.focus();
+    return;
+  }
+
+  const btn = $("rs-start");
+  const status = $("rs-status");
+
+  if (btn){
+    btn.disabled = true;
+    btn.textContent = "正在查资料...";
+  }
+  if (status) status.textContent = "正在上网搜索，再整理角色...";
+
+  const timer = setTimeout(() => {
+    if (status) status.textContent = "资料有点多，再等一下...";
+  }, 8000);
+
+  const data = await getJson("/roleplay/roles/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query: query })
+  });
+
+  clearTimeout(timer);
+
+  if (!data || !data.role){
+    if (btn){
+      btn.disabled = false;
+      btn.textContent = "开始查资料";
+    }
+    if (status) status.textContent = "没查到，换个说法再试";
+    alert("没查到，换个说法再试");
+    return;
+  }
+
+  renderRoleDraft(data.role, data.note);
+}
+
+// 保存角色，然后直接开聊
 async function createRole(){
   const nameInput = $("rc-name");
   const name = nameInput ? nameInput.value.trim() : "";
@@ -327,10 +442,12 @@ async function createRole(){
     personality: $("rc-personality").value.trim(),
     speaking: $("rc-speaking").value.trim(),
     boundaries: $("rc-boundaries").value.trim(),
-    opening: $("rc-opening").value.trim()
+    opening: $("rc-opening").value.trim(),
+    source: roleFormSource
   };
 
   const saveBtn = $("role-save-btn");
+  const saveText = saveBtn ? saveBtn.textContent : "保存并开始聊";
   if (saveBtn){
     saveBtn.disabled = true;
     saveBtn.textContent = "保存中...";
@@ -345,7 +462,7 @@ async function createRole(){
   if (!data || !data.role){
     if (saveBtn){
       saveBtn.disabled = false;
-      saveBtn.textContent = "保存并开始聊";
+      saveBtn.textContent = saveText;
     }
     alert("保存失败，请检查内容后再试");
     return;
@@ -359,7 +476,7 @@ async function createRole(){
   // 开聊失败时还留在表单里，把按钮恢复
   if (chatMode !== "role-chat" && saveBtn){
     saveBtn.disabled = false;
-    saveBtn.textContent = "保存并开始聊";
+    saveBtn.textContent = saveText;
   }
 }
 

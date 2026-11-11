@@ -27,6 +27,7 @@ from modules.trip.route_decision_stream import route_choose_stream
 from modules.customer.stream import customer_stream
 from modules.roleplay.presets import public_role
 from modules.roleplay.roles import all_roles, get_role
+from modules.roleplay.search import search_role
 from modules.roleplay.memory import refresh_memory
 from modules.roleplay.stream import role_play_stream
 from databases.db_trip import list_trips, get_trip, delete_trip, delete_trips
@@ -108,6 +109,12 @@ class RoleCreateRequest(BaseModel):
     speaking: str = ""
     boundaries: str = ""
     opening: str = ""
+    # custom = 用户自己写的；ai_search = AI 搜资料生成的
+    source: str = "custom"
+
+
+class RoleSearchRequest(BaseModel):
+    query: str
 
 
 class RoleMemoryClearRequest(BaseModel):
@@ -178,10 +185,29 @@ def roleplay_roles(authorization: str | None = Header(default=None)):
     return {"roles": all_roles(tenant_id)}
 
 
+@app.post("/roleplay/roles/search")
+def roleplay_search_role(req: RoleSearchRequest,
+                         authorization: str | None = Header(default=None)):
+    """AI 帮我查：联网搜资料，生成一份角色草稿（先不存库）。"""
+    tenant_of(authorization)
+
+    query = clean_text(req.query, 60)
+    if not query:
+        raise HTTPException(status_code=400, detail="先说一个角色名或描述")
+
+    try:
+        role, note = search_role(query)
+    except Exception as e:
+        print(f"[角色搜索] 生成失败：{e}")
+        raise HTTPException(status_code=500, detail="没能生成角色，换个说法再试")
+
+    return {"role": role, "note": note}
+
+
 @app.post("/roleplay/roles")
 def roleplay_create_role(req: RoleCreateRequest,
                          authorization: str | None = Header(default=None)):
-    """用户自己写一个角色，存进数据库。"""
+    """用户自己写一个角色，或者保存 AI 查出来的角色。"""
     tenant_id = tenant_of(authorization)
 
     name = clean_text(req.name, 20)
@@ -194,6 +220,7 @@ def roleplay_create_role(req: RoleCreateRequest,
     speaking = clean_text(req.speaking, 200)
     boundaries = clean_text(req.boundaries, 200)
     opening = clean_text(req.opening, 200) or f"我是{name}，你想聊点什么？"
+    source = "ai_search" if req.source == "ai_search" else "custom"
 
     role_number = create_custom_role(
         tenant_id=tenant_id,
@@ -204,6 +231,7 @@ def roleplay_create_role(req: RoleCreateRequest,
         speaking=speaking,
         boundaries=boundaries,
         opening=opening,
+        source=source,
     )
 
     role = get_role(f"custom_{role_number}", tenant_id)
