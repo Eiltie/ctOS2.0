@@ -179,6 +179,42 @@ def get_custom_role(tenant_id, role_id):
     return custom_row_to_role(row) if row else None
 
 
+def delete_custom_role(tenant_id, role_id):
+    """删除一个自定义角色，连同它的聊天记录和记忆一起删掉。"""
+    role = get_custom_role(tenant_id, role_id)
+    if role is None:
+        return False
+
+    role_number = int(role_id[len(CUSTOM_ROLE_PREFIX):])
+
+    with transaction() as cur:
+        # 先删掉这个角色的所有聊天；messages 和 role_play_sessions
+        # 都有 ON DELETE CASCADE，会跟着一起清掉
+        cur.execute(
+            "SELECT session_id FROM role_play_sessions "
+            "WHERE tenant_id = %s AND role_id = %s",
+            (tenant_id, role_id),
+        )
+        session_ids = [row["session_id"] for row in cur.fetchall()]
+
+        if session_ids:
+            cur.execute(
+                "DELETE FROM sessions WHERE tenant_id = %s AND id = ANY(%s)",
+                (tenant_id, session_ids),
+            )
+
+        cur.execute(
+            "DELETE FROM role_play_memories WHERE tenant_id = %s AND role_id = %s",
+            (tenant_id, role_id),
+        )
+        cur.execute(
+            "DELETE FROM role_play_roles WHERE tenant_id = %s AND id = %s",
+            (tenant_id, role_number),
+        )
+
+    return True
+
+
 def all_role_session_ids(tenant_id):
     """这个租户下，哪些会话是角色会话。返回 {会话id: 角色id}。"""
     rows = query(

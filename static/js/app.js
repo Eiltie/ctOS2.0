@@ -273,8 +273,13 @@ async function renderRoleSelect(){
   });
 
   const groupHtml = groups.map((group) => {
-    const cards = roleList.filter((role) => role.group === group).map((role) => `
+    const cards = roleList.filter((role) => role.group === group).map((role) => {
+      const deleteButton = role.source === "preset" ? "" : `
+        <button class="role-card-del" type="button" data-role-del="${esc(role.id)}" title="删除角色">🗑</button>`;
+
+      return `
       <div class="role-card" data-role-id="${esc(role.id)}">
+        ${deleteButton}
         <div class="role-card-top">
           <div class="role-emoji">${esc(role.emoji || "")}</div>
           <div>
@@ -283,7 +288,8 @@ async function renderRoleSelect(){
           </div>
         </div>
         <div class="role-card-opening">${esc(role.opening || "")}</div>
-      </div>`).join("");
+      </div>`;
+    }).join("");
 
     return `<div class="role-group-label">${esc(group || "其他")}</div>
             <div class="role-grid">${cards}</div>`;
@@ -322,11 +328,60 @@ async function renderRoleSelect(){
     card.onclick = () => startRole(card.dataset.roleId);
   });
 
+  box.querySelectorAll(".role-card-del").forEach((btn) => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      deleteRole(btn.dataset.roleDel);
+    };
+  });
+
   const aiBtn = $("role-ai-btn");
   if (aiBtn) aiBtn.onclick = () => renderRoleSearch();
 
   const addBtn = $("role-add-btn");
   if (addBtn) addBtn.onclick = () => renderRoleCreate();
+}
+
+// 删除自己创建的角色（预设角色没有删除按钮）
+async function deleteRole(roleId){
+  const role = (roleList || []).find((item) => item.id === roleId);
+  const name = role ? role.name : "这个角色";
+
+  if (!confirm(`删除角色「${name}」？\n\n这个角色的所有聊天记录也会一起删除，无法恢复。`)) return;
+
+  const data = await getJson(`/roleplay/roles/${encodeURIComponent(roleId)}`, {
+    method: "DELETE"
+  });
+
+  if (!data){
+    alert("删除失败，请稍后再试");
+    return;
+  }
+
+  roleList = (roleList || []).filter((item) => item.id !== roleId);
+
+  const wasActive = activeRole && activeRole.id === roleId;
+  if (wasActive){
+    activeRole = null;
+    roleMemory = "";
+    roleSessionId = null;
+  }
+
+  if (wasActive && chatMode === "role-chat"){
+    chatMode = "role-select";
+    state.activeId = null;
+    showChatPanels("role-select");
+    renderRoleBar();
+  }
+
+  await loadSessions();
+
+  if (chatMode === "role-select"){
+    state.activeId = null;
+  }
+
+  renderRoleSelect();
+  renderHistory();
 }
 
 // 自己写角色的表单（AI 生成的草稿也用同一套表单）
@@ -1030,6 +1085,7 @@ async function loadSessions(){
   // 被删掉的会话，把“已加载”标记也清掉
   const aliveIds = new Set(state.sessions.map((s) => s.id));
   state.loaded = new Set([...state.loaded].filter((id) => aliveIds.has(id)));
+  roleSessionCache = new Set([...roleSessionCache].filter((id) => aliveIds.has(id)));
 
   // 当前打开的会话没了（被删了）就切到第一个
   if (!state.sessions.some((s) => s.id === state.activeId)){

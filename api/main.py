@@ -37,6 +37,7 @@ from databases.db_roleplay import (
     all_role_session_ids,
     clear_memory,
     create_custom_role,
+    delete_custom_role,
     get_memory,
     get_role_id,
     is_my_session,
@@ -199,6 +200,20 @@ def roleplay_role_detail(role_id: str, authorization: str | None = Header(defaul
         raise HTTPException(status_code=404, detail="没有这个角色")
 
     return {"role": public_profile(role)}
+
+
+@app.delete("/roleplay/roles/{role_id}")
+def roleplay_delete_role(role_id: str, authorization: str | None = Header(default=None)):
+    """删除自己创建的角色；预设角色不能删。"""
+    tenant_id = tenant_of(authorization)
+
+    if not role_id.startswith("custom_"):
+        raise HTTPException(status_code=400, detail="预设角色不能删除")
+
+    if not delete_custom_role(tenant_id, role_id):
+        raise HTTPException(status_code=404, detail="没有这个角色")
+
+    return {"ok": True}
 
 
 @app.post("/roleplay/roles/search")
