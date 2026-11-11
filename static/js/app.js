@@ -1532,6 +1532,8 @@ window.onLoginSuccess = async function(){
   await loadSessions();
   renderChat();
   await syncTripRecords();
+
+  if (typeof initUpdateNotice === "function") initUpdateNotice();
 };
 
 // 登录过期：
@@ -1601,4 +1603,6 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   if (state.activeId !== null) await openSession(state.activeId);
   else renderChat();
+
+  if (typeof initUpdateNotice === "function") initUpdateNotice();
 });

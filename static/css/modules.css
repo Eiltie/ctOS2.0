@@ -2591,3 +2591,216 @@ body.role-mode .feedback-fab {
         justify-content: flex-end;
     }
 }
+
+/* ===== 更新公告 ===== */
+
+.notice-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    height: 32px;
+    padding: 0 10px;
+    flex-shrink: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--panel);
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    transition: color .2s ease, border-color .2s ease, background .2s ease;
+}
+
+.notice-btn:hover {
+    color: var(--cyan);
+    border-color: var(--cyan-border);
+    background: var(--cyan-dim);
+}
+
+.notice-icon {
+    font-size: 13px;
+    line-height: 1;
+}
+
+.notice-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 620;
+    padding: 20px;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.38);
+    backdrop-filter: blur(6px);
+}
+
+.notice-modal.show {
+    display: flex;
+}
+
+.notice-box {
+    position: relative;
+    width: min(480px, 92vw);
+    max-height: 82vh;
+    overflow-y: auto;
+    padding: 22px;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    background: var(--panel);
+    box-shadow: var(--soft-shadow);
+}
+
+.notice-close {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.notice-close:hover {
+    color: var(--cyan);
+    background: var(--cyan-dim);
+}
+
+.notice-kicker {
+    color: var(--cyan);
+    font-family: "Cascadia Code", Consolas, "Microsoft YaHei", monospace;
+    font-size: 9px;
+    letter-spacing: .2em;
+}
+
+.notice-title {
+    margin: 8px 0 4px;
+    color: var(--text-main);
+    font-size: 19px;
+    letter-spacing: -.01em;
+}
+
+.notice-meta {
+    display: flex;
+    gap: 10px;
+    color: var(--text-muted);
+    font-family: "Cascadia Code", Consolas, "Microsoft YaHei", monospace;
+    font-size: 10.5px;
+}
+
+.notice-intro {
+    margin: 12px 0 0;
+    color: var(--text-main);
+    font-size: 12.5px;
+    line-height: 1.7;
+}
+
+.notice-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 14px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.notice-items li {
+    position: relative;
+    padding-left: 14px;
+    color: var(--text-main);
+    font-size: 12.5px;
+    line-height: 1.65;
+}
+
+.notice-items li::before {
+    content: "▸";
+    position: absolute;
+    left: 0;
+    color: var(--cyan);
+}
+
+.notice-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+.notice-ok {
+    padding: 8px 18px;
+    border: 1px solid var(--cyan);
+    border-radius: 999px;
+    background: var(--cyan);
+    color: var(--accent-ink);
+    font-size: 12.5px;
+    cursor: pointer;
+}
+
+.notice-ok:hover {
+    filter: brightness(1.06);
+}
+
+/* 更新公告：街头主题 */
+html[data-theme="street"] .notice-btn {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background: var(--panel);
+    color: var(--ink);
+    box-shadow: 2px 2px 0 var(--ink);
+}
+
+html[data-theme="street"] .notice-btn:hover {
+    background: var(--yellow);
+    color: var(--ink);
+}
+
+html[data-theme="street"] .notice-box {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    box-shadow: 6px 6px 0 var(--ink);
+}
+
+html[data-theme="street"] .notice-kicker,
+html[data-theme="street"] .notice-items li::before {
+    color: var(--ink);
+}
+
+html[data-theme="street"] .notice-ok {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background: var(--ink);
+    color: var(--yellow);
+}
+
+/* 更新公告：赛博主题 */
+html[data-theme="cyber"] .notice-btn {
+    border-color: rgba(34, 211, 238, 0.28);
+    background: rgba(34, 211, 238, 0.05);
+    color: #67e8f9;
+}
+
+html[data-theme="cyber"] .notice-box {
+    border-color: rgba(34, 211, 238, 0.22);
+    background: #0b1420;
+    box-shadow: 0 0 40px rgba(34, 211, 238, 0.12), 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+html[data-theme="cyber"] .notice-ok {
+    box-shadow: 0 0 16px rgba(34, 211, 238, 0.25);
+}
+
+/* 手机端：按钮只留图标，避免顶栏拥挤 */
+@media (max-width: 700px) {
+    .notice-btn {
+        width: 30px;
+        padding: 0;
+    }
+
+    .notice-label {
+        display: none;
+    }
+}

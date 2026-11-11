@@ -155,6 +155,11 @@
                         </button>
                     </div>
                 </div>
+                <button id="notice-btn" class="notice-btn" type="button"
+                        onclick="openNotice()" aria-label="更新公告">
+                    <span class="notice-icon">📢</span>
+                    <span class="notice-label">公告</span>
+                </button>
                 <button class="new-session-btn" onclick="triggerHologram()">新会话</button>
             </div>
         </div>
@@ -337,12 +342,35 @@
     </div>
     <!-- ===== 角色档案确认结束 ===== -->
 
+    <!-- ===== 更新公告 ===== -->
+    <div id="notice-modal" class="notice-modal"
+         onclick="if (event.target === this) closeNotice()">
+        <div class="notice-box">
+            <button class="notice-close" type="button" onclick="closeNotice()" aria-label="关闭">×</button>
+
+            <div class="notice-kicker">[ UPDATE LOG ]</div>
+            <h3 id="notice-title" class="notice-title"></h3>
+            <div class="notice-meta">
+                <span id="notice-date"></span>
+                <span id="notice-version"></span>
+            </div>
+            <p id="notice-intro" class="notice-intro"></p>
+            <ul id="notice-items" class="notice-items"></ul>
+
+            <div class="notice-actions">
+                <button class="notice-ok" type="button" onclick="closeNotice()">知道了</button>
+            </div>
+        </div>
+    </div>
+    <!-- ===== 更新公告结束 ===== -->
+
     <!-- 加载顺序不能乱：
          1. common/ 里都是无状态工具，先加载
          2. app.js 定义全局 state 和闲聊逻辑
          3. trip.js / customer.js 依赖 app.js 里的 state 和 common/ 里的工具 -->
     <script src="/static/js/common/config.js"></script>
     <script src="/static/js/common/utils.js"></script>
+    <script src="/static/js/common/announcement.js"></script>
     <script src="/static/js/common/auth.js"></script>
     <script src="/static/js/common/abort.js"></script>
     <script src="/static/js/common/sse.js"></script>
