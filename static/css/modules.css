@@ -1368,3 +1368,243 @@ textarea.fb-input { height: 84px; line-height: 1.6; }
 
   textarea.fb-input { height: 96px; }
 }
+
+/* ===== 闲聊插件条（普通聊天 / 角色扮演） ===== */
+
+.chat-plugins {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+    padding: 10px 10%;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-main);
+    overflow-x: auto;
+}
+
+.chat-plugin {
+    padding: 5px 13px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color .2s ease, background .2s ease, border-color .2s ease;
+}
+
+.chat-plugin:hover {
+    background: var(--cyan-dim);
+    color: var(--cyan);
+}
+
+.chat-plugin.active {
+    background: var(--cyan);
+    border-color: var(--cyan);
+    color: var(--accent-ink, #041018);
+}
+
+/* 角色聊天时，底部那排普通聊天的快捷问题就不显示了 */
+.role-chat-mode .quick-prompts { display: none; }
+
+/* 选角色时，聊天区和输入框都藏起来 */
+.role-select-mode .chat-area,
+.role-select-mode .bottom-section { display: none; }
+
+
+/* ===== 选角色页 ===== */
+
+.role-select {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 26px 10% 40px;
+    background: var(--bg-main);
+}
+
+.role-select-inner {
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.role-select-head h2 {
+    margin: 0 0 5px;
+    font-size: 20px;
+    letter-spacing: -.02em;
+}
+
+.role-select-head p {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--text-muted);
+}
+
+.role-select-loading {
+    padding: 40px 0;
+    font-size: 13px;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.role-group-label {
+    margin: 22px 0 10px;
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: .06em;
+}
+
+.role-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.role-card {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    padding: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: var(--bubble-ai);
+    cursor: pointer;
+    transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+.role-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--cyan-border);
+    box-shadow: 0 8px 22px -12px rgba(16, 24, 40, .3);
+}
+
+.role-card-top {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.role-emoji {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border: 1px solid var(--cyan-border);
+    border-radius: 11px;
+    background: var(--cyan-dim);
+    font-size: 18px;
+}
+
+.role-card-name {
+    font-size: 13.5px;
+    font-weight: 600;
+}
+
+.role-card-tag {
+    margin-top: 2px;
+    font-size: 10.5px;
+    color: var(--text-muted);
+}
+
+.role-card-opening {
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: var(--text-muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+
+/* ===== 角色聊天顶部的角色条 / 记忆条 ===== */
+
+.role-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+    padding: 10px 10% 0;
+    background: var(--bg-main);
+}
+
+.role-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    border: 1px solid var(--cyan-border);
+    border-radius: 11px;
+    background: var(--cyan-dim);
+    color: var(--cyan);
+    font-size: 12px;
+}
+
+.role-banner b { font-weight: 600; }
+
+.role-change {
+    margin-left: auto;
+    padding: 3px 9px;
+    border: 1px solid var(--cyan-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--cyan);
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.role-change:hover { background: var(--bg-sidebar); }
+
+.role-memory {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 11px;
+    background: var(--bubble-ai);
+    font-size: 11.5px;
+    color: var(--text-muted);
+}
+
+.role-memory-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.role-memory-clear {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 10.5px;
+    cursor: pointer;
+}
+
+.role-memory-clear:hover {
+    color: var(--cyan);
+    border-color: var(--cyan-border);
+}
+
+
+/* ===== 手机端 ===== */
+
+@media (max-width: 900px) {
+    .chat-plugins { padding: 9px 16px; }
+    .role-select { padding: 20px 16px 32px; }
+    .role-grid { grid-template-columns: repeat(2, 1fr); }
+    .role-bar { padding: 9px 16px 0; }
+}
+
+@media (max-width: 560px) {
+    .role-grid { grid-template-columns: 1fr; }
+    .role-select-head h2 { font-size: 18px; }
+    .role-banner { font-size: 11.5px; }
+}

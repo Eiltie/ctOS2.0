@@ -1701,3 +1701,120 @@ html[data-theme="cyber"] .sidebar-toggle {
     border-color: var(--border-color);
 }
 
+
+/* ============================================================
+   角色扮演：街头黑客主题
+   ============================================================ */
+
+html[data-theme="street"] .chat-plugins {
+    border-bottom: 2px solid var(--ink);
+}
+
+html[data-theme="street"] .chat-plugin {
+    border-radius: 0;
+    border: 2px solid transparent;
+    color: var(--ink);
+}
+
+html[data-theme="street"] .chat-plugin:hover {
+    border-color: var(--ink);
+    background: var(--yellow);
+    color: var(--ink);
+}
+
+html[data-theme="street"] .chat-plugin.active {
+    border-color: var(--ink);
+    background: var(--ink);
+    color: var(--yellow);
+}
+
+html[data-theme="street"] .role-card {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background: var(--panel);
+    box-shadow: 3px 3px 0 var(--ink);
+}
+
+html[data-theme="street"] .role-card:hover {
+    transform: translate(-1px, -1px);
+    border-color: var(--ink);
+    box-shadow: 4px 4px 0 var(--ink);
+}
+
+html[data-theme="street"] .role-emoji {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background: var(--yellow);
+}
+
+html[data-theme="street"] .role-banner {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background: var(--yellow);
+    color: var(--ink);
+    box-shadow: 3px 3px 0 var(--ink);
+}
+
+html[data-theme="street"] .role-change {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background: var(--panel);
+    color: var(--ink);
+}
+
+html[data-theme="street"] .role-change:hover {
+    background: var(--ink);
+    color: var(--yellow);
+}
+
+html[data-theme="street"] .role-memory {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background: var(--panel);
+    color: var(--ink);
+}
+
+html[data-theme="street"] .role-memory-clear {
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    color: var(--ink);
+}
+
+html[data-theme="street"] .role-memory-clear:hover {
+    background: var(--ink);
+    color: var(--yellow);
+}
+
+html[data-theme="street"] .role-select-head h2 {
+    color: var(--ink);
+}
+
+/* ============================================================
+   角色扮演：赛博暗色主题
+   ============================================================ */
+
+html[data-theme="cyber"] .role-card {
+    border-color: rgba(34, 211, 238, 0.2);
+    background: rgba(9, 20, 32, 0.86);
+    box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.05), 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="cyber"] .role-card:hover {
+    border-color: rgba(34, 211, 238, 0.5);
+    box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.22), 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+html[data-theme="cyber"] .role-banner {
+    border-color: rgba(34, 211, 238, 0.32);
+    background: rgba(34, 211, 238, 0.08);
+    color: #67e8f9;
+}
+
+html[data-theme="cyber"] .role-memory {
+    border-color: rgba(148, 163, 184, 0.16);
+    background: rgba(9, 20, 32, 0.78);
+}
+
+html[data-theme="cyber"] .chat-plugin.active {
+    box-shadow: 0 0 14px rgba(34, 211, 238, 0.35);
+}

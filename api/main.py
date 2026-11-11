@@ -31,6 +31,7 @@ from modules.roleplay.stream import role_play_stream
 from databases.db_trip import list_trips, get_trip, delete_trip, delete_trips
 from databases.db_roleplay import (
     add_one_round,
+    all_role_session_ids,
     clear_memory,
     get_memory,
     get_role_id,
@@ -185,11 +186,17 @@ def roleplay_start(req: RoleStartRequest, authorization: str | None = Header(def
 
 @app.get("/roleplay/session/{session_id}")
 def roleplay_session(session_id: int, authorization: str | None = Header(default=None)):
-    """查一个会话是哪个角色，刷新页面后前端用它恢复角色。"""
+    """查一个会话是哪个角色，刷新页面后前端用它恢复角色。
+
+    普通闲聊不是错误，返回 role: None，前端照常当普通聊天打开。
+    """
     tenant_id = tenant_of(authorization)
     role_id = get_role_id(session_id, tenant_id)
+
     if role_id is None:
-        raise HTTPException(status_code=404, detail="这个会话不是角色扮演")
+        if not is_my_session(session_id, tenant_id):
+            raise HTTPException(status_code=404, detail="没有这个会话")
+        return {"session_id": session_id, "role": None, "memory": ""}
 
     role = get_preset(role_id)
     if role is None:
@@ -436,8 +443,19 @@ async def customer_chat(req: CustomerRequest, authorization: str | None = Header
 
 @app.get("/sessions")
 async def get_sessions(authorization: str | None = Header(default=None)):
-    """列出本租户的所有闲聊会话。"""
-    return all_sessions(tenant_id=tenant_of(authorization))
+    """列出本租户的所有闲聊会话。
+
+    每条带一个 role_id：是角色会话就有值，普通聊天是 None。
+    前端靠它区分两种会话，不用再一个个去问。
+    """
+    tenant_id = tenant_of(authorization)
+    sessions = all_sessions(tenant_id=tenant_id)
+    role_ids = all_role_session_ids(tenant_id)
+
+    for item in sessions:
+        item["role_id"] = role_ids.get(item["id"])
+
+    return sessions
 
 
 @app.get("/sessions/{session_id}/messages")

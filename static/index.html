@@ -160,11 +160,23 @@
         </div>
 
         <div id="view-chat" class="view-section active">
+            <!-- 闲聊的玩法切换：现在只有普通聊天和角色扮演两个 -->
+            <div class="chat-plugins" id="chat-plugins">
+                <button class="chat-plugin active" type="button" data-plugin="normal">普通聊天</button>
+                <button class="chat-plugin" type="button" data-plugin="roleplay">角色扮演</button>
+            </div>
+
+            <!-- 角色选择页，选角色时才显示 -->
+            <div id="role-select" class="role-select" style="display:none"></div>
+
+            <!-- 角色聊天时顶部的角色条和记忆条 -->
+            <div id="role-bar" class="role-bar" style="display:none"></div>
+
             <div id="hologram-overlay" class="hologram-reset"></div>
 
             <div class="chat-area custom-scroll" id="chat-feed"></div>
 
-            <div class="bottom-section">
+            <div class="bottom-section" id="chat-bottom">
                 <div class="quick-prompts">
                     <button class="prompt-btn">你好，介绍一下你自己</button>
                     <button class="prompt-btn">帮我梳理今天的待办事项</button>

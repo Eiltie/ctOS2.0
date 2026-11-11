@@ -31,6 +31,16 @@ const state = {
 
 let chatBusy = false;
 
+// 闲聊现在有两种玩法：普通聊天 / 角色扮演
+let chatMode = "normal";          // normal / role-select / role-chat
+let activeRole = null;            // 当前角色（角色聊天时才有）
+let roleMemory = "";              // 当前角色记住的事
+let roleSessionId = null;         // 当前角色会话
+let normalSessionId = null;       // 切到角色玩法前，普通聊天停在哪个会话
+let roleSessionCache = new Set(); // 哪些会话是角色会话，切回普通聊天时避开
+let roleList = null;              // 预设角色列表，拉一次就缓存
+let roleListLoading = false;
+
 // 一条消息的 HTML 骨架（头像 + 时间 + 气泡），内容后面再填
 function rowHTML(kind){
   const isUser = kind === "user";
@@ -52,6 +62,13 @@ function appendRow(feed, kind, text){
     el.querySelector(".bubble").textContent = text;
     el.dataset.hasText = "1";
   }
+
+  // 角色聊天时，AI 头像和名字换成当前角色
+  if (kind === "ai" && chatMode === "role-chat" && activeRole){
+    el.querySelector(".avatar").textContent = activeRole.emoji || "AI";
+    el.querySelector(".message-meta span").textContent = `${activeRole.name} ${now()}`;
+  }
+
   feed.appendChild(el);
   scrollDown(feed);
   return el;
@@ -89,6 +106,265 @@ function renderChat(){
     appendRow(feed, m.role === "user" ? "user" : "ai", m.text);
   }
   scrollDown(feed);
+}
+
+
+// ===== 角色扮演 =====
+
+// 根据模式切换三个区域：角色选择页 / 角色聊天 / 普通聊天
+function showChatPanels(mode){
+  const view = $("view-chat");
+  if (!view) return;
+
+  view.classList.toggle("role-select-mode", mode === "role-select");
+  view.classList.toggle("role-chat-mode", mode === "role-chat");
+
+  const select = $("role-select");
+  const bar = $("role-bar");
+  const feed = $("chat-feed");
+  const bottom = $("chat-bottom");
+
+  if (select) select.style.display = mode === "role-select" ? "flex" : "none";
+  if (bar) bar.style.display = mode === "role-chat" ? "flex" : "none";
+  if (feed) feed.style.display = mode === "role-select" ? "none" : "flex";
+  if (bottom) bottom.style.display = mode === "role-select" ? "none" : "flex";
+
+  document.querySelectorAll(".chat-plugin").forEach((btn) => {
+    const plugin = btn.dataset.plugin;
+    const on = (plugin === "normal" && mode === "normal") ||
+               (plugin === "roleplay" && mode !== "normal");
+    btn.classList.toggle("active", on);
+  });
+
+  const input = $("chat-input");
+  if (input){
+    input.placeholder = (mode === "role-chat" && activeRole)
+      ? `和${activeRole.name}说点什么...`
+      : VIEW_STATUS.chat.ph;
+  }
+}
+
+// 角色聊天顶部的角色条 + 记忆条
+function renderRoleBar(){
+  const bar = $("role-bar");
+  if (!bar) return;
+
+  if (!activeRole){
+    bar.innerHTML = "";
+    return;
+  }
+
+  const memoryHtml = roleMemory ? `
+    <div class="role-memory" id="role-memory">
+      <span class="role-memory-text">↺ 它还记着：${esc(roleMemory)}</span>
+      <button class="role-memory-clear" type="button" onclick="clearRoleMemory()">清空记忆</button>
+    </div>` : "";
+
+  bar.innerHTML = `
+    <div class="role-banner">
+      <span>${esc(activeRole.emoji || "")}</span>
+      <span>正在和 <b>${esc(activeRole.name)}</b> 聊天</span>
+      <button class="role-change" type="button" onclick="chatSetMode('role-select')">换角色</button>
+    </div>
+    ${memoryHtml}`;
+}
+
+// 选角色页
+async function renderRoleSelect(){
+  const box = $("role-select");
+  if (!box) return;
+
+  if (roleList === null){
+    if (roleListLoading) return;
+    roleListLoading = true;
+    box.innerHTML = `<div class="role-select-loading">正在加载角色...</div>`;
+
+    const data = await getJson("/roleplay/roles");
+    roleListLoading = false;
+
+    if (!data || !Array.isArray(data.roles)){
+      box.innerHTML = `<div class="role-select-loading">角色加载失败，刷新页面再试</div>`;
+      return;
+    }
+    roleList = data.roles;
+  }
+
+  if (!roleList.length){
+    box.innerHTML = `<div class="role-select-loading">还没有预设角色</div>`;
+    return;
+  }
+
+  const groups = [];
+  roleList.forEach((role) => {
+    if (!groups.includes(role.group)) groups.push(role.group);
+  });
+
+  const groupHtml = groups.map((group) => {
+    const cards = roleList.filter((role) => role.group === group).map((role) => `
+      <div class="role-card" data-role-id="${esc(role.id)}">
+        <div class="role-card-top">
+          <div class="role-emoji">${esc(role.emoji || "")}</div>
+          <div>
+            <div class="role-card-name">${esc(role.name)}</div>
+            <div class="role-card-tag">${esc(role.tagline || "")}</div>
+          </div>
+        </div>
+        <div class="role-card-opening">${esc(role.opening || "")}</div>
+      </div>`).join("");
+
+    return `<div class="role-group-label">${esc(group || "其他")}</div>
+            <div class="role-grid">${cards}</div>`;
+  }).join("");
+
+  box.innerHTML = `
+    <div class="role-select-inner">
+      <div class="role-select-head">
+        <h2>想和谁聊？</h2>
+        <p>选一个角色直接开始</p>
+      </div>
+      ${groupHtml}
+    </div>`;
+
+  box.querySelectorAll(".role-card").forEach((card) => {
+    card.onclick = () => startRole(card.dataset.roleId);
+  });
+}
+
+// 选了角色，开一个新会话
+async function startRole(roleId){
+  if (chatBusy) return;
+  chatBusy = true;
+
+  const data = await getJson("/roleplay/start", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role_id: roleId })
+  });
+
+  chatBusy = false;
+
+  if (!data || !data.session_id){
+    alert("开始角色失败，请确认后端正常");
+    return;
+  }
+
+  activeRole = data.role;
+  roleMemory = data.memory || "";
+  roleSessionId = data.session_id;
+  state.activeId = roleSessionId;
+  roleSessionCache.add(roleSessionId);
+  state.loaded.add(roleSessionId);
+
+  let s = state.sessions.find((x) => x.id === roleSessionId);
+  if (!s){
+    s = { id: roleSessionId, title: activeRole.name };
+    state.sessions.unshift(s);
+  }
+  s.title = activeRole.name;
+  s.messages = [{ role: "assistant", text: data.opening || "" }];
+
+  chatMode = "role-chat";
+  showChatPanels(chatMode);
+  renderRoleBar();
+  renderChat();
+  renderHistory();
+
+  const input = $("chat-input");
+  if (input) input.focus();
+}
+
+// 切换玩法：normal / role-select / role-chat
+function chatSetMode(mode){
+  if (chatBusy) return;
+
+  if (mode === "normal"){
+    if (chatMode === "normal" && state.activeId !== null
+        && !roleSessionCache.has(state.activeId)){
+      normalSessionId = state.activeId;
+    }
+
+    chatMode = "normal";
+    activeRole = null;
+    roleMemory = "";
+    roleSessionId = null;
+
+    let pick = null;
+    if (normalSessionId && state.sessions.some((s) => s.id === normalSessionId)
+        && !roleSessionCache.has(normalSessionId)){
+      pick = normalSessionId;
+    }
+    if (pick === null){
+      const found = state.sessions.find((s) => !roleSessionCache.has(s.id));
+      pick = found ? found.id : null;
+    }
+
+    state.activeId = pick;
+    showChatPanels("normal");
+    renderRoleBar();
+    renderHistory();
+
+    if (pick !== null && !state.loaded.has(pick)) openSession(pick);
+    else renderChat();
+    return;
+  }
+
+  if (mode === "role-select"){
+    if (chatMode === "normal") normalSessionId = state.activeId;
+
+    chatMode = "role-select";
+    activeRole = null;
+    roleMemory = "";
+    roleSessionId = null;
+    state.activeId = null;
+
+    showChatPanels("role-select");
+    renderRoleBar();
+    renderRoleSelect();
+    renderHistory();
+    return;
+  }
+
+  if (mode === "role-chat" && activeRole){
+    chatMode = "role-chat";
+    showChatPanels("role-chat");
+    renderRoleBar();
+    renderChat();
+  }
+}
+
+// 重新拉一下记忆，看有没有刚生成的
+async function refreshRoleMemory(){
+  if (!activeRole) return;
+  const roleId = activeRole.id;
+
+  const data = await getJson(`/roleplay/memory/${roleId}`);
+  if (!activeRole || activeRole.id !== roleId) return;
+
+  if (data && typeof data.memory === "string" && data.memory !== roleMemory){
+    roleMemory = data.memory;
+    renderRoleBar();
+  }
+}
+
+// 清空当前角色的记忆
+async function clearRoleMemory(){
+  if (!activeRole) return;
+  if (!confirm("清空这个角色对你的记忆？")) return;
+
+  const roleId = activeRole.id;
+  const data = await getJson("/roleplay/memory/clear", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role_id: roleId })
+  });
+
+  if (!data){
+    alert("清空失败，请稍后再试");
+    return;
+  }
+
+  roleMemory = "";
+  renderRoleBar();
 }
 
 
@@ -181,6 +457,13 @@ async function loadSessions(){
 
   state.sessions = list;
 
+  // 后端会告诉每个会话是不是角色会话，先记下来，
+  // 切回普通聊天时就不会误把角色会话当普通聊天打开
+  state.sessions.forEach((s) => {
+    if (s.role_id) roleSessionCache.add(Number(s.id));
+    else roleSessionCache.delete(Number(s.id));
+  });
+
   // 当前打开的会话没了（被删了）就切到第一个
   if (!state.sessions.some((s) => s.id === state.activeId)){
     state.activeId = state.sessions.length ? state.sessions[0].id : null;
@@ -203,7 +486,31 @@ async function openSession(id){
     state.loaded.add(id);
   }
 
-  if (state.view === "chat") renderChat();
+  // 这个会话是角色扮演还是普通闲聊？
+  const roleInfo = s.role_id ? await getJson(`/roleplay/session/${id}`) : null;
+
+  if (roleInfo && roleInfo.role){
+    activeRole = roleInfo.role;
+    roleMemory = roleInfo.memory || "";
+    roleSessionId = id;
+    chatMode = "role-chat";
+    roleSessionCache.add(id);
+    showChatPanels("role-chat");
+    renderRoleBar();
+  }else{
+    activeRole = null;
+    roleMemory = "";
+    roleSessionId = null;
+    chatMode = "normal";
+    normalSessionId = id;
+    roleSessionCache.delete(id);
+    showChatPanels("normal");
+  }
+
+  if (state.view === "chat"){
+    renderChat();
+    renderHistory();
+  }
 }
 
 async function removeSession(id){
@@ -267,6 +574,7 @@ async function sendChat(){
   try{
     const payload = { messages: text };
     if (sessionId !== null) payload.session_id = sessionId;
+    if (chatMode === "role-chat" && activeRole) payload.role_id = activeRole.id;
 
     const res = await fetch(API.base + API.chat, {
       method: "POST",
@@ -331,6 +639,15 @@ async function sendChat(){
 
     if (state.view === "chat") renderHistory();
     input.focus();
+
+    // 角色聊天：聊到第 6 轮后，后端会在后台整理记忆，这里刷新一下记忆条
+    if (chatMode === "role-chat" && activeRole){
+      setTimeout(refreshRoleMemory, 1200);
+      setTimeout(refreshRoleMemory, 3500);
+      setTimeout(refreshRoleMemory, 7000);
+    }else if (chatMode === "normal" && state.activeId !== null){
+      normalSessionId = state.activeId;
+    }
   }
 }
 
@@ -393,6 +710,15 @@ function switchView(viewName){
     renderHistory();
   }
 
+  // 回到闲聊时，恢复上次停在哪：普通聊天 / 选角色 / 角色聊天
+  if (viewName === "chat"){
+    showChatPanels(chatMode);
+    if (chatMode === "role-select") renderRoleSelect();
+    else if (chatMode === "role-chat") renderRoleBar();
+
+    if (chatMode !== "role-select") renderChat();
+  }
+
   syncStickyHeads();
 }
 
@@ -409,11 +735,18 @@ function triggerHologram(){
   if (state.view === "trip"){ tripNewSession(); return; }
   if (state.view === "customer"){ customerNewSession(); return; }
 
+  // 角色玩法里点「新会话」就回到角色选择，不直接清成普通聊天
+  if (state.view === "chat" && chatMode !== "normal"){
+    chatSetMode("role-select");
+    return;
+  }
+
   setTimeout(() => {
     if (state.view !== "chat") return;
     abortCurrent();
     chatBusy = false;
     state.activeId = null;
+    normalSessionId = null;
     renderHistory();
     renderChat();
     const input = $("chat-input");
@@ -464,6 +797,14 @@ document.querySelectorAll(".quick-prompts .prompt-btn").forEach((btn) => {
 
     switchView("chat");
     sendChat();
+  };
+});
+
+// 闲聊顶部的玩法切换：普通聊天 / 角色扮演
+document.querySelectorAll(".chat-plugin").forEach((btn) => {
+  btn.onclick = () => {
+    if (chatBusy) return;
+    chatSetMode(btn.dataset.plugin === "normal" ? "normal" : "role-select");
   };
 });
 
@@ -520,6 +861,16 @@ window.onLoginSuccess = async function(){
   state.activeId = null;
   state.loaded = new Set();
   state.view = "chat";
+
+  // 角色玩法的状态也要清，避免带着上一个用户的数据
+  chatMode = "normal";
+  activeRole = null;
+  roleMemory = "";
+  roleSessionId = null;
+  normalSessionId = null;
+  roleSessionCache = new Set();
+  roleList = null;
+  roleListLoading = false;
 
   renderUserBadge();
   initAppModules();

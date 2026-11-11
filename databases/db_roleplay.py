@@ -72,6 +72,15 @@ def is_my_session(session_id, tenant_id):
     return row is not None
 
 
+def all_role_session_ids(tenant_id):
+    """这个租户下，哪些会话是角色会话。返回 {会话id: 角色id}。"""
+    rows = query(
+        "SELECT session_id, role_id FROM role_play_sessions WHERE tenant_id = %s",
+        (tenant_id,),
+    )
+    return {row["session_id"]: row["role_id"] for row in rows}
+
+
 def get_memory(tenant_id, role_id):
     """取这个角色的记忆摘要；没有就返回空字符串。"""
     row = query_one(
