@@ -13,8 +13,19 @@ from modules.trip.guide_stream import (
     resume_guide,
     start_guide,
 )
+from modules.trip.node import weather_node
 from modules.trip.route_decision_stream import start_route_decision
 from modules.trip.understand import understand_query
+
+# 只是问天气时，不用把它塞进“旅游攻略”或“路线”流程
+WEATHER_WORDS = ("天气", "气温", "温度", "下雨", "降雨", "冷不冷", "热不热")
+ROUTE_WORDS = ("怎么走", "路线", "坐什么", "堵不堵", "多久")
+
+
+def _is_weather_query(query):
+    has_weather = any(word in query for word in WEATHER_WORDS)
+    has_route = any(word in query for word in ROUTE_WORDS)
+    return has_weather and not has_route
 
 
 def _save(user_query, ai_output, turn_kind, chat_id, tenant_id):
@@ -25,6 +36,19 @@ def _save(user_query, ai_output, turn_kind, chat_id, tenant_id):
     except Exception as e:
         print(f"[数据库] 出行记录写入失败（不影响本次结果）：{e}")
         return chat_id
+
+
+def _weather_reply(query, chat_id, tenant_id):
+    """只问天气：直接查天气，不要跑完整的攻略流程。"""
+    try:
+        state = weather_node({"user_query": query, "messages": []})
+        text = (state.get("weather") or "").strip()
+    except Exception as e:
+        print(f"[天气] 查询失败：{e}")
+        text = "这次没查到天气，换个城市名再试试。"
+
+    saved_chat_id = _save(query, {"chat_reply": text}, "CHAT", chat_id, tenant_id)
+    yield sse({"kind": "CHAT", "message": text, "chat_id": saved_chat_id})
 
 
 async def trip_stream(query: str, history: list[str], chat_id=None, tenant_id=None):
@@ -50,6 +74,10 @@ def _run_trip(query: str, history: list[str], chat_id, tenant_id=None):
     这段跑在工作线程里，不占用事件循环。
     """
     # query 是用户原话（存库、回显），merged_query 是合并后的需求，只喂给下游的图
+    if _is_weather_query(query):
+        yield from _weather_reply(query, chat_id, tenant_id)
+        return
+
     kind, merged_query = understand_query(history, query)
 
     if kind == "CHAT":
