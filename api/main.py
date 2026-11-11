@@ -27,6 +27,7 @@ from modules.trip.route_decision_stream import route_choose_stream
 from modules.customer.stream import customer_stream
 from modules.roleplay.presets import public_role
 from modules.roleplay.roles import DEFAULT_ROLE_BOUNDARIES, all_roles, get_role
+from modules.roleplay.openings import make_opening, take_opening
 from modules.roleplay.search import search_role
 from modules.roleplay.memory import refresh_memory
 from modules.roleplay.stream import role_play_stream
@@ -102,12 +103,17 @@ class RoleStartRequest(BaseModel):
 
 
 class RoleCreateRequest(BaseModel):
-    name: str
-    emoji: str = "🙂"
-    tagline: str = ""
+    name: str = ""
+    age: str = ""
+    gender: str = ""
     personality: str = ""
+    deeds: str = ""
+    background: str = ""
+    extra: str = ""
+    # 下面三个表单里不显示，AI 生成的草稿会带上
+    emoji: str = "🎭"
+    tagline: str = ""
     speaking: str = ""
-    opening: str = ""
     # custom = 用户自己写的；ai_search = AI 搜资料生成的
     source: str = "custom"
 
@@ -209,24 +215,44 @@ def roleplay_create_role(req: RoleCreateRequest,
     """用户自己写一个角色，或者保存 AI 查出来的角色。"""
     tenant_id = tenant_of(authorization)
 
-    name = clean_text(req.name, 20)
-    if not name:
-        raise HTTPException(status_code=400, detail="角色名字不能为空")
-
-    emoji = clean_text(req.emoji, 4) or "🙂"
-    tagline = clean_text(req.tagline, 30) or "自己写的角色"
+    name = clean_text(req.name, 20) or "未命名角色"
+    age = clean_text(req.age, 20)
+    gender = clean_text(req.gender, 10)
     personality = clean_text(req.personality, 200)
-    speaking = clean_text(req.speaking, 200)
+    deeds = clean_text(req.deeds, 300)
+    background = clean_text(req.background, 300)
+    extra = clean_text(req.extra, 300)
+
+    emoji = clean_text(req.emoji, 4) or "🎭"
+    tagline = clean_text(req.tagline, 30) or "自己写的角色"
+    speaking = clean_text(req.speaking, 200) or "用符合角色身份和性格的方式说话。"
     boundaries = DEFAULT_ROLE_BOUNDARIES
-    opening = clean_text(req.opening, 200) or f"我是{name}，你想聊点什么？"
     source = "ai_search" if req.source == "ai_search" else "custom"
+
+    # 用户可以在补充说明里写“开场白：xxx”；没写就让模型说一句
+    opening = take_opening(extra)
+    if not opening:
+        opening = make_opening({
+            "name": name,
+            "age": age,
+            "gender": gender,
+            "personality": personality,
+            "deeds": deeds,
+            "background": background,
+            "extra": extra,
+        })
 
     role_number = create_custom_role(
         tenant_id=tenant_id,
         name=name,
         emoji=emoji,
         tagline=tagline,
+        age=age,
+        gender=gender,
         personality=personality,
+        deeds=deeds,
+        background=background,
+        extra=extra,
         speaking=speaking,
         boundaries=boundaries,
         opening=opening,

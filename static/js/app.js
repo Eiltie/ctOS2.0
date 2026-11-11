@@ -263,21 +263,25 @@ function roleFormHTML(values){
 
   return `
       <div class="role-form">
-        <div class="role-row-two">
-          <label class="role-field">
-            <span>名字</span>
-            <input id="rc-name" maxlength="20" placeholder="比如：老船长" value="${esc(v.name || "")}">
-          </label>
-          <label class="role-field">
-            <span>头像</span>
-            <input id="rc-emoji" maxlength="4" value="${esc(v.emoji || "🙂")}">
-          </label>
-        </div>
+        <input type="hidden" id="rc-emoji" value="${esc(v.emoji || "🎭")}">
+        <input type="hidden" id="rc-tagline" value="${esc(v.tagline || "")}">
+        <input type="hidden" id="rc-speaking" value="${esc(v.speaking || "")}">
 
         <label class="role-field">
-          <span>一句话标签</span>
-          <input id="rc-tagline" maxlength="30" placeholder="比如：粗鲁 · 讲义气" value="${esc(v.tagline || "")}">
+          <span>昵称</span>
+          <input id="rc-name" maxlength="20" placeholder="比如：老船长" value="${esc(v.name || "")}">
         </label>
+
+        <div class="role-row-two">
+          <label class="role-field">
+            <span>年龄</span>
+            <input id="rc-age" maxlength="20" placeholder="比如：35" value="${esc(v.age || "")}">
+          </label>
+          <label class="role-field">
+            <span>性别</span>
+            <input id="rc-gender" maxlength="10" placeholder="比如：男 / 女" value="${esc(v.gender || "")}">
+          </label>
+        </div>
 
         <label class="role-field">
           <span>性格</span>
@@ -285,14 +289,19 @@ function roleFormHTML(values){
         </label>
 
         <label class="role-field">
-          <span>说话方式</span>
-          <textarea id="rc-speaking" maxlength="200" rows="2" placeholder="怎么说话？口头禅、语气、爱怎么称呼对方">${esc(v.speaking || "")}</textarea>
+          <span>人物事迹</span>
+          <textarea id="rc-deeds" maxlength="300" rows="2" placeholder="他做过什么？经历过什么？">${esc(v.deeds || "")}</textarea>
         </label>
 
-        <div class="role-field">
-          <span>开场白</span>
-          <textarea id="rc-opening" maxlength="200" rows="2" placeholder="角色说的第一句话；不填会自动生成一句">${esc(v.opening || "")}</textarea>
-        </div>
+        <label class="role-field">
+          <span>背景故事</span>
+          <textarea id="rc-background" maxlength="300" rows="2" placeholder="他来自哪里？现在是什么处境？">${esc(v.background || "")}</textarea>
+        </label>
+
+        <label class="role-field">
+          <span>补充说明</span>
+          <textarea id="rc-extra" maxlength="300" rows="3" placeholder="例如：兴趣爱好：xxx，开场白：xxxx">${esc(v.extra || "")}</textarea>
+        </label>
       </div>`;
 }
 
@@ -329,11 +338,19 @@ function renderRoleForm(values, title, subtitle, buttonText, source){
 }
 
 function renderRoleCreate(){
-  renderRoleForm({}, "写一个角色", "只有名字是必填的，其他可以先空着。", "保存并开始聊", "custom");
+  renderRoleForm({}, "写一个角色", "所有字段都可以不填，留空的交给角色自己。", "保存并开始聊", "custom");
 }
 
 function renderRoleDraft(role, note){
-  renderRoleForm(role, "这个角色可以吗？",
+  const draft = Object.assign({}, role);
+  const extra = (draft.extra || "").trim();
+
+  // AI 已经写了开场白，就放进补充说明里给用户看/改
+  if (draft.opening && !/开场白\s*[:：]/.test(extra)){
+    draft.extra = (extra ? extra + "\n" : "") + "开场白：" + draft.opening;
+  }
+
+  renderRoleForm(draft, "这个角色可以吗？",
     note || "AI 查资料整理的，可以直接改。", "就这样开始聊", "ai_search");
 }
 
@@ -421,22 +438,17 @@ async function searchRoleDraft(){
 
 // 保存角色，然后直接开聊
 async function createRole(){
-  const nameInput = $("rc-name");
-  const name = nameInput ? nameInput.value.trim() : "";
-
-  if (!name){
-    alert("先给角色起个名字");
-    if (nameInput) nameInput.focus();
-    return;
-  }
-
   const payload = {
-    name: name,
-    emoji: ($("rc-emoji").value || "").trim() || "🙂",
-    tagline: $("rc-tagline").value.trim(),
+    name: $("rc-name").value.trim(),
+    age: $("rc-age").value.trim(),
+    gender: $("rc-gender").value.trim(),
     personality: $("rc-personality").value.trim(),
+    deeds: $("rc-deeds").value.trim(),
+    background: $("rc-background").value.trim(),
+    extra: $("rc-extra").value.trim(),
+    emoji: ($("rc-emoji").value || "").trim() || "🎭",
+    tagline: $("rc-tagline").value.trim(),
     speaking: $("rc-speaking").value.trim(),
-    opening: $("rc-opening").value.trim(),
     source: roleFormSource
   };
 

@@ -36,7 +36,12 @@ CREATE TABLE IF NOT EXISTS role_play_roles (
     name         TEXT        NOT NULL,
     emoji        TEXT        NOT NULL DEFAULT '🙂',
     tagline      TEXT        NOT NULL DEFAULT '',
+    age          TEXT        NOT NULL DEFAULT '',
+    gender       TEXT        NOT NULL DEFAULT '',
     personality  TEXT        NOT NULL DEFAULT '',
+    deeds        TEXT        NOT NULL DEFAULT '',
+    background   TEXT        NOT NULL DEFAULT '',
+    extra        TEXT        NOT NULL DEFAULT '',
     speaking     TEXT        NOT NULL DEFAULT '',
     boundaries   TEXT        NOT NULL DEFAULT '',
     opening      TEXT        NOT NULL DEFAULT '',
@@ -44,6 +49,15 @@ CREATE TABLE IF NOT EXISTS role_play_roles (
     created_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 )
 """
+
+# 老库已经有 role_play_roles 了，补新字段用
+ALTER_ROLE_COLUMNS = (
+    "ALTER TABLE role_play_roles ADD COLUMN IF NOT EXISTS age TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE role_play_roles ADD COLUMN IF NOT EXISTS gender TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE role_play_roles ADD COLUMN IF NOT EXISTS deeds TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE role_play_roles ADD COLUMN IF NOT EXISTS background TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE role_play_roles ADD COLUMN IF NOT EXISTS extra TEXT NOT NULL DEFAULT ''",
+)
 
 CREATE_ROLE_INDEXES = (
     "CREATE INDEX IF NOT EXISTS ix_role_sessions_tenant ON role_play_sessions (tenant_id)",
@@ -57,6 +71,8 @@ def create_roleplay_tables():
     execute(CREATE_ROLE_SESSIONS_TABLE)
     execute(CREATE_ROLE_MEMORIES_TABLE)
     execute(CREATE_CUSTOM_ROLES_TABLE)
+    for sql in ALTER_ROLE_COLUMNS:
+        execute(sql)
     for sql in CREATE_ROLE_INDEXES:
         execute(sql)
 
@@ -102,7 +118,12 @@ def custom_row_to_role(row):
         "group": "我的角色",
         "emoji": row["emoji"],
         "tagline": row["tagline"],
+        "age": row["age"],
+        "gender": row["gender"],
         "personality": row["personality"],
+        "deeds": row["deeds"],
+        "background": row["background"],
+        "extra": row["extra"],
         "speaking": row["speaking"],
         "boundaries": row["boundaries"],
         "opening": row["opening"],
@@ -110,17 +131,19 @@ def custom_row_to_role(row):
     }
 
 
-def create_custom_role(tenant_id, name, emoji, tagline, personality,
+def create_custom_role(tenant_id, name, emoji, tagline, age, gender,
+                       personality, deeds, background, extra,
                        speaking, boundaries, opening, source="custom"):
     """新建一个自定义角色，返回数据库里的数字 id。"""
     with transaction() as cur:
         cur.execute(
             "INSERT INTO role_play_roles "
-            "(tenant_id, name, emoji, tagline, personality, speaking, boundaries, opening, source) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            "(tenant_id, name, emoji, tagline, age, gender, personality, "
+            "deeds, background, extra, speaking, boundaries, opening, source) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
             "RETURNING id",
-            (tenant_id, name, emoji, tagline, personality,
-             speaking, boundaries, opening, source),
+            (tenant_id, name, emoji, tagline, age, gender, personality,
+             deeds, background, extra, speaking, boundaries, opening, source),
         )
         row = cur.fetchone()
         return row["id"]
@@ -129,7 +152,8 @@ def create_custom_role(tenant_id, name, emoji, tagline, personality,
 def list_custom_roles(tenant_id):
     """列出这个租户自己写的角色，老的排前面。"""
     rows = query(
-        "SELECT id, name, emoji, tagline, personality, speaking, boundaries, opening, source "
+        "SELECT id, name, emoji, tagline, age, gender, personality, "
+        "deeds, background, extra, speaking, boundaries, opening, source "
         "FROM role_play_roles WHERE tenant_id = %s ORDER BY id",
         (tenant_id,),
     )
@@ -147,7 +171,8 @@ def get_custom_role(tenant_id, role_id):
         return None
 
     row = query_one(
-        "SELECT id, name, emoji, tagline, personality, speaking, boundaries, opening, source "
+        "SELECT id, name, emoji, tagline, age, gender, personality, "
+        "deeds, background, extra, speaking, boundaries, opening, source "
         "FROM role_play_roles WHERE id = %s AND tenant_id = %s",
         (role_number, tenant_id),
     )

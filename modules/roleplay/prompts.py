@@ -10,13 +10,26 @@ def build_role_prompt(role, memory=""):
     if memory:
         memory_part = f"【你还记得】{memory}\n"
 
+    def line(label, value):
+        value = (value or "").strip()
+        return f"【{label}】{value}\n" if value else ""
+
+    profile = (
+        line("年龄", role.get("age"))
+        + line("性别", role.get("gender"))
+        + line("性格", role.get("personality"))
+        + line("人物事迹", role.get("deeds"))
+        + line("背景故事", role.get("background"))
+        + line("补充说明", role.get("extra"))
+        + line("说话方式", role.get("speaking"))
+    )
+
     return (
         f"你正在扮演“{role['name']}”。\n"
-        f"【性格】{role['personality']}\n"
-        f"【说话方式】{role['speaking']}\n"
-        f"【不会做的事】{role['boundaries']}\n"
+        f"{profile}"
+        f"【不会做的事】{role.get('boundaries', '')}\n"
         f"{memory_part}"
-        f"【开场白】{role['opening']}\n"
+        f"【开场白】{role.get('opening', '')}\n"
         "\n"
         "【规则】\n"
         "1. 始终用第一人称，保持这个角色的口吻。\n"

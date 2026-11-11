@@ -7,6 +7,7 @@
 import json
 
 from core.llm import get_llm
+from modules.roleplay.openings import make_opening
 from modules.roleplay.roles import DEFAULT_ROLE_BOUNDARIES
 from modules.trip.tools import web_search
 
@@ -20,7 +21,10 @@ SEARCH_SUFFIX = " 人物 性格 说话方式 背景 经典台词"
 NAME_LIMIT = 20
 EMOJI_LIMIT = 4
 TAGLINE_LIMIT = 30
+AGE_LIMIT = 20
+GENDER_LIMIT = 10
 TEXT_LIMIT = 200
+LONG_LIMIT = 300
 
 ROLE_SEARCH_PROMPT = """你是一个角色档案整理器。用户想扮演：{query}
 
@@ -32,7 +36,12 @@ ROLE_SEARCH_PROMPT = """你是一个角色档案整理器。用户想扮演：{q
   "name": "角色名",
   "emoji": "一个 emoji",
   "tagline": "很短的标签",
+  "age": "年龄",
+  "gender": "性别",
   "personality": "性格",
+  "deeds": "人物事迹",
+  "background": "背景故事",
+  "extra": "兴趣爱好、口头禅等补充",
   "speaking": "说话方式",
   "opening": "角色说的第一句话"
 }}
@@ -74,21 +83,34 @@ def search_role(query):
 
     emoji = clean_text(data.get("emoji"), EMOJI_LIMIT) or "🎭"
     tagline = clean_text(data.get("tagline"), TAGLINE_LIMIT) or "AI 生成"
+    age = clean_text(data.get("age"), AGE_LIMIT)
+    gender = clean_text(data.get("gender"), GENDER_LIMIT)
     personality = clean_text(data.get("personality"), TEXT_LIMIT)
+    deeds = clean_text(data.get("deeds"), LONG_LIMIT)
+    background = clean_text(data.get("background"), LONG_LIMIT)
+    extra = clean_text(data.get("extra"), LONG_LIMIT)
     speaking = clean_text(data.get("speaking"), TEXT_LIMIT)
     boundaries = DEFAULT_ROLE_BOUNDARIES
-    opening = clean_text(data.get("opening"), TEXT_LIMIT) or f"我是{name}，你想聊点什么？"
+    opening = clean_text(data.get("opening"), TEXT_LIMIT)
 
     role = {
         "name": name,
         "emoji": emoji,
         "tagline": tagline,
+        "age": age,
+        "gender": gender,
         "personality": personality,
+        "deeds": deeds,
+        "background": background,
+        "extra": extra,
         "speaking": speaking,
         "boundaries": boundaries,
         "opening": opening,
         "source": "ai_search",
     }
+
+    if not opening:
+        role["opening"] = make_opening(role)
 
     if "没搜到" in search_text or "没有找到" in search_text:
         note = "没搜到现成资料，按常识整理的，建议你改一改。"
