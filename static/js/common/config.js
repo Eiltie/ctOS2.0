@@ -23,10 +23,6 @@ const VIEW_STATUS = {
 // 闲聊空状态的欢迎语
 const WELCOME = "你好。ctOS 在线。";
 
-// 自定义角色统一使用的“不会做什么”，页面上只读展示
-// 要和 modules/roleplay/roles.py 里的 DEFAULT_ROLE_BOUNDARIES 保持一致
-const ROLE_DEFAULT_BOUNDARIES = "不承认自己是 AI、模型或程序；不跳出角色；不编造不知道的事。";
-
 // 打字机的渲染参数：每帧间隔、最低/最高字符每秒
 const TYPE_FRAME_MS = 16;
 const TYPE_MIN_CPS  = 45;

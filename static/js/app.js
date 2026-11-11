@@ -290,14 +290,9 @@ function roleFormHTML(values){
         </label>
 
         <div class="role-field">
-          <span>不会做什么</span>
-          <div class="role-default-rule">🔒 ${esc(ROLE_DEFAULT_BOUNDARIES)}</div>
-        </div>
-
-        <label class="role-field">
           <span>开场白</span>
           <textarea id="rc-opening" maxlength="200" rows="2" placeholder="角色说的第一句话；不填会自动生成一句">${esc(v.opening || "")}</textarea>
-        </label>
+        </div>
       </div>`;
 }
 

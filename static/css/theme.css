@@ -1898,15 +1898,3 @@ html[data-theme="cyber"] .role-field textarea:focus {
 html[data-theme="cyber"] .role-save-btn {
     box-shadow: 0 0 16px rgba(34, 211, 238, 0.25);
 }
-
-html[data-theme="street"] .role-default-rule {
-    border: 2px dashed var(--ink);
-    border-radius: 0;
-    background: var(--panel);
-    color: var(--ink);
-}
-
-html[data-theme="cyber"] .role-default-rule {
-    border-color: rgba(148, 163, 184, 0.22);
-    background: rgba(6, 11, 18, 0.6);
-}
