@@ -10,7 +10,8 @@ let currentNotice = null;
 let noticeAutoChecked = false;
 
 async function loadNotice() {
-    const data = await getJson("/notice");
+    // no-store：保证改完 notice.json 刷新就能拿到新内容，不被浏览器缓存
+    const data = await getJson("/notice", { cache: "no-store" });
     if (!data || !data.notice || !data.notice.id) return null;
     return data.notice;
 }
