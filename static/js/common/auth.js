@@ -227,12 +227,37 @@ function switchLoginMode(mode){
 
   if (title) title.textContent = isRegister ? "注册账号" : "登录已有账号";
   if (sub) sub.textContent = isRegister
-    ? "创建一个账号，会话记录会跟着账号走"
-    : "登录后会话记录会跟着账号走；不登录也能直接用";
+    ? "创建一个账号，之后的会话记录会跟着账号走；访客期间的聊天不会自动带过去"
+    : "登录后，新账号的会话记录独立保存；访客期间的聊天不会自动带过去";
   if (btn) { btn.textContent = isRegister ? "注册并登录" : "登录"; btn.dataset.mode = mode; }
   if (toggle) toggle.textContent = isRegister ? "已有账号？去登录" : "还没有账号？去注册";
 
   loginError("");
+}
+
+// 访客有没有值得提醒的数据
+function guestHasData(){
+  const hasSessions = typeof state !== "undefined"
+    && Array.isArray(state.sessions)
+    && state.sessions.length > 0;
+
+  const hasTrips = typeof tripRecords !== "undefined"
+    && Array.isArray(tripRecords)
+    && tripRecords.length > 0;
+
+  return hasSessions || hasTrips;
+}
+
+// 访客切到真实账号前，明确告诉用户旧数据不会跟过去
+function confirmGuestSwitch(){
+  if (!isTrialUser(currentUser())) return true;
+  if (!guestHasData()) return true;
+
+  return confirm(
+    "你现在是访客。\n\n" +
+    "登录或注册后，访客期间的聊天和出行记录不会自动带过去。\n\n" +
+    "确定继续吗？"
+  );
 }
 
 // 提交登录或注册
@@ -247,6 +272,8 @@ async function submitAuth(){
     loginError("邮箱和密码都要填");
     return;
   }
+
+  if (!confirmGuestSwitch()) return;
 
   const isRegister = mode === "register";
   const url = isRegister ? "/auth/register" : "/auth/login";

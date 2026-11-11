@@ -264,6 +264,7 @@ modules/<模块名>/
 | `config/requirements.txt` | Python 依赖清单 |
 | `docs/architecture.md` | 请求地图：用户点一下，代码经过哪些文件 |
 | `docs/files.md` | **本文档**：每个文件做什么 |
+| `docs/tunnel-check.md` | 线上隧道副本排查、`scripts/check_online.ps1` 使用说明 |
 | `docs/deployment.md` | 部署说明：线上实例、Docker、本地运行、上线流程 |
 | `eval/cases.json` | 测评题库：32 条，覆盖闲聊/角色/客服/出行/平台 |
 | `eval/run_eval.py` | 跑测评、自动检查、生成 JSON + Markdown 报告 |
@@ -286,6 +287,7 @@ modules/<模块名>/
 | 改前端逻辑 | `static/js/app.js`（闲聊）/ `trip.js` / `customer.js` |
 | 改更新公告 | `config/notice.json` |
 | 跑 Agent 测评 | `eval/run_eval.py`，题库在 `eval/cases.json` |
+| 检查线上隧道 | `scripts/check_online.ps1`，排查步骤见 `docs/tunnel-check.md` |
 | 加公用前端函数 | `static/js/common/` 下新建文件，并在 `index.html` 里按顺序引入 |
 | 改端口 | 环境变量 `PORT`（容器/线上）/ `api/main.py` 底部（本地） |
 | 改数据库连接 | `config/.env` 的 `PG_*` 变量 |

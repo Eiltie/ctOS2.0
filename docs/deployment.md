@@ -15,6 +15,8 @@
 | 链路 | 浏览器 → Cloudflare（TLS / CDN）→ 服务器上的 `ctos2-app` 容器（8080）→ `ctos2-db` 容器（PostgreSQL 17） |
 | 访问方式 | 进入页面先注册账号（一人一户，数据按租户隔离），然后即可用三个模块 |
 
+> 手机间歇性一直加载时，先跑 `scripts/check_online.ps1`，再按 [tunnel-check.md](tunnel-check.md) 检查 Cloudflare 是否只保留了一个隧道副本。
+
 > Cloudflare 默认**不缓存** HTML/SSE，`cf-cache-status` 是 `DYNAMIC`，流式输出不受影响。
 
 **线上和本地唯一的区别是域名和 TLS**：应用代码、Dockerfile、Compose 文件都完全一样，
