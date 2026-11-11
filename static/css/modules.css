@@ -205,7 +205,7 @@
 }
 .hero-input input::placeholder { color: var(--text-muted); }
 
-/* 开场页和底部的预设问题：胶囊按钮，点了直接发出去 */
+/* 开场页的预设问题：胶囊按钮，点了直接发出去 */
 .trip-quick {
     display: flex;
     flex-wrap: wrap;
@@ -214,11 +214,6 @@
     width: 100%;
     max-width: 720px;
     margin-top: -12px;
-}
-.trip-quick-bottom {
-    justify-content: flex-start;
-    margin-top: 0;
-    margin-bottom: 8px;
 }
 .trip-quick .prompt-btn {
     white-space: normal;
