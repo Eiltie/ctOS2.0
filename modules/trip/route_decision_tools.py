@@ -145,6 +145,22 @@ def _city_matches(result_city, wanted_city):
     return wanted_name in result_name or result_name in wanted_name
 
 
+def drop_city_prefix(place_name, city):
+    """去掉地名前面的城市，例如「北京故宫」→「故宫」。"""
+    if not place_name:
+        return ""
+
+    city_name = (city or "").replace("市", "").strip()
+    if not city_name:
+        return ""
+
+    for prefix in (city_name + "市", city_name):
+        if place_name.startswith(prefix) and len(place_name) > len(prefix):
+            return place_name[len(prefix):].strip()
+
+    return ""
+
+
 def _get_json(url, params):
     """请求高德接口，失败时打印原因并返回空字典。"""
     try:
@@ -153,6 +169,59 @@ def _get_json(url, params):
     except Exception as e:
         print(f"[路线] 请求高德失败：{e}")
         return {}
+
+
+def _to_place(name, place, wanted_city):
+    """把高德返回的一条结果整理成地点字典。"""
+    location = _text(place.get("location"))
+    level = _text(place.get("level"))
+    result_city = _text(place.get("city"))
+
+    return {
+        "name": name,
+        "address": _text(place.get("formatted_address")) or _text(place.get("district")),
+        "location": location,
+        "city": result_city,
+        "province": _text(place.get("province")),
+        "adcode": _text(place.get("adcode")),
+        "level": level,
+        "too_vague": (not level) or (level in VAGUE_LEVELS),
+        "different_city": bool(wanted_city and not _city_matches(result_city, wanted_city)),
+    }
+
+
+def find_place_candidates(place_name, city="", limit=3):
+    """列出几个可能的地点，给用户挑。
+
+    高德认不出或只认出城市时，与其反复追问，不如把候选摆出来。
+    """
+    if not place_name or not AMAP_KEY:
+        return []
+
+    response = _get_json(AMAP_GEOCODE_URL, {
+        "address": place_name,
+        "city": city or "",
+        "key": AMAP_KEY,
+    })
+
+    if response.get("status") != "1":
+        return []
+
+    found = []
+    for place in response.get("geocodes") or []:
+        location = _text(place.get("location"))
+        if not location:
+            continue
+
+        item = _to_place(place_name, place, city)
+        if item["different_city"]:
+            continue
+
+        found.append(item)
+        if len(found) >= limit:
+            break
+
+    return found
 
 
 def find_place(place_name, city="", allow_nationwide=False):
@@ -192,26 +261,24 @@ def find_place(place_name, city="", allow_nationwide=False):
             if not location:
                 continue
 
-            result_city = _text(place.get("city"))
-            city_matches = _city_matches(result_city, city)
+            result = _to_place(place_name, place, city)
 
             # 带城市查的那一轮，城市对不上就跳过；
             # 全国兜底那一轮（try_city 为空）才允许跨城
-            if city and try_city and not city_matches:
+            if city and try_city and result["different_city"]:
                 continue
 
-            level = _text(place.get("level"))
-            return {
-                "name": place_name,
-                "address": _text(place.get("formatted_address")),
-                "location": location,
-                "city": result_city,
-                "province": _text(place.get("province")),
-                "adcode": _text(place.get("adcode")),
-                "level": level,
-                "too_vague": (not level) or (level in VAGUE_LEVELS),
-                "different_city": bool(city and not city_matches),
-            }
+            # 「北京故宫」高德会解析成整个北京市，太笼统。
+            # 去掉城市前缀再查一次，拿更具体的地点。
+            if result["too_vague"]:
+                shorter = drop_city_prefix(place_name, city)
+                if shorter and shorter != place_name:
+                    better = find_place(shorter, city, allow_nationwide=False)
+                    if better is not None and not better["too_vague"]:
+                        better["asked_name"] = place_name
+                        return better
+
+            return result
 
     return None
 

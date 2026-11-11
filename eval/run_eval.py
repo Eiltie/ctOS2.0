@@ -109,18 +109,32 @@ def find_chat_id(events):
 
 
 def trip_answer(client, base, query, headers):
-    """跑一次出行；遇到景点/路线/方案选择时自动选默认项。"""
+    """跑一次出行；遇到地点/景点/路线选择时自动选默认项。"""
     start = time.time()
     events, _ = post_sse(client, base, "/trip/chat",
                          {"query": query, "history": []}, headers)
     parts = []
     chat_id = None
+    place_name = ""
 
     for _ in range(4):
         chat_id = chat_id or find_chat_id(events)
         text = trip_text(events)
         if text:
             parts.append(text)
+
+        ask_place = next((ev for ev in events if ev.get("kind") == "ASK_PLACE"), None)
+        if ask_place:
+            # 地点有歧义：记下问题，再按用户会做的选择重新问一次
+            parts.append(ask_place.get("question") or "")
+            options = ask_place.get("options") or []
+            place_name = (options[0]["label"] if options else "").split("(")[0].strip()
+
+            events, _ = post_sse(client, base, "/trip/chat", {
+                "query": f"就是{place_name}",
+                "history": [],
+            }, headers)
+            continue
 
         ask = next((ev for ev in events
                     if ev.get("kind") in ("ASK", "ASK_SPOTS", "ASK_ROUTE")), None)

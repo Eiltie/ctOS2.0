@@ -237,8 +237,12 @@
           "三"
         ]
       ],
-      "max_chars": 150,
-      "max_seconds": 45
+      "max_chars": 220,
+      "max_seconds": 45,
+      "must_have_any": [
+        "西湖",
+        "杭州"
+      ]
     },
     {
       "id": "chat-length",
@@ -341,7 +345,10 @@
         "为什么",
         "技术",
         "细节",
-        "难点"
+        "难点",
+        "框架",
+        "用了什么",
+        "说清楚"
       ],
       "must_not": [
         "我是AI",
@@ -511,6 +518,32 @@
         ]
       ],
       "max_seconds": 210
+    },
+    {
+      "id": "trip-place-city-prefix",
+      "module": "trip",
+      "input": "从杭州东站到北京故宫怎么走？",
+      "must_have_all": [
+        "故宫"
+      ],
+      "must_not": [
+        "说具体一点",
+        "不太确定"
+      ],
+      "max_seconds": 180
+    },
+    {
+      "id": "trip-place-ambiguous",
+      "module": "trip",
+      "input": "从北京站到长城怎么走？",
+      "must_have_any": [
+        "哪一个",
+        "多个地方",
+        "点一个",
+        "方案",
+        "哪个城市"
+      ],
+      "max_seconds": 180
     }
   ]
 }

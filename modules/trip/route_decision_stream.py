@@ -24,6 +24,7 @@ from modules.trip.route_decision_graph import (
 from modules.trip.route_decision_prompts import PARSE_ROUTE_NEED_PROMPT
 from modules.trip.route_decision_tools import (
     find_place,
+    find_place_candidates,
     format_need_text,
     make_route_title,
     normalize_preference,
@@ -134,7 +135,11 @@ def check_need(need):
 
 
 def find_places(need):
-    """查起点和终点，返回（起点, 终点, 要问用户的话）。"""
+    """查起点和终点，返回（起点, 终点, 要问用户的话）。
+
+    起点是开放的：用户在北京，要去别的城市也可以。
+    终点如果没城市又全国都查不到，就回去问是哪个城市，别硬猜。
+    """
     start = find_place(need["origin"], need["city"], allow_nationwide=True)
     if start is None:
         return None, None, (
@@ -148,6 +153,11 @@ def find_places(need):
         )
 
     end = find_place(need["destination"], need["city"])
+
+    # 有城市时按城市查；没有城市时全国查，查不到再问是哪个城市
+    if end is None and not need["city"]:
+        end = find_place(need["destination"], "", allow_nationwide=True)
+
     if end is None:
         return None, None, (
             f"没找到终点「{need['destination']}」（城市：{need['city']}），"
@@ -289,6 +299,52 @@ def _route_events(chunks, thread_id, context):
                     yield _step(next_key)
 
 
+def place_options(place_name, city):
+    """把查到的地点整理成可以点的选项。"""
+    options = []
+    for index, place in enumerate(find_place_candidates(place_name, city), start=1):
+        label = place.get("address") or place.get("name") or place_name
+        note = place.get("level") or ""
+
+        options.append({
+            "id": str(index),
+            "label": label,
+            "note": note,
+        })
+
+    return options
+
+
+# 这类地名指的是一个区域或一串异地点位，直接取第一个容易指错
+BROAD_PLACE_WORDS = ("长城", "古镇", "老街", "风景区", "公园", "广场")
+
+
+def need_place_choice(place_name, city):
+    """这个地名是不是该先让用户挑一个具体位置。"""
+    if not any(word in place_name for word in BROAD_PLACE_WORDS):
+        return False
+
+    return len(place_options(place_name, city)) >= 2
+
+
+def ask_place(question, place_name, city, query, chat_id, tenant_id):
+    """地点认不准时，把候选摆出来让用户点。"""
+    options = place_options(place_name, city)
+
+    if options:
+        saved_chat_id = _save(query, {"chat_reply": question}, "CHAT", chat_id, tenant_id)
+        yield sse({
+            "kind": "ASK_PLACE",
+            "question": question,
+            "name": place_name,
+            "options": options,
+            "chat_id": saved_chat_id,
+        })
+        return
+
+    yield _chat_and_save(question, query, chat_id, tenant_id)
+
+
 def start_route_decision(query, merged_query, chat_id=None, tenant_id=None):
     """路线决策的第一步：解析需求、查地点、查候选，然后停在选方案。"""
     yield sse({
@@ -315,8 +371,37 @@ def start_route_decision(query, merged_query, chat_id=None, tenant_id=None):
 
     start, end, problem = find_places(need)
     if problem:
-        yield _chat_and_save(problem, query, chat_id, tenant_id)
+        # 能列出候选就让人点，列不出来才用文字追问
+        place_name = ""
+
+        if "太笼统" in problem or "不太确定" in problem:
+            if need["origin"] and need["origin"] in problem:
+                place_name = need["origin"]
+            elif need["destination"] in problem:
+                place_name = need["destination"]
+
+        if place_name:
+            yield from ask_place(
+                f"「{place_name}」我查到的不太确定，你指的是下面哪个？",
+                place_name,
+                need.get("city") or "",
+                query, chat_id, tenant_id,
+            )
+        else:
+            yield _chat_and_save(problem, query, chat_id, tenant_id)
+
         return
+
+    # 「长城」「古镇」这类名字能匹配到好几处，直接取第一个容易指错，先让人挑
+    for place_name in (need["origin"], need["destination"]):
+        if place_name and need_place_choice(place_name, need.get("city") or ""):
+            yield from ask_place(
+                f"「{place_name}」有多个地方，你指的是哪一个？",
+                place_name,
+                need.get("city") or "",
+                query, chat_id, tenant_id,
+            )
+            return
 
     weather_text = get_weather_text(need)
     need_text = format_need_text(need, start, end, weather_text)

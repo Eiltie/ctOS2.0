@@ -906,6 +906,15 @@ async function sendTrip(){
           flow.status("景点清单出来了，勾掉不想要的，或者在下面补一个");
           break;
 
+        case "ASK_PLACE":
+          touched = true;
+          awaitingChoice = true;
+          clearWaitingPanels(turn);
+          if (ev.chat_id) rememberChatId(ev.chat_id, turn);
+          showPlaceChoices(turn, flow, ev);
+          flow.status("地点没认准，点一个候选就行");
+          break;
+
         case "ASK_ROUTE":
           touched = true;
           awaitingChoice = true;
@@ -1001,6 +1010,89 @@ async function sendTrip(){
   }
 }
 
+
+// 地点认不准时弹出候选：点一个就把这句改写后重新发
+function showPlaceChoices(turn, flow, event){
+  const panel = document.createElement("div");
+  panel.className = "route-ask spot-ask";
+
+  const question = document.createElement("div");
+  question.className = "route-ask-question";
+  question.textContent = event.question || "你指的是下面哪个地点？";
+  panel.appendChild(question);
+
+  const optionsBox = document.createElement("div");
+  optionsBox.className = "route-options";
+
+  (event.options || []).forEach((option) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "route-option";
+
+    const label = document.createElement("span");
+    label.className = "ro-label";
+    label.textContent = option.label || "";
+
+    button.appendChild(label);
+
+    if (option.note){
+      const note = document.createElement("span");
+      note.className = "ro-note";
+      note.textContent = option.note;
+      button.appendChild(note);
+    }
+
+    button.onclick = () => pickPlace(event, option, panel);
+    optionsBox.appendChild(button);
+  });
+
+  panel.appendChild(optionsBox);
+
+  const reset = document.createElement("button");
+  reset.type = "button";
+  reset.className = "route-ask-reset";
+  reset.textContent = "都不是，我重新说";
+  reset.onclick = () => {
+    panel.remove();
+    const input = $("trip-input");
+    if (input) input.focus();
+  };
+  panel.appendChild(reset);
+
+  turn.appendChild(panel);
+  showWaitingHint(turn, "点一个地点，我接着查路线 ↑");
+  tripScroll();
+  scrollToWaitingPanel();
+}
+
+// 用选中的地点名替换用户原话里的那个名字，然后重新发一次
+function pickPlace(event, option, panel){
+  if (tripBusy) return;
+
+  const placeName = (option.label || "").split("(")[0].trim();
+  const asked = event.name || "";
+
+  let query = lastTripText || "";
+
+  if (asked && placeName && query.includes(asked)){
+    query = query.split(asked).join(placeName);
+  }else if (placeName){
+    query = placeName;
+  }
+
+  panel.remove();
+  const hint = document.querySelector(".route-ask-hint");
+  if (hint) hint.remove();
+
+  lastTripText = query;
+  tripHistory = tripHistory.filter((item) => item !== asked);
+
+  const input = tripHeroVisible() ? $("trip-input-hero") : $("trip-input");
+  if (input){
+    input.value = query;
+    sendTrip();
+  }
+}
 
 function showRouteChoices(turn, flow, event){
   const panel = document.createElement("div");
@@ -1570,13 +1662,20 @@ function tripNewSession(){
   setTripSendState("send");
   tripHistory = [];
   openChatId = null;
-  // 本地缓存的出行记录也清掉：换用户登录时不能带着上一个人的列表
-  tripRecords = [];
+
+  // 新会话只清当前对话的上下文，不能清历史列表。
+  // 清掉的话左栏会先变空，等别的操作重新拉取才回来。
   tripIntro();
 
   // 用户主动开新会话，把光标放到输入框里
   tripShowHero(true);
 
+  if (state.view === "trip") renderTripHistory();
+}
+
+// 换账号登录时清掉列表缓存，别带着上一个人的出行记录
+function tripClearRecords(){
+  tripRecords = [];
   if (state.view === "trip") renderTripHistory();
 }
 

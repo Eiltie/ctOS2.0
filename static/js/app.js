@@ -1596,8 +1596,10 @@ window.onLoginSuccess = async function(){
   renderUserBadge();
   initAppModules();
 
-  // 出行模块的本地状态也要清，否则会带着上一个用户的会话
+  // 出行模块的对话状态要清，否则会带着上一个用户的上下文。
+  // 历史列表要显式清掉：新会话现在只清上下文，不再顺手清列表。
   if (typeof tripNewSession === "function") tripNewSession();
+  if (typeof tripClearRecords === "function") tripClearRecords();
   if (typeof customerIntro === "function") customerIntro();
 
   if (typeof customerResetSend === "function") customerResetSend();
