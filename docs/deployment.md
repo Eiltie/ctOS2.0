@@ -13,7 +13,7 @@
 | 访问地址 | <https://ctos2.cn>（裸域和 `www.ctos2.cn` 都能访问，页面完全一致） |
 | 健康检查 | <https://ctos2.cn/health> → `{"ok":true,"database":"ctos2","user":"ctos_app"}` |
 | 链路 | 浏览器 → Cloudflare（TLS / CDN）→ 服务器上的 `ctos2-app` 容器（8080）→ `ctos2-db` 容器（PostgreSQL 17） |
-| 访问方式 | 进入页面先注册账号（一人一户，数据按租户隔离），然后即可用三个模块 |
+| 访问方式 | 打开页面先进访客空间（独立租户，记录只存在当前浏览器），也可注册账号（一人一户，数据按租户隔离），然后即可用四个能力 |
 
 > 手机间歇性一直加载时，先跑 `scripts/check_online.ps1`，再按 [tunnel-check.md](tunnel-check.md) 检查 Cloudflare 是否只保留了一个隧道副本。
 
@@ -132,7 +132,13 @@ docker exec ctos2-app python -m core.db
 | --- | --- | --- |
 | PostgreSQL 数据 | Docker 卷 `ctos2-pgdata` | 删容器不丢 |
 | Chroma 向量库 | `./modules/customer/data/chroma`（挂载） | 改文档后要重跑入库 |
-| 代码 | 镜像里 | 改代码要 `docker compose build` |
+| 出行暂停现场 | `./databases/checkpoints`（挂载） | 容器重建后，没选完的方案还能接着选 |
+| 前端文件 | `./static`（挂载） | 镜像里也 COPY 了一份，挂载后**以宿主机为准**：改完刷新页面就生效 |
+| 更新公告 | `./config/notice.json`（挂载） | 改完刷新页面就生效 |
+| 后端代码 | 镜像里 | 改 `core/` / `api/` / `modules/` 要 `docker compose build` |
+
+**挂载了 `databases/checkpoints` 很关键**：不挂的话，容器一重建，
+用户正在选的候选路线就没了（`/trip/route/choose` 会提示「这次路线决策已经失效」）。
 
 **查看卷在哪：**
 
@@ -198,11 +204,15 @@ D:\PostgreSQL\pgsql\bin\pg_ctl.exe -D D:\PostgreSQL\data stop
 | `DEEPSEEK_API_KEY` | ✅ | 所有对话和推理 |
 | `DEEPSEEK_BASE_URL` | ✅ | `https://api.deepseek.com` |
 | `DEEPSEEK_MODEL` | ✅ | 模型名 |
-| `ZHIPU_API_KEY` | ✅ | 客服的向量化 |
-| `AMAP_KEY` | 建议 | 出行的路线计算（缺失时退化为估算） |
-| `JWT_SECRET_KEY` | ✅ | 登录 token 签名密钥 |
+| `ZHIPU_API_KEY` | ✅ | 客服的向量化（缺了客服模块用不了） |
+| `AMAP_KEY` | ✅ | 出行的路线计算；缺了路线决策不可用，攻略流程仍能跑 |
+| `JWT_SECRET_KEY` | ✅ | 登录 token 签名密钥（缺了启动就报错，没有默认值） |
 | `PG_HOST` / `PG_PORT` / `PG_DBNAME` / `PG_USER` / `PG_PASSWORD` | ✅ | 数据库连接 |
 | `HOST` / `PORT` | 可选 | 监听地址，默认 `127.0.0.1:8080`；Docker 里设 `0.0.0.0` |
+
+> 天气用的是 Open-Meteo，**免密钥**，不需要额外申请。
+> compose 文件会把上面这些变量逐个传给 `app` 容器；新增环境变量时记得在 `docker-compose.yml`
+> 的 `environment:` 里也加一行，否则容器里读不到。
 
 **生成 JWT 密钥：**
 
@@ -263,12 +273,15 @@ Get-NetTCPConnection -LocalPort 8080 -State Listen
 
 ### 改了代码但没生效
 
-Docker 里代码是打包进镜像的，**改完必须重新构建**：
+- 改的是 **前端**（`static/`）或 **公告**（`config/notice.json`）：已经挂载进容器，刷新页面即可
+- 改的是 **后端**（`core/` / `api/` / `modules/`）：代码打包在镜像里，**必须重新构建**：
 
 ```powershell
 docker compose --env-file config/.env build
 docker compose --env-file config/.env up -d
 ```
+
+- 改的是 **知识库文档**：还要重跑入库并重启应用容器（见第九节最后一条）
 
 ### 想重置所有数据
 
@@ -330,6 +343,13 @@ curl https://ctos2.cn/health
 | 服务器上的 `modules/customer/data/chroma/` 存在 | 向量库是目录挂载，**不进镜像**，服务器第一次部署必须先跑一次入库脚本 |
 | 服务器上跑过 `python -m core.db` | 建表是一次性的，没建表的话注册登录会直接报错 |
 
+**每次升级代码后**（不只是第一次）建议补做两件事：
+
+```bash
+docker exec ctos2-app python -m core.db                     # 补新增的表 / 字段（IF NOT EXISTS，不动数据）
+docker exec ctos2-app python -m modules.customer.rag_ingest # 只有改了知识库文档才需要
+```
+
 **线上第一次部署的完整步骤：**
 
 ```bash
@@ -350,6 +370,14 @@ docker exec ctos2-app python -m modules.customer.rag_ingest
 
 # 6. 验证
 curl http://127.0.0.1:8080/health
+```
+
+**要确认 12 张表都建好了**：`tenants` / `users` / `sessions` / `messages` /
+`trip_chats` / `trip_sessions` / `trip_user_inputs` / `trip_ai_outputs` /
+`role_play_sessions` / `role_play_memories` / `role_play_roles` / `feedback`。
+
+```bash
+docker exec ctos2-db psql -U ctos_app ctos2 -c "\dt"
 ```
 
 **域名和 TLS**：在域名商处把 `ctos2.cn` 和 `www.ctos2.cn` 都指向服务器 IP，

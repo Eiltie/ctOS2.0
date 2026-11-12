@@ -1,8 +1,13 @@
 # ctOS 2.0 最小测评
 
-这不是模型排行榜，是一个能重复跑的验收工具。
+这不是模型排行榜，是一个**能重复跑的验收工具**。
+
+> 它不属于单元测试：没有断言框架、不会在提交时自动执行，需要手动跑。
+> 想验证的是「接上真实模型之后，三个模块还能不能正常回答」。
 
 ## 跑一次
+
+先确保服务和数据库已经起来（本地 `http://127.0.0.1:8080`），然后：
 
 ```powershell
 .\venv\Scripts\python.exe -X utf8 eval\run_eval.py
@@ -14,12 +19,20 @@
 .\venv\Scripts\python.exe -X utf8 eval\run_eval.py --only role-identity,trip-weather
 ```
 
-结果会写到 `eval/results/`：
+换一个后端地址跑（默认就是本机 8080）：
+
+```powershell
+.\venv\Scripts\python.exe -X utf8 eval\run_eval.py --base http://127.0.0.1:8080
+```
+
+结果会写到 `eval/results/`，文件名是运行时间戳：
 
 - `xxx.json`：完整明细，包含每道题的回答
 - `xxx.md`：一页报告，适合直接看
 
 ## 现在覆盖什么
+
+题量以 `eval/cases.json` 为准（当前 `version: 2026-11-11`），共 **34 条**：
 
 | 模块 | 题数 | 看什么 |
 |---|---:|---|
@@ -30,6 +43,9 @@
 | 平台 | 2 | 会话保存/删除、角色会话识别 |
 
 共 34 条。这是整个系统的题量，不是每个模块几十条。
+
+> 注意：只有**客服检索**另有一套 40 题题库，用 `python -X utf8 -m modules.customer.rag_eval` 单独跑，
+> 题库在 `modules/customer/eval/golden.json`，和这里的 34 条不是一回事。
 
 ## 怎么打分
 
@@ -62,10 +78,11 @@
 ```
 
 角色多轮题用 `role_id` + `turns`；平台题用 `kind: session` 或 `kind: role_session`。
+题目 `id` 要唯一，`--only` 就是按这个 id 筛的。
 
 ## 目前基线
 
-2026-11-11：
+2026-11-11（报告存档：`eval/results/20261111-231518.md`）：
 
 - 34 条全部通过，严重失败 0
 - 平均 6.3s，P95 30.6s（P95 主要来自带小孩/带老人的完整攻略）
@@ -81,13 +98,13 @@
 
 原因：出行模块把它当成了普通闲聊。
 
-修法：在 `modules/trip/stream.py` 里加天气意图，直接走天气节点。
+修法：在 `modules/trip/stream.py` 里加天气意图（`_is_weather_query`），直接走天气节点。
 
 修完后重跑：
 
 > 杭州未来三天……气温 4~18°C……
 
-`trip-weather` 从失败变成通过，当次那套 14 条回到 14/14。
+`trip-weather` 从失败变成通过，当次那套题全部回到通过。
 
 ## 下一步
 

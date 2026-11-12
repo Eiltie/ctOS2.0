@@ -15,11 +15,12 @@ ctOS 2.0 是一个用 FastAPI 加 LangGraph 搭建的多模块 AI 应用。
 它的核心设计是：**同一个 FastAPI 应用里挂载多个能力模块，所有模块共用一个端口、一套静态资源、一套会话接口。**
 模块之间彼此独立，各自有自己的一张 LangGraph 图，互不干扰。
 
-目前系统包含三个模块，三个都已经接入 Web 页面：
+目前系统包含四个能力模块，都已接入 Web 页面（角色扮演挂在「闲聊」里，从侧栏菜单进入）：
 
 | 模块 | 路由 | 说明 |
 | --- | --- | --- |
 | 闲聊 / 对话 | `/chat` | 基于 LangGraph 的对话图，流式返回纯文本 |
+| 角色扮演 | `/chat`（带 `role_id`）+ `/roleplay/*` | 预设角色、自己写角色、AI 帮我查；会话复用闲聊的表 |
 | 智能出行 | `/trip/chat` | 双模式：路线决策（多方案对比、人工选方案）+ 旅游攻略（天气 → 景点 → 暂停选景点 → 行程 → 路线），SSE 事件流 |
 | 智能客服 | `/customer/chat` | 基于 RAG 三层检索的问答模块，SSE 事件流 |
 
@@ -28,7 +29,7 @@ ctOS 2.0 是一个用 FastAPI 加 LangGraph 搭建的多模块 AI 应用。
 
 三者还有一个重要区别：
 
-- 闲聊和智能出行**会存数据库**，左侧栏能翻到历史记录。
+- 闲聊、角色扮演和智能出行**会存数据库**，左侧栏能翻到历史记录。
 - 智能客服的问答**不写数据库**，刷新页面就没了；但请求体会带上最近几轮对话（`history`），
   用来理解「那它怎么配」这类追问。
 
@@ -102,8 +103,9 @@ ZHIPU_API_KEY=         # 智谱密钥，RAG 向量化用
 python core/db.py
 ```
 
-会建好全部 8 张表：`tenants`、`users`、`sessions`、`messages`、`trip_chats`、
-`trip_sessions`、`trip_user_inputs`、`trip_ai_outputs`。表已存在就跳过，不会动已有数据。
+会建好全部 12 张表：`tenants`、`users`、`sessions`、`messages`、`trip_chats`、
+`trip_sessions`、`trip_user_inputs`、`trip_ai_outputs`、`role_play_sessions`、
+`role_play_memories`、`role_play_roles`、`feedback`。表已存在就跳过，不会动已有数据。
 **没建表的话注册登录会直接报错**，这是最容易漏的一步。
 
 ### 第四步：智能客服入库（第一次使用前跑一次）
@@ -577,8 +579,8 @@ A：可以，设环境变量 `PORT` 即可（本地或容器都适用），不�
 前端请求后端用的是相对路径（同源），不写死端口，所以不用改。
 
 **Q：需要注册才能用吗？**
-A：需要。打开 <https://ctos2.cn> 先注册一个账号（邮箱 + 密码），
-登录后才能用三个模块。每个账号是一个独立租户，看不到别人的会话记录。
+A：不需要。打开 <https://ctos2.cn> 会先自动进入一个**访客空间**（独立租户，记录只存在当前浏览器），
+想跨设备保留记录再点侧栏底部「账号登录」注册或登录。每个账号是一个独立租户，看不到别人的会话记录。
 
 **Q：智能客服为什么不跟我闲聊？**
 A：这是刻意设计的。智能客服的职责是「查资料回答问题」，不是聊天。
@@ -622,7 +624,7 @@ A：因为向量检索本质是「找最接近的几条」，无论问题是否�
 这是正常现象。真正决定「能不能答」的是提示词的约束，不是检索有没有返回。
 
 **Q：可以在前端页面上用智能客服吗？**
-A：可以。三个模块都已接入页面，点顶栏的「智能客服」即可。
+A：可以。四个能力都已接入页面，点顶栏的「智能客服」即可。
 
 ### 关于排错
 
@@ -736,8 +738,10 @@ bcrypt
 | 数据 | 位置 | 说明 |
 | --- | --- | --- |
 | 租户 / 账号 | PostgreSQL 表 `tenants` / `users` | 一个注册用户 = 一个租户，密码存 bcrypt 哈希 |
-| 闲聊会话 | PostgreSQL 表 `sessions` / `messages` | 会话与消息 |
+| 闲聊 / 角色扮演会话 | PostgreSQL 表 `sessions` / `messages` | 会话与消息，两种玩法共用 |
+| 角色扮演 | `role_play_sessions` / `role_play_memories` / `role_play_roles` | 会话用的是哪个角色、角色记得什么、自己写的角色 |
 | 出行记录 | `trip_chats` / `trip_sessions` / `trip_user_inputs` / `trip_ai_outputs` | 一轮出行 = 主表一行 + 子表各一行 |
+| 用户反馈 | PostgreSQL 表 `feedback` | 评价 + 文字，只给维护者看 |
 | 向量库 | `modules/customer/data/chroma/` | Chroma 落盘的向量数据，Docker 里是挂载进去的目录 |
 | 知识库原文 | `modules/customer/data/docs/` | Markdown 文档 |
 | 人工确认的暂停现场 | `databases/checkpoints/` | 路线决策 / 旅游攻略停下来等你选择时的现场，Docker 里也是挂载进去的目录 |
@@ -878,7 +882,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 ## 九、数据库表结构
 
-项目使用 PostgreSQL 数据库：`ctos2`，共 8 张表。
+项目使用 PostgreSQL 数据库：`ctos2`，共 12 张表。
 所有模块共用同一个数据库、同一套连接函数（`core/db.py` 的 `get_conn()` / `query()` / `execute()`）。
 
 建表入口是 `core/db.py` 的 `create_all_tables()`，它会先建全局身份表 `tenants`，
@@ -918,7 +922,8 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 | | `content` | 消息正文 |
 | | `created_at` | 创建时间 |
 
-`messages.session_id` 上有索引 `ix_messages_session_id`。
+索引：`ix_sessions_tenant`（`tenant_id, updated_at DESC`）、`ix_messages_session`（`session_id`）、
+`ix_messages_tenant`（`tenant_id`）。
 
 ### 9.2 出行：`trip_sessions` / `trip_user_inputs` / `trip_ai_outputs`
 
@@ -940,7 +945,45 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 存一轮出行记录 = 主表插一行 + 两个子表各插一行，在同一个事务里完成，
 要么全成、要么全不成，不会出现「有主表没子表」的半截数据。
 
-### 9.3 智能客服
+### 9.3 角色扮演：`role_play_sessions` / `role_play_memories` / `role_play_roles`
+
+角色扮演**没有自己的图和自己的会话表**，它复用 9.1 的 `sessions` / `messages`，
+另外用这三张表记录角色相关的东西：
+
+| 表 | 字段 | 说明 |
+| --- | --- | --- |
+| `role_play_sessions` | `session_id` | **主键，同时外键 → `sessions.id`**，级联删除 |
+| | `tenant_id` / `role_id` / `created_at` | 哪个会话用的是哪个角色 |
+| `role_play_memories` | `tenant_id` + `role_id` | 复合主键，**一个角色一份记忆**（不按会话） |
+| | `summary` | 摘要正文，200 字以内，覆盖式更新 |
+| | `rounds` | 已经聊了几轮，每满 6 轮触发一次整理 |
+| | `updated_at` | 最近整理时间 |
+| `role_play_roles` | `id` | 主键，自增；对外 id 是 `custom_<id>` |
+| | `tenant_id` | 所属租户，按租户隔离 |
+| | `name` / `emoji` / `tagline` | 名字、头像 emoji、一句话标签 |
+| | `age` / `gender` / `personality` / `deeds` / `background` / `extra` | 用户填写的档案 |
+| | `speaking` / `boundaries` / `opening` | 说话方式、不会做什么、开场白 |
+| | `source` | `custom`（自己写的）/ `ai_search`（AI 查出来的） |
+| | `created_at` | 创建时间 |
+
+**预设角色不在这三张表里**，它们写在模块代码 `modules/roleplay/presets.py` 中，不吃数据库。
+
+删自定义角色时会在一个事务里删掉：它的所有会话（`sessions` 级联带走 `messages`）、
+它的记忆（`role_play_memories`）、以及角色本身（`role_play_roles`）。
+
+### 9.4 反馈：`feedback`
+
+| 字段 | 说明 |
+| --- | --- |
+| `content` / `contact` | 反馈正文、联系方式；都用空串而不是 NULL |
+| `rating` | 存中文原文（很满意 / 满意 / 一般 / 不太满意），不存 1~5 的数字 |
+| `page` | 在哪个页面提交的：`chat` / `trip` / `customer` / `login` |
+| `tenant_id` | 可以为空——没登录也能提交，登录了就顺带记下是谁 |
+| `user_agent` / `created_at` | 排查用信息、提交时间 |
+
+反馈表独立存在，**不关联任何其他表**，也不对外提供查询接口（只给维护者用命令行看）。
+
+### 9.5 智能客服
 
 客服模块**不写数据库**，一问一答不留记录。它的「知识」只落在本地 Chroma 目录里。
 

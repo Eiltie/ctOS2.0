@@ -13,26 +13,35 @@
 static/
 ├── index.html            ← 页面结构（只有 DOM，数据全部由 JS 渲染）
 ├── README.md             ← 本说明
+├── image/
+│   └── CTOS.webp         ← 网站图标
 ├── css/
 │   ├── style.css         ← 模板原样式：光标光晕、呼吸滚动条、全息光幕、扫描打字机……
 │   │                        （与设计模板逐字一致，不在这里改）
-│   ├── modules.css       ← 模板之外新增的类：出行四段卡片、客服气泡、多选操作条等
+│   ├── modules.css       ← 模板之外新增的类：出行四段卡片、客服气泡、多选操作条、
+│   │                        反馈弹窗、公告弹窗，末尾是手机端适配
 │   └── theme.css         ← 三套主题：简洁现代 / 街头黑客 / 赛博暗色
 └── js/
     ├── common/           ← 跨模块公用，与任何业务无关
     │   ├── config.js     ← API 地址、视图顺序、状态标签、打字机参数
     │   ├── utils.js      ← $、esc、now、scrollDown、getJson、bindEnter
+    │   ├── announcement.js ← 更新公告（GET /notice + 记录看过的版本）
+    │   ├── auth.js       ← token 存取、访客自动登录、登录弹层、带认证的 fetch
     │   ├── abort.js      ← 请求中断控制（同一时刻只跑一个流）
     │   ├── sse.js        ← SSE 事件解析器
     │   ├── typer.js      ← 打字机渲染
     │   ├── selection.js  ← 列表多选删除（闲聊和出行共用）
     │   ├── sticky.js     ← 吸顶高度同步
     │   ├── aura.js       ← 光标光晕特效
+    │   ├── feedback.js   ← 反馈弹窗（POST /feedback）
     │   └── theme.js      ← 主题切换 + localStorage 记忆
-    ├── app.js            ← 闲聊：会话列表 + 聊天区 + 视图切换 + 启动
-    ├── trip.js           ← 智能出行：四段卡片、进度条、出行记录
-    └── customer.js       ← 智能客服：一问一答
+    ├── app.js            ← 闲聊 + 角色扮演：会话列表、聊天区、角色选择/创建/记忆、视图切换、启动
+    ├── trip.js           ← 智能出行：四段卡片、进度条、出行记录、人工确认面板
+    └── customer.js       ← 智能客服：一问一答（最近 3 轮上下文只放内存）
 ```
+
+**行数参考**（超过 500 行就该考虑拆）：`modules.css` 2593、`theme.css` 1643、`trip.js` 1489、
+`app.js` 1376、`customer.js` 197、`auth.js` 257、`index.html` 337。
 
 ## 主题切换
 
@@ -56,15 +65,18 @@ static/
 <!-- 1. common/ 里都是无状态工具，最先加载 -->
 <script src="/static/js/common/config.js"></script>
 <script src="/static/js/common/utils.js"></script>
+<script src="/static/js/common/announcement.js"></script>
+<script src="/static/js/common/auth.js"></script>
 <script src="/static/js/common/abort.js"></script>
 <script src="/static/js/common/sse.js"></script>
 <script src="/static/js/common/typer.js"></script>
 <script src="/static/js/common/selection.js"></script>
 <script src="/static/js/common/sticky.js"></script>
 <script src="/static/js/common/aura.js"></script>
+<script src="/static/js/common/feedback.js"></script>
 <script src="/static/js/common/theme.js"></script>
 
-<!-- 2. app.js 定义全局 state 和闲聊逻辑 -->
+<!-- 2. app.js 定义全局 state 和闲聊 / 角色扮演逻辑 -->
 <script src="/static/js/app.js"></script>
 
 <!-- 3. 两个模块依赖 app.js 的 state 和 common/ 的工具 -->
@@ -78,21 +90,27 @@ static/
 `common/config.js` 必须排第一：`utils.js` 里的 `getJson()` 要用 `API.base`，
 `selection.js` 里的 `historySelectable()` 要用 `state.view`（后者在 app.js 定义，运行时才读，没问题）。
 
+`auth.js` 和 `feedback.js` 都用到 `utils.js` 的 `$()`，所以必须排在 `utils.js` 后面。
+`announcement.js` 用到 `getJson()`，同样要在 `utils.js` 之后。
+
 ## 每个文件负责什么
 
 | 文件 | 职责 | 想改什么来这里 |
 | --- | --- | --- |
 | `common/config.js` | 部署地址、视图列表、状态文案 | 换后端地址、改输入框提示 |
 | `common/utils.js` | 转义、时间、滚动、请求封装 | 加通用小工具 |
+| `common/announcement.js` | 更新公告弹窗 | 改公告交互（内容在 `config/notice.json`） |
+| `common/auth.js` | token、访客登录、登录弹层 | 登录态、访客逻辑 |
 | `common/abort.js` | 中断上一个流 | 调并发行为 |
 | `common/sse.js` | 解析 `data: {...}` | 后端换事件格式 |
 | `common/typer.js` | 逐字渲染 | 调打字节奏（`config.js` 里的 CPS） |
 | `common/selection.js` | 多选删除 | 改勾选交互 |
 | `common/sticky.js` | 吸顶高度 | 出行页骨架高度错位 |
 | `common/aura.js` | 鼠标光晕 | 改特效 |
+| `common/feedback.js` | 反馈弹窗 | 改反馈表单 |
 | `common/theme.js` | 主题切换 + 本地记忆 | 加主题、改默认主题 |
-| `app.js` | 闲聊 + 视图切换 + 启动 | 闲聊逻辑、Tab 切换 |
-| `trip.js` | 出行 | 四段卡片、进度条、出行记录 |
+| `app.js` | 闲聊 + 角色扮演 + 视图切换 + 启动 | 闲聊逻辑、角色玩法、Tab 切换 |
+| `trip.js` | 出行 | 四段卡片、进度条、出行记录、人工确认 |
 | `customer.js` | 客服 | 问答交互 |
 
 
@@ -103,23 +121,70 @@ static/
 
 | 区域 | 数据来源 |
 | --- | --- |
-| 左侧「会话记录」（闲聊） | `GET /sessions`，消息按需 `GET /sessions/{id}/messages` |
+| 左侧「会话记录」（闲聊 + 角色） | `GET /sessions`（每条带 `role_id` 区分是不是角色会话），消息按需 `GET /sessions/{id}/messages` |
 | 左侧「会话记录」（出行） | `GET /trip/list`，点开时 `GET /trip/{id}` 还原四段卡片 |
 | 左侧（智能客服） | 客服一问一答不落库，这里只放一句说明 |
 | 对话区 | `POST /chat` 的流式正文 |
+| 角色列表 / 角色档案 | `GET /roleplay/roles`、`GET /roleplay/roles/{id}` |
+| 角色记忆 | `GET /roleplay/memory/{role_id}` |
 | 出行四段卡片 | `POST /trip/chat` 的 SSE 事件 |
 | 客服回答 | `POST /customer/chat` 的 SSE 事件 |
+| 更新公告 | `GET /notice`（后端读 `config/notice.json`） |
 
 页面上唯一保留的固定文案是闲聊的空状态欢迎语（「你好。ctOS 在线…」）、出行空状态里的
 三张示例卡、快捷指令胶囊，以及「新会话」按钮——它们都是引导用的、点击即发请求，不是模拟数据。
 
 ## 接口约定
 
+### 三个页面的主接口
+
 | 模块 | 请求 | 响应 | 前端文件 |
 | --- | --- | --- | --- |
-| 闲聊 | `POST /chat` `{ messages, session_id? }` | `text/plain` 流式正文 + 响应头 `X-Session-Id` | `app.js` |
-| 智能出行 | `POST /trip/chat` `{ query, history }` | `text/event-stream`（SSE） | `trip.js` |
-| 智能客服 | `POST /customer/chat` `{ query }` | `text/event-stream`（SSE） | `customer.js` |
+| 闲聊 / 角色扮演 | `POST /chat` `{ messages, session_id?, role_id? }` | `text/plain` 流式正文 + 响应头 `X-Session-Id` | `app.js` |
+| 智能出行 | `POST /trip/chat` `{ query, history, chat_id? }` | `text/event-stream`（SSE） | `trip.js` |
+| 智能客服 | `POST /customer/chat` `{ query, history }` | `text/event-stream`（SSE） | `customer.js` |
+
+`POST /chat` 带 `role_id` 就是角色扮演，不带就是普通闲聊，两条路共用会话和消息表。
+
+### 会话与认证
+
+| 请求 | 用途 |
+| --- | --- |
+| `GET /sessions` | 闲聊 + 角色会话列表（每条带 `role_id`） |
+| `GET /sessions/{id}/messages` | 拉某个会话的历史消息 |
+| `DELETE /sessions/{id}` | 删一个会话（消息级联删） |
+| `GET /trip/list`、`GET /trip/{id}`、`DELETE /trip/{id}`、`POST /trip/delete-batch` | 出行记录的增删查 |
+| `POST /auth/register`、`POST /auth/login`、`GET /auth/me` | 注册 / 登录 / 校验 token |
+| `POST /auth/trial` | 访客免注册进站（前端首次打开自动调用） |
+| `POST /feedback`、`GET /notice` | 反馈 / 更新公告 |
+
+**认证方式**：除 `/auth/*`、`/health`、`/notice`、`/feedback` 和静态资源外，所有接口都要带
+`Authorization: Bearer <token>`。token 存在 `localStorage` 的 `ctos_token` 里，由 `auth.js` 统一附加。
+
+### 出行的人工确认（暂停 → 选 → 继续）
+
+出行会在中途停下来等用户选择，后端为每一次暂停生成一个 `thread_id`，前端记住它再回来续：
+
+| 场景 | 续跑接口 | 请求体 |
+| --- | --- | --- |
+| 路线：候选出来等你选方案 | `POST /trip/route/choose` | `{ thread_id, choice_id, chat_id? }` |
+| 攻略：景点清单出来等你勾选 | `POST /trip/guide/spots` | `{ thread_id, removed: [], added }` |
+| 攻略：跑完问要不要查真实路线 | `POST /trip/guide/route` | `{ thread_id, want_route, query, city, chat_id? }` |
+
+三个都用 `POST /trip/chat` 同一套 SSE 事件格式返回，前端复用同一个解析器。
+
+### 角色扮演
+
+| 请求 | 用途 |
+| --- | --- |
+| `GET /roleplay/roles` | 列出预设 + 自定义角色 |
+| `GET /roleplay/roles/{id}` | 角色完整档案（聊天顶部「查看档案」） |
+| `POST /roleplay/roles` | 保存自己写的 / AI 查出来的角色 |
+| `POST /roleplay/roles/search` | AI 帮我查，生成草稿（不存库） |
+| `DELETE /roleplay/roles/{id}` | 删除自定义角色（预设角色不能删） |
+| `POST /roleplay/start` | 选一个角色开始：建会话、绑角色、存开场白 |
+| `GET /roleplay/session/{id}` | 刷新页面后判断这个会话是哪个角色 |
+| `GET /roleplay/memory/{role_id}`、`POST /roleplay/memory/clear` | 查看 / 清空角色记忆 |
 
 后端地址写在 `common/config.js` 顶部的 `API.base` 里，默认是空字符串——
 也就是**同源访问**，前端用相对路径请求，所以**本地和线上（ctos2.cn）用同一份前端代码，不需要改任何地址**。换端口时前端也不用改。
@@ -136,14 +201,25 @@ static/
 
 | kind | 字段 | 前端处理 |
 | --- | --- | --- |
-| `START` | （出行：`query`） | 出行：记下合并后的需求供下一轮用；客服：占位符已经显示 |
+| `START` | `mode`? + `query`? | 出行：记下模式（`TRAVEL` / `ROUTE`）和合并后的需求；客服：占位符已经显示 |
+| `SAY` | `text` | 一句提示（例如「收到，正在理解你的需求…」），不占段落 |
 | `STEP` | `key` + `text` | 该段卡片显示「正在查询天气…」之类的进度提示 |
 | `TOKEN` | `key`? + `text` | 逐字追加到对应段落（出行带 `key`，客服不带） |
 | `DONE` | `key`? + `text` | 用整段文本定稿，纠正逐字拼接的偏差 |
-| `CHAT` | `message` | 出行判定为闲聊，直接回一句 |
+| `CHAT` | `message` + `chat_id` | 出行判定为闲聊（含只问天气），直接回一句 |
+| `ASK_PLACE` | 地名候选 | 地点有歧义时停下来让你挑一个 |
+| `ASK` | 候选路线 | 路线决策：候选出来了，等你选一条 |
+| `ASK_SPOTS` | 景点清单 | 攻略：清单出来了，等你勾选 / 补充 |
+| `ASK_ROUTE` | — | 攻略跑完，问要不要再查真实路线 |
+| `SAVED` | `chat_id` | 这一轮已入库，附带出行会话 id（前端据此拼进左侧列表） |
 | `ERROR` | `message` | 显示错误卡片 |
 
-出行的 `key` 与四段卡片一一对应：`weather` → `spots` → `itinerary` → `route_plan`。
+出行的 `key` 与卡片一一对应，两种模式各一套：
+
+| 模式 | 四步（也对应四张卡片） |
+| --- | --- |
+| `TRAVEL` 攻略 | `weather` → `spots` → `itinerary` → `route_plan`（答完还可追加一段 `guide_route` 真实路线） |
+| `ROUTE` 路线决策 | `route_need` → `route_compare` → `route_decision` → `route_tips` |
 
 解析器同时兼容两种 SSE 写法：当前的 `data: {json}`（按 `kind` 分派），以及
 `event: weather` + `data: ...`（event 名会被当作 kind；纯文本 `data` 则当作该段的增量文本）。
@@ -205,15 +281,18 @@ static/
 ## 侧边栏与「新会话」
 
 - 会话列表从 `GET /sessions` 渲染，点击切换会按需拉该会话的消息；垃圾桶按钮调用
-  `DELETE /sessions/{id}`（出行记录对应 `DELETE /trip/{id}`）。
+  `DELETE /sessions/{id}`（出行记录对应 `DELETE /trip/{id}`，多选删除走 `POST /trip/delete-batch`）。
+- **角色会话和普通会话分开列**：`/sessions` 每条带 `role_id`，有值就归到左侧「角色扮演」菜单下，
+  `null` 就是普通聊天。刷新页面后 `GET /roleplay/session/{id}` 会告诉前端这个会话该用哪个角色打开。
 - 「新会话」保留模板的全息光幕动画：光幕扫下 → 0.3 秒后清空对话区 → 开一个待入库的新对话，
   下一条消息由后端建会话并通过 `X-Session-Id` 回传 id。
   出行视图下「新会话」= 回到空状态引导并清掉多轮上下文；客服视图下 = 清空回到引导页。
 
-## 三个模块的界面切换
+## 三个页面标签的切换
 
 顶栏的 `nav-tab` 直接调用 `switchView('chat' | 'trip' | 'customer')`，
 主视图、右上状态标签、左侧列表、底部端点标签、输入框提示语会跟着切换。
+角色扮演不是独立标签，它挂在「闲聊」里，从侧栏的「角色扮演」菜单进入。
 
 ## 后端怎么提供这些静态文件
 
@@ -223,12 +302,22 @@ static/
 from fastapi.staticfiles import StaticFiles
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# NoCacheStaticFiles 是 StaticFiles 的子类，只多做一件事：
+# 给每个响应加 Cache-Control: no-cache, must-revalidate
+app.mount("/static", NoCacheStaticFiles(directory=STATIC_DIR), name="static")
 
 @app.get("/", include_in_schema=False)
 async def index():
-    return FileResponse(STATIC_DIR / "index.html")
+    return FileResponse(
+        STATIC_DIR / "index.html",
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
 ```
+
+**为什么不用默认的 `StaticFiles`**：Cloudflare 会把 `/static/*.css` 缓存 4 小时，
+结果「代码改了、源站是新的，但用户看到的还是旧样式」。`no-cache` 不是不缓存，
+而是**用之前必须先问源站**——配合 ETag，没变时回 304，几乎不耗流量。
 
 `mount` 挂在 `/static` 前缀下，与其他路由（`/chat`、`/sessions`、`/trip/...`、`/customer/...`）不冲突。
 根路径 `/` 直接返回 `index.html`，所以访问 <http://127.0.0.1:8080/> 就是本地页面，
@@ -259,5 +348,6 @@ state.view             // 当前在哪一屏
 
 1. 打开 <https://ctos2.cn/>，按 Ctrl+F5 强制刷新
 2. **重新登录一次**（token 存在浏览器里，换域名或换环境不会带过去）
-3. 三个模块各点一遍：闲聊发一句、出行问「杭州玩 3 天」、客服问「端口怎么改」
+3. 三个页面标签各点一遍：闲聊发一句、出行问「杭州玩 3 天」、客服问「端口怎么改」；
+   再从侧栏进「角色扮演」开一个角色聊两句
 
