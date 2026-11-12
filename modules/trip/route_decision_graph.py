@@ -23,6 +23,7 @@ from modules.trip.route_decision_prompts import (
     ROUTE_TIPS_PROMPT,
 )
 from modules.trip.route_decision_tools import (
+    choice_to_card,
     choose_recommended,
     collect_route_choices,
     format_choice_label,
@@ -129,11 +130,14 @@ def make_choice_payload(state: RouteState) -> dict:
 
     options = []
     for index, choice in enumerate(choices):
+        card = choice_to_card(choice)
         options.append({
             "id": str(index + 1),
             "name": get_choice_name(index),
             "label": format_choice_label(choice),
             "note": choice.get("detail", ""),
+            "card": card,
+            "recommended": index == recommended,
         })
 
     return {

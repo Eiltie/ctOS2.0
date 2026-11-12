@@ -672,10 +672,261 @@ function createFlow(target){
       const part = ensureBlock(key);
       part.typer.cut();
       part.typer.renderFinal(text);
+
+      // 行程和景点写完以后，把长文本整理成按天 / 按条的结构，方便阅读
+      if (typeof tripDecorateBlock === "function"){
+        tripDecorateBlock(key, part.body, text);
+      }
+
       if (part.idx >= 0) tripStepSet(part.idx, "done");
       tripScroll();
     }
   };
+}
+
+
+// ===== 长文本整理成结构 =====
+// 模型返回的是大段文字，直接铺出来很难读。
+// 行程按天拆成卡片，景点按编号拆成小卡，其余保持原样。
+
+// 把「Day 1｜11月16日｜阴 13~20°C」这种行当成分隔
+const TRIP_DAY_RE = /^Day\s*\d+.*$/im;
+const TRIP_SPOT_RE = /^\s*\d+[.、]\s*\S+/m;
+
+function tripDecorateBlock(key, body, text){
+  if (!body || !text) return;
+
+  try{
+    if (key === "itinerary" && TRIP_DAY_RE.test(text)){
+      body.classList.add("is-structured");
+      body.innerHTML = "";
+      body.appendChild(buildDayCards(text));
+      return;
+    }
+
+    if (key === "spots" && TRIP_SPOT_RE.test(text)){
+      body.classList.add("is-structured");
+      body.innerHTML = "";
+      body.appendChild(buildSpotCards(text));
+    }
+  }catch(err){
+    // 结构没解析成功就保持原来的文字，不要让内容消失
+    console.warn("整理输出失败，保持原文", err);
+    body.classList.remove("is-structured");
+    body.textContent = text;
+  }
+}
+
+
+// 行程：按 Day 拆成一张张卡片
+function buildDayCards(text){
+  const wrap = document.createElement("div");
+  wrap.className = "trip-days";
+
+  const lines = text.split("\n");
+  const days = [];
+  let current = null;
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+
+    if (/^Day\s*\d+/i.test(trimmed)){
+      const parts = trimmed.split(/[｜|]/).map((x) => x.trim());
+      current = { no: parts[0] || "", date: parts[1] || "", weather: parts[2] || "", rows: [] };
+      days.push(current);
+      return;
+    }
+
+    if (!current) return;
+    if (!trimmed) return;
+
+    // 「上午：西湖（约 3 小时）」这种行
+    const row = trimmed.match(/^(上午|中午|下午|晚上|早上|白天)\s*[：:]\s*(.*)$/);
+    if (row){
+      let rest = row[2];
+
+      // 模型有时会把整段总结塞进最后一行，把【…】开头的部分摘出来当说明
+      const extraIndex = rest.search(/【[^】]{2,}】/);
+      if (extraIndex > 20){
+        const extra = rest.slice(extraIndex).trim();
+        rest = rest.slice(0, extraIndex).trim();
+        current.note = current.note ? current.note + " " + extra : extra;
+      }
+
+      const durMatch = rest.match(/（约?\s*[^（）]{1,12}?）$/);
+      let place = durMatch ? rest.slice(0, rest.length - durMatch[0].length).trim() : rest;
+      let dur = durMatch ? durMatch[0].replace(/[（）]/g, "") : "";
+
+      // 单行太长说明混进了总结，把多出来的部分移到说明里
+      if (place.length > 40){
+        const cut = place.search(/[【。]/);
+        if (cut > 6){
+          const extra = place.slice(cut).trim();
+          place = place.slice(0, cut).trim();
+          current.note = current.note ? current.note + " " + extra : extra;
+        }
+      }
+
+      current.rows.push({ slot: row[1], place, dur });
+      return;
+    }
+
+    // 「今日提示：……」这类
+    if (/^今日提示/.test(trimmed)){
+      current.note = trimmed.replace(/^今日提示\s*[：:]\s*/, "");
+      return;
+    }
+
+    // 没写时段、又特别长的行，多半是模型把总结塞进来了，挪到当日说明里
+    if (current.rows.length && trimmed.length > 40){
+      current.note = current.note ? current.note + " " + trimmed : trimmed;
+      return;
+    }
+
+    if (current.rows.length) {
+      const last = current.rows[current.rows.length - 1];
+      last.place += " " + trimmed;
+    }
+  });
+
+  const usable = days.filter((d) => d.rows.length);
+  if (!usable.length) throw new Error("没有解析到每日安排");
+
+  usable.forEach((day, index) => {
+    const card = document.createElement("div");
+    card.className = "trip-day";
+
+    const head = document.createElement("div");
+    head.className = "trip-day-head";
+
+    const no = document.createElement("span");
+    no.className = "trip-day-no";
+    no.textContent = "D" + (index + 1);
+    head.appendChild(no);
+
+    if (day.date){
+      const date = document.createElement("span");
+      date.className = "trip-day-date";
+      date.textContent = day.date;
+      head.appendChild(date);
+    }
+
+    if (day.weather){
+      const weather = document.createElement("span");
+      weather.className = "trip-day-weather";
+      weather.textContent = day.weather;
+      head.appendChild(weather);
+    }
+
+    card.appendChild(head);
+
+    const rows = document.createElement("div");
+    rows.className = "trip-day-rows";
+
+    day.rows.forEach((item) => {
+      const row = document.createElement("div");
+      row.className = "trip-day-row";
+
+      const slot = document.createElement("span");
+      slot.className = "trip-day-slot";
+      slot.textContent = item.slot;
+      row.appendChild(slot);
+
+      const place = document.createElement("span");
+      place.className = "trip-day-place";
+      place.textContent = item.place;
+      row.appendChild(place);
+
+      if (item.dur){
+        const dur = document.createElement("span");
+        dur.className = "trip-day-dur";
+        dur.textContent = item.dur;
+        row.appendChild(dur);
+      }
+
+      rows.appendChild(row);
+    });
+
+    card.appendChild(rows);
+
+    if (day.note){
+      const note = document.createElement("div");
+      note.className = "trip-day-note";
+      note.textContent = day.note;
+      card.appendChild(note);
+    }
+
+    wrap.appendChild(card);
+  });
+
+  return wrap;
+}
+
+
+// 景点：按编号拆成小卡
+function buildSpotCards(text){
+  const wrap = document.createElement("div");
+  wrap.className = "trip-spots";
+
+  const chunks = text.split(/\n(?=\s*\d+[.、]\s)/);
+
+  const items = [];
+  chunks.forEach((chunk) => {
+    const match = chunk.match(/^\s*(\d+)[.、]\s*(.+)$/s);
+    if (!match) return;
+
+    const rest = match[2].trim();
+    const firstLineEnd = rest.indexOf("\n");
+    const titleLine = firstLineEnd >= 0 ? rest.slice(0, firstLineEnd).trim() : rest;
+    const detail = firstLineEnd >= 0 ? rest.slice(firstLineEnd).trim() : "";
+
+    const nameParts = titleLine.split(/\s*——\s*/);
+    items.push({
+      no: match[1],
+      name: nameParts[0].trim(),
+      tagline: nameParts[1] ? nameParts[1].trim() : "",
+      detail,
+    });
+  });
+
+  if (!items.length) throw new Error("没有解析到景点");
+
+  items.forEach((item) => {
+    const card = document.createElement("div");
+    card.className = "trip-spot";
+
+    const no = document.createElement("span");
+    no.className = "trip-spot-no";
+    no.textContent = item.no.padStart(2, "0");
+    card.appendChild(no);
+
+    const body = document.createElement("div");
+    body.className = "trip-spot-body";
+
+    const name = document.createElement("div");
+    name.className = "trip-spot-name";
+    name.textContent = item.name;
+    body.appendChild(name);
+
+    if (item.tagline){
+      const tagline = document.createElement("div");
+      tagline.className = "trip-spot-tagline";
+      tagline.textContent = item.tagline;
+      body.appendChild(tagline);
+    }
+
+    if (item.detail){
+      const detail = document.createElement("div");
+      detail.className = "trip-spot-detail";
+      detail.textContent = item.detail;
+      body.appendChild(detail);
+    }
+
+    card.appendChild(body);
+    wrap.appendChild(card);
+  });
+
+  return wrap;
 }
 
 
@@ -1285,49 +1536,108 @@ async function resumeInTurn(turn, text){
 
 function showRouteChoices(turn, flow, event){
   const panel = document.createElement("div");
-  panel.className = "route-ask";
+  panel.className = "route-ask route-cards-ask";
+
+  const head = document.createElement("div");
+  head.className = "rc-head";
 
   const question = document.createElement("div");
   question.className = "route-ask-question";
   question.textContent = event.question || "你想按哪条路线走？";
-  panel.appendChild(question);
+  head.appendChild(question);
 
   if (event.recommended_text){
     const recommend = document.createElement("div");
     recommend.className = "route-ask-recommend";
     recommend.textContent = event.recommended_text;
-    panel.appendChild(recommend);
+    head.appendChild(recommend);
   }
 
+  panel.appendChild(head);
+
   const optionsBox = document.createElement("div");
-  optionsBox.className = "route-options";
+  optionsBox.className = "route-card-grid";
 
-  (event.options || []).forEach((option) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "route-option" +
-      (option.id === event.recommended_id ? " is-recommended" : "");
+  (event.options || []).forEach((option, index) => {
+    const best = option.id === event.recommended_id;
+    const card = option.card || {};
+    const item = document.createElement("div");
+    item.className = "route-card" + (best ? " is-best" : "");
 
-    const name = document.createElement("span");
-    name.className = "ro-name";
-    name.textContent = option.name || "";
+    const top = document.createElement("div");
+    top.className = "rc-top";
 
-    const label = document.createElement("span");
-    label.className = "ro-label";
-    label.textContent = option.label || "";
+    const no = document.createElement("span");
+    no.className = "rc-no";
+    no.textContent = String(index + 1).padStart(2, "0");
+    top.appendChild(no);
 
-    button.appendChild(name);
-    button.appendChild(label);
-
-    if (option.note){
-      const note = document.createElement("span");
-      note.className = "ro-note";
-      note.textContent = option.note;
-      button.appendChild(note);
+    if (best){
+      const badge = document.createElement("span");
+      badge.className = "rc-badge";
+      badge.textContent = "系统推荐";
+      top.appendChild(badge);
     }
 
-    button.onclick = () => chooseRoute(event.thread_id, option.id, turn, flow, panel);
-    optionsBox.appendChild(button);
+    item.appendChild(top);
+
+    const title = document.createElement("div");
+    title.className = "rc-title";
+    title.textContent = card.title || option.name || "方案";
+    item.appendChild(title);
+
+    if (card.desc){
+      const desc = document.createElement("div");
+      desc.className = "rc-desc";
+      desc.textContent = card.desc;
+      item.appendChild(desc);
+    }
+
+    const metric = document.createElement("div");
+    metric.className = "rc-metric";
+
+    const big = document.createElement("span");
+    big.className = "rc-big";
+    big.textContent = String(card.minutes ?? "—");
+    metric.appendChild(big);
+
+    const unit = document.createElement("span");
+    unit.className = "rc-unit";
+    unit.textContent = "分钟";
+    metric.appendChild(unit);
+
+    if (card.cost !== undefined && card.cost !== null){
+      const money = document.createElement("span");
+      money.className = "rc-money";
+      money.textContent = `约 ${card.cost} 元`;
+      metric.appendChild(money);
+    }
+
+    item.appendChild(metric);
+
+    const facts = [];
+    if (card.facts && card.facts.length) facts.push(card.facts.join(" · "));
+    if (card.lines) facts.push(card.lines);
+
+    if (facts.length){
+      const factBox = document.createElement("div");
+      factBox.className = "rc-facts";
+      facts.forEach((line) => {
+        const row = document.createElement("div");
+        row.textContent = line;
+        factBox.appendChild(row);
+      });
+      item.appendChild(factBox);
+    }
+
+    const pick = document.createElement("button");
+    pick.type = "button";
+    pick.className = "rc-btn";
+    pick.textContent = best ? "就选这条" : "选这个";
+    pick.onclick = () => chooseRoute(event.thread_id, option.id, turn, flow, panel);
+    item.appendChild(pick);
+
+    optionsBox.appendChild(item);
   });
 
   panel.appendChild(optionsBox);

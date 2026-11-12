@@ -691,6 +691,43 @@ def format_choice_text(choices):
     return "\n".join(lines).strip()
 
 
+def choice_to_card(choice):
+    """把一条候选整理成卡片用的字段，前端直接摆出来就行。"""
+    mode = choice["mode"]
+
+    if mode == "drive":
+        title, desc = "打车", "点到点直达 · 不用换乘"
+    elif mode == "bus":
+        title, desc = "公交 / 地铁", "最省钱 · 不受路况影响"
+    elif mode == "walk":
+        title, desc = "步行", "适合短途 · 不堵车"
+    else:
+        title, desc = "骑行", "灵活 · 不堵车"
+
+    facts = []
+    if mode in ("drive", "bus"):
+        facts.append(f"步行 {choice['walk_km']:.1f} 公里")
+    if mode == "bus" and choice["transfer_count"] > 0:
+        facts.append(f"换乘 {choice['transfer_count']} 次")
+    if mode == "drive":
+        facts.append(f"红绿灯 {choice['traffic_lights']} 个")
+    if choice.get("traffic_text"):
+        facts.append(choice["traffic_text"])
+
+    lines = choice.get("lines") or []
+
+    return {
+        "mode": mode,
+        "title": title,
+        "desc": desc,
+        "minutes": choice["minutes"],
+        "cost": round(choice["cost_yuan"]),
+        "distance": round(choice["distance_km"], 1),
+        "facts": facts,
+        "lines": " → ".join(lines) if lines else "",
+    }
+
+
 def format_choice_label(choice):
     """给前端按钮用的短标签，一行能看完。"""
     if choice["mode"] == "drive":
