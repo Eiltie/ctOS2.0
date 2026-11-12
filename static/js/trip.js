@@ -1715,8 +1715,12 @@ async function chooseRoute(threadId, choiceId, turn, flow, panel){
 
   tripBusy = true;
   tripClockResume();
-  panel.classList.add("is-locked");
-  panel.querySelectorAll("button").forEach((button) => { button.disabled = true; });
+
+  // 点完立刻收起面板和提示，别让它一直挡在输出前面；失败再放回来
+  panel.classList.add("is-submitted");
+  const oldHint = turn.querySelector(".route-ask-hint");
+  if (oldHint) oldHint.remove();
+
   setTripSendState("stop");
 
   const compareIndex = tripModeConfig().steps.indexOf("route_compare");
@@ -1809,6 +1813,7 @@ async function chooseRoute(threadId, choiceId, turn, flow, panel){
       tripStepsInterrupt();
       flow.finish("已停止，可重新选择", true);
       setTripSendState("send");
+      panel.classList.remove("is-submitted");
       panel.classList.remove("is-locked");
       panel.querySelectorAll("button").forEach((button) => { button.disabled = false; });
       showWaitingHint(turn, "已停止，可以重新选择 ↑");
@@ -1816,7 +1821,8 @@ async function chooseRoute(threadId, choiceId, turn, flow, panel){
       tripStepsInterrupt();
       flow.finish("CTOS路线决策失败", true);
       setTripSendState("send");
-      // 出错时把按钮放开，用户可以再点一次
+      // 出错时把面板和按钮放回来，用户可以再点一次
+      panel.classList.remove("is-submitted");
       panel.classList.remove("is-locked");
       panel.querySelectorAll("button").forEach((button) => { button.disabled = false; });
     }else{
