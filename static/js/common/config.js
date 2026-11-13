@@ -14,9 +14,10 @@ const API = {
 const VIEW_ORDER = ["chat", "trip", "customer"];
 
 // 每个视图右上角的状态标签 + 底部端点 + 输入框提示语
+// 出行页的提示语按模式变（路线 / 攻略），实际由 trip/base.js 的 tripRenderPlaceholder() 覆盖
 const VIEW_STATUS = {
   chat:     { tag: "LANGGRAPH",   endpoint: "POST /chat",          ph: "向 ctOS 发送指令... (Enter 发送)" },
-  trip:     { tag: "TRIP AGENT",  endpoint: "POST /trip/chat",     ph: "告诉我想去哪儿玩..." },
+  trip:     { tag: "TRIP AGENT",  endpoint: "POST /trip/chat",     ph: "说个目的地，或问从哪到哪怎么走..." },
   customer: { tag: "RAG",         endpoint: "POST /customer/chat", ph: "问一个关于本项目的问题..." }
 };
 

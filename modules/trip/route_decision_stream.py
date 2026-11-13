@@ -1,36 +1,41 @@
-"""出行｜路线决策的对外出口
+"""路线规划｜模块对外唯一出口
 
 做什么：解析路线需求 → 查地点和天气 → 跑路线决策图 → 暂停等人选 → 继续写结论 → 存库。
 被谁用：modules/trip/stream.py（开始）和 api/main.py（选完继续）。
 注意：这个文件里的函数都是同步生成器，统一交给 core.sse.stream_from_thread 跑。
+
+和拆分前的区别：
+  需求解析不再依赖统一的意图分流，多轮补充由 need.parse_route_need 的 {history} 接住，
+  所以整条链少了一次模型调用（原来分流合并一次 + 解析一次）。
 """
 
-import json
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date
 
 from langchain_core.messages import AIMessageChunk
 from langgraph.types import Command
 
-from core.llm import get_llm
 from core.sse import sse, stream_from_thread
+from core.tools.suggest import suggest_guide
 from databases.db_trip import save_trip_turn
+from modules.guide.quick import describe_places
+from modules.trip.need import (
+    build_initial_state,
+    check_need,
+    find_places,
+    get_weather_text,
+    parse_route_need,
+)
 from modules.trip.route_decision_graph import (
     ROUTE_SECTION_KEYS,
     ROUTE_TOKEN_KEYS,
     route_checkpointer,
     route_graph,
 )
-from modules.trip.route_decision_prompts import PARSE_ROUTE_NEED_PROMPT
 from modules.trip.route_decision_tools import (
-    find_place,
-    find_place_candidates,
     format_need_text,
     make_route_title,
-    normalize_preference,
-    normalize_want_mode,
 )
-from modules.trip.tools import get_weather
 
 # 路线决策的四步提示语。前端按后端发的 STEP 事件点亮进度条
 ROUTE_STEP_TEXT = {
@@ -48,11 +53,8 @@ ROUTE_NEXT_STEP = {
 # 单个段落逐字推送的上限，防止极端情况下无限推送
 MAX_ROUTE_TOKENS = 50000
 
-# 这些词太笼统，直接查地图会认错地方，先反问用户
-VAGUE_PLACES = {
-    "家", "我家", "学校", "我们学校", "公司", "单位",
-    "这里", "附近", "当前位置", "我这",
-}
+# 这类地名指的是一个区域或一串异地点位，直接取第一个容易指错
+BROAD_PLACE_WORDS = ("长城", "古镇", "老街", "风景区", "公园", "广场")
 
 
 def _step(key):
@@ -76,146 +78,6 @@ def _chat_and_save(message, query, chat_id, tenant_id):
     """把反问当成一条普通回复存下来，并打包成 CHAT 事件。"""
     saved_chat_id = _save(query, {"chat_reply": message}, "CHAT", chat_id, tenant_id)
     return sse({"kind": "CHAT", "message": message, "chat_id": saved_chat_id})
-
-
-def parse_route_need(merged_query):
-    """把合并后的需求解析成路线字段；解析失败返回 None。"""
-    today = date.today()
-    now = datetime.now()
-
-    prompt = (PARSE_ROUTE_NEED_PROMPT
-              .replace("{today}", str(today))
-              .replace("{weekday}", "一二三四五六日"[today.weekday()])
-              .replace("{now}", now.strftime("%Y-%m-%d %H:%M"))
-              .replace("{tomorrow}", str(today + timedelta(days=1)))
-              .replace("{user_query}", merged_query))
-
-    raw = get_llm().with_config(tags=["internal"]).invoke(prompt).content.strip()
-    raw = raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-
-    try:
-        data = json.loads(raw)
-    except (json.JSONDecodeError, AttributeError):
-        return None
-
-    if not isinstance(data, dict):
-        return None
-
-    return {
-        "origin": str(data.get("origin") or "").strip(),
-        "destination": str(data.get("destination") or "").strip(),
-        "city": str(data.get("city") or "").strip(),
-        "departure_time": str(data.get("departure_time") or "").strip(),
-        "preference": normalize_preference(str(data.get("preference") or "")),
-        "companions": str(data.get("companions") or "").strip(),
-        "want_mode": normalize_want_mode(str(data.get("want_mode") or "")),
-        "avoid": str(data.get("avoid") or "").strip(),
-        "notes": str(data.get("notes") or "").strip(),
-    }
-
-
-def check_need(need):
-    """检查起点、终点、城市够不够，返回一句要问用户的话；没问题返回空字符串。"""
-    origin = need["origin"]
-    destination = need["destination"]
-    city = need["city"]
-
-    if not origin:
-        return "起点是哪？说个地标、小区或车站，我就能查路线。比如“从杭州东站到灵隐寺”。"
-    if not destination:
-        return "终点是哪？说个具体地点，我就能查路线。"
-    if origin in VAGUE_PLACES:
-        return f"「{origin}」太笼统了，具体是哪个小区、校区或哪条路？说个地标或地址就行。"
-    if destination in VAGUE_PLACES:
-        return f"「{destination}」太笼统了，具体是哪个地方？说个景点名或地址就行。"
-    if not city:
-        return f"「{destination}」在哪个城市？告诉我城市名，我就能查路线。"
-
-    return ""
-
-
-def find_places(need):
-    """查起点和终点，返回（起点, 终点, 要问用户的话）。
-
-    起点是开放的：用户在北京，要去别的城市也可以。
-    终点如果没城市又全国都查不到，就回去问是哪个城市，别硬猜。
-    """
-    start = find_place(need["origin"], need["city"], allow_nationwide=True)
-    if start is None:
-        return None, None, (
-            f"没找到起点「{need['origin']}」，能说具体一点吗？"
-            f"比如加上城市或附近的路。"
-        )
-    if start.get("too_vague"):
-        return None, None, (
-            f"「{need['origin']}」我查到的是「{start.get('address') or start.get('city')}」，"
-            f"不太确定。能说具体一点吗？比如景点全称或附近的路。"
-        )
-
-    end = find_place(need["destination"], need["city"])
-
-    # 有城市时按城市查；没有城市时全国查，查不到再问是哪个城市
-    if end is None and not need["city"]:
-        end = find_place(need["destination"], "", allow_nationwide=True)
-
-    if end is None:
-        return None, None, (
-            f"没找到终点「{need['destination']}」（城市：{need['city']}），"
-            f"能说具体一点吗？比如景点全称。"
-        )
-    if end.get("too_vague"):
-        return None, None, (
-            f"「{need['destination']}」我查到的是「{end.get('address') or end.get('city')}」，"
-            f"不太确定。能说具体一点吗？"
-        )
-
-    return start, end, ""
-
-
-def get_weather_text(need):
-    """查出发当天的天气；查不到就返回空字符串。"""
-    city = need.get("city") or ""
-    if not city:
-        return ""
-
-    departure_time = need.get("departure_time") or ""
-    weather_date = departure_time[:10] if departure_time[:10] else str(date.today())
-
-    try:
-        return get_weather.invoke({
-            "city": city,
-            "days": 1,
-            "start_date": weather_date,
-        })
-    except Exception as e:
-        print(f"[路线] 天气查询失败：{e}")
-        return ""
-
-
-def build_initial_state(query, merged_query, need, start, end, weather_text, need_text, tenant_id):
-    """把进图前准备好的字段装成一个完整的状态。"""
-    return {
-        "user_query": query,
-        "merged_query": merged_query,
-        "tenant_id": tenant_id,
-        "need": need,
-        "start_place": start,
-        "end_place": end,
-        "weather_text": weather_text,
-        "need_text": need_text,
-        "route_need": need_text,
-        "choices": [],
-        "recommended_index": -1,
-        "candidate_text": "",
-        "problem": "",
-        "choice_id": "",
-        "choice_id_name": "",
-        "choice_index": -1,
-        "route_compare": "",
-        "route_decision": "",
-        "route_tips": "",
-        "node_path": [],
-    }
 
 
 def save_route_turn(state, chat_id, tenant_id):
@@ -301,6 +163,8 @@ def _route_events(chunks, thread_id, context):
 
 def place_options(place_name, city):
     """把查到的地点整理成可以点的选项。"""
+    from core.tools.amap import find_place_candidates
+
     options = []
     for index, place in enumerate(find_place_candidates(place_name, city), start=1):
         label = place.get("address") or place.get("name") or place_name
@@ -313,10 +177,6 @@ def place_options(place_name, city):
         })
 
     return options
-
-
-# 这类地名指的是一个区域或一串异地点位，直接取第一个容易指错
-BROAD_PLACE_WORDS = ("长城", "古镇", "老街", "风景区", "公园", "广场")
 
 
 def need_place_choice(place_name, city):
@@ -345,27 +205,55 @@ def ask_place(question, place_name, city, query, chat_id, tenant_id):
     yield _chat_and_save(question, query, chat_id, tenant_id)
 
 
-def start_route_decision(query, merged_query, chat_id=None, tenant_id=None):
-    """路线决策的第一步：解析需求、查地点、查候选，然后停在选方案。"""
+def _suggest_guide(query, chat_id, tenant_id):
+    """这句更像"想去玩几天"：先给几行介绍，再给一个转去攻略的按钮。
+
+    不排行程，也不问起点终点——只帮用户判断"值不值得点那个按钮"。
+    """
+    intro = describe_places(query) or "这句更像是想出去玩几天，不像是查路线。"
+    saved_chat_id = _save(query, {"chat_reply": intro}, "CHAT", chat_id, tenant_id)
+
+    yield sse({"kind": "CHAT", "message": intro, "chat_id": saved_chat_id})
     yield sse({
-        "kind": "START",
-        "mode": "ROUTE",
+        "kind": "SUGGEST",
+        "to": "guide",
         "query": query,
-        "understood": merged_query,
+        "reason": "要不要我按你说的天数，排一份具体攻略？",
     })
+
+
+def start_route_decision(query, history=None, chat_id=None, tenant_id=None):
+    """路线决策的第一步：解析需求、查地点、查候选，然后停在选方案。"""
+    yield sse({"kind": "START", "mode": "ROUTE", "query": query})
     yield _step("route_need")
 
-    need = parse_route_need(merged_query)
+    # 走错门：这句明明是想玩几天，先给几行介绍和转场按钮。
+    # 放在调模型之前，省掉一次没必要的解析
+    if suggest_guide(query):
+        yield from _suggest_guide(query, chat_id, tenant_id)
+        return
+
+    need = parse_route_need(query, history)
     if need is None:
+        # 解析不出来，先看是不是走错门了
+        if suggest_guide(query):
+            yield from _suggest_guide(query, chat_id, tenant_id)
+            return
+
         yield _chat_and_save(
             "我没太听懂起点和终点。能说得具体一点吗？"
-            "比如“从杭州东站到灵隐寺怎么走”。",
+            "比如「从杭州东站到灵隐寺怎么走」。",
             query, chat_id, tenant_id,
         )
         return
 
     problem = check_need(need)
     if problem:
+        # 缺起点终点，但这句明明是"想去玩几天"——别硬追问，给个转场
+        if suggest_guide(query):
+            yield from _suggest_guide(query, chat_id, tenant_id)
+            return
+
         yield _chat_and_save(problem, query, chat_id, tenant_id)
         return
 
@@ -412,7 +300,7 @@ def start_route_decision(query, merged_query, chat_id=None, tenant_id=None):
     thread_id = uuid.uuid4().hex
     config = {"configurable": {"thread_id": thread_id}}
     initial = build_initial_state(
-        query, merged_query, need, start, end, weather_text, need_text, tenant_id,
+        query, need, start, end, weather_text, need_text, tenant_id,
     )
 
     context = {"paused": False, "problem": ""}

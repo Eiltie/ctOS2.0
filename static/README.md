@@ -36,12 +36,17 @@ static/
     │   ├── feedback.js   ← 反馈弹窗（POST /feedback）
     │   └── theme.js      ← 主题切换 + localStorage 记忆
     ├── app.js            ← 闲聊 + 角色扮演：会话列表、聊天区、角色选择/创建/记忆、视图切换、启动
-    ├── trip.js           ← 智能出行：四段卡片、进度条、出行记录、人工确认面板
+    ├── trip.js           ← 出行入口：顶部「路线规划 | 旅游攻略」和切换时的重置
+    ├── trip/             ← 出行
+    │   ├── base.js       ← 壳子：进度条、开场/对话态、SSE 流、四段卡片、计时、等待面板、记录列表
+    │   ├── route.js      ← 路线模式：候选卡片、地点歧义、选完继续
+    │   └── guide.js      ← 攻略模式：景点勾选、勾完跑到游玩建议、开场景点卡片
     └── customer.js       ← 智能客服：一问一答（最近 3 轮上下文只放内存）
 ```
 
-**行数参考**（超过 500 行就该考虑拆）：`modules.css` 2593、`theme.css` 1643、`trip.js` 1489、
-`app.js` 1376、`customer.js` 197、`auth.js` 257、`index.html` 337。
+**行数参考**（超过 500 行就该考虑拆）：`modules.css` 3677、`theme.css` 1973、
+`app.js` 1690、`trip/base.js` 1389、`trip/route.js` 413、`trip/guide.js` 297、
+`trip.js` 60、`customer.js` 197。
 
 ## 主题切换
 
@@ -79,7 +84,10 @@ static/
 <!-- 2. app.js 定义全局 state 和闲聊 / 角色扮演逻辑 -->
 <script src="/static/js/app.js"></script>
 
-<!-- 3. 两个模块依赖 app.js 的 state 和 common/ 的工具 -->
+<!-- 3. 出行：先壳子和两个模式，最后才是入口（base 会调 tripRenderPluginBar，那个在 trip.js 里） -->
+<script src="/static/js/trip/base.js"></script>
+<script src="/static/js/trip/route.js"></script>
+<script src="/static/js/trip/guide.js"></script>
 <script src="/static/js/trip.js"></script>
 <script src="/static/js/customer.js"></script>
 ```
@@ -110,7 +118,10 @@ static/
 | `common/feedback.js` | 反馈弹窗 | 改反馈表单 |
 | `common/theme.js` | 主题切换 + 本地记忆 | 加主题、改默认主题 |
 | `app.js` | 闲聊 + 角色扮演 + 视图切换 + 启动 | 闲聊逻辑、角色玩法、Tab 切换 |
-| `trip.js` | 出行 | 四段卡片、进度条、出行记录、人工确认 |
+| `trip.js` | 出行入口 | 顶部模式切换、切换时的重置 |
+| `trip/base.js` | 出行壳子 | 进度条、四段卡片、计时、等待面板、记录列表 |
+| `trip/route.js` | 路线模式 | 候选卡片、地点歧义、选完继续 |
+| `trip/guide.js` | 攻略模式 | 景点勾选、游玩建议、开场景点卡片 |
 | `customer.js` | 客服 | 问答交互 |
 
 
@@ -122,12 +133,12 @@ static/
 | 区域 | 数据来源 |
 | --- | --- |
 | 左侧「会话记录」（闲聊 + 角色） | `GET /sessions`（每条带 `role_id` 区分是不是角色会话），消息按需 `GET /sessions/{id}/messages` |
-| 左侧「会话记录」（出行） | `GET /trip/list`，点开时 `GET /trip/{id}` 还原四段卡片 |
+| 左侧「会话记录」（出行） | `GET /trip/list`（每条带 `last_kind`，用来打路线/攻略标签），点开时 `GET /trip/{id}` 还原四段卡片 |
 | 左侧（智能客服） | 客服一问一答不落库，这里只放一句说明 |
 | 对话区 | `POST /chat` 的流式正文 |
 | 角色列表 / 角色档案 | `GET /roleplay/roles`、`GET /roleplay/roles/{id}` |
 | 角色记忆 | `GET /roleplay/memory/{role_id}` |
-| 出行四段卡片 | `POST /trip/chat` 的 SSE 事件 |
+| 出行四段卡片 | `POST /trip/chat` / `POST /guide/chat` 的 SSE 事件 |
 | 客服回答 | `POST /customer/chat` 的 SSE 事件 |
 | 更新公告 | `GET /notice`（后端读 `config/notice.json`） |
 
@@ -141,7 +152,8 @@ static/
 | 模块 | 请求 | 响应 | 前端文件 |
 | --- | --- | --- | --- |
 | 闲聊 / 角色扮演 | `POST /chat` `{ messages, session_id?, role_id? }` | `text/plain` 流式正文 + 响应头 `X-Session-Id` | `app.js` |
-| 智能出行 | `POST /trip/chat` `{ query, history, chat_id? }` | `text/event-stream`（SSE） | `trip.js` |
+| 智能出行 · 路线 | `POST /trip/chat` `{ query, history, chat_id? }` | `text/event-stream`（SSE） | `trip/route.js` |
+| 智能出行 · 攻略 | `POST /guide/chat` `{ query, history, chat_id? }` | `text/event-stream`（SSE） | `trip/guide.js` |
 | 智能客服 | `POST /customer/chat` `{ query, history }` | `text/event-stream`（SSE） | `customer.js` |
 
 `POST /chat` 带 `role_id` 就是角色扮演，不带就是普通闲聊，两条路共用会话和消息表。
@@ -168,10 +180,12 @@ static/
 | 场景 | 续跑接口 | 请求体 |
 | --- | --- | --- |
 | 路线：候选出来等你选方案 | `POST /trip/route/choose` | `{ thread_id, choice_id, chat_id? }` |
-| 攻略：景点清单出来等你勾选 | `POST /trip/guide/spots` | `{ thread_id, removed: [], added }` |
-| 攻略：跑完问要不要查真实路线 | `POST /trip/guide/route` | `{ thread_id, want_route, query, city, chat_id? }` |
+| 攻略：景点清单出来等你勾选 | `POST /guide/spots` | `{ thread_id, removed: [], added }` |
 
-三个都用 `POST /trip/chat` 同一套 SSE 事件格式返回，前端复用同一个解析器。
+两个都用同一套 SSE 事件格式返回，前端复用同一个解析器。
+
+攻略只有一个暂停点（勾景点）。原来还有"跑完问要不要查真实路线"，拆分后删掉了：
+攻略不再碰地图，需要精确路线时切到路线规划。
 
 ### 角色扮演
 
@@ -201,16 +215,16 @@ static/
 
 | kind | 字段 | 前端处理 |
 | --- | --- | --- |
-| `START` | `mode`? + `query`? | 出行：记下模式（`TRAVEL` / `ROUTE`）和合并后的需求；客服：占位符已经显示 |
+| `START` | `mode`? + `query`? | 出行：切到对应模式（`ROUTE` / `TRAVEL`）并点亮第一步；客服：占位符已经显示 |
 | `SAY` | `text` | 一句提示（例如「收到，正在理解你的需求…」），不占段落 |
 | `STEP` | `key` + `text` | 该段卡片显示「正在查询天气…」之类的进度提示 |
 | `TOKEN` | `key`? + `text` | 逐字追加到对应段落（出行带 `key`，客服不带） |
 | `DONE` | `key`? + `text` | 用整段文本定稿，纠正逐字拼接的偏差 |
-| `CHAT` | `message` + `chat_id` | 出行判定为闲聊（含只问天气），直接回一句 |
-| `ASK_PLACE` | 地名候选 | 地点有歧义时停下来让你挑一个 |
-| `ASK` | 候选路线 | 路线决策：候选出来了，等你选一条 |
+| `SUGGEST` | `to` + `query` + `reason` | 走错模式了：给一个「去旅游攻略 / 去路线规划」的按钮，点了带原话切过去 |
+| `CHAT` | `message` + `chat_id` | 直接回一句（只问天气、走错模式的说明） |
+| `ASK_PLACE` | 地名候选 | 路线：地点有歧义时停下来让你挑一个 |
+| `ASK` | 候选路线 | 路线：候选出来了，等你选一条 |
 | `ASK_SPOTS` | 景点清单 | 攻略：清单出来了，等你勾选 / 补充 |
-| `ASK_ROUTE` | — | 攻略跑完，问要不要再查真实路线 |
 | `SAVED` | `chat_id` | 这一轮已入库，附带出行会话 id（前端据此拼进左侧列表） |
 | `ERROR` | `message` | 显示错误卡片 |
 
@@ -218,7 +232,7 @@ static/
 
 | 模式 | 四步（也对应四张卡片） |
 | --- | --- |
-| `TRAVEL` 攻略 | `weather` → `spots` → `itinerary` → `route_plan`（答完还可追加一段 `guide_route` 真实路线） |
+| `TRAVEL` 攻略 | `weather` → `spots` → `itinerary` → `advice`（老记录第四段在 `route_plan`，显示成「详细路线（旧版）」） |
 | `ROUTE` 路线决策 | `route_need` → `route_compare` → `route_decision` → `route_tips` |
 
 解析器同时兼容两种 SSE 写法：当前的 `data: {json}`（按 `kind` 分派），以及
@@ -228,11 +242,16 @@ static/
 
 ```
 #view-trip
+├── #trip-plugins            顶部模式条：路线规划 | 旅游攻略
+├── #trip-hero               开场态：欢迎语 + 输入框 + 预设问题 + （攻略）景点卡片墙
 ├── .trip-scroll-wrap        唯一的滚动容器
-│   ├── #trip-fixed          常驻骨架：标题 + 四步流程条 + 示例卡（带 data-sticky-head）
-│   └── #trip-feed           只有对话流：用户气泡 / 四段卡片 / 闲聊回复
+│   ├── #trip-fixed          常驻骨架：四步流程条 + 示例卡（带 data-sticky-head）
+│   └── #trip-feed           只有对话流：用户气泡 / 四段卡片 / 闲聊回复 / 等待面板
 └── .bottom-section
 ```
+
+**模式条**：两个按钮由 `tripRenderPluginBar()` 按 `TRIP_MODES` 里注册的顺序画出来。
+切模式 = 开新会话（清上下文、回开场态），但**不清左栏记录**。
 
 - **发消息时只清 `#trip-feed`**，`#trip-fixed` 永远不动 —— 这就是之前「一片黑、只剩用户气泡」的修复点。
 - **多轮对话不覆盖**：每次发送都会在 `#trip-feed` 末尾新建一个 `.trip-turn`（用户这句话 + 这一轮的四段卡片），

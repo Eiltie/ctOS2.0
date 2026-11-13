@@ -2,20 +2,17 @@
 
 做什么：查候选路线 → 暂停让人选 → 写对比/推荐/提醒。
 被谁用：modules/trip/route_decision_stream.py。
-注意：暂停用 LangGraph 的 interrupt，状态存在 databases/route_checkpoints.sqlite。
+注意：暂停用 LangGraph 的 interrupt，状态存在 databases/checkpoints/route_checkpoints.sqlite。
       这个文件是运行产物，已经在 .gitignore 里。
 """
 
 import operator
-import sqlite3
-from pathlib import Path
 from typing import Annotated, NotRequired, TypedDict
 
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
+from core.checkpoints import get_checkpointer
 from core.llm import get_llm
 from modules.trip.route_decision_prompts import (
     ROUTE_COMPARE_PROMPT,
@@ -289,16 +286,6 @@ def build_route_graph(checkpointer):
     return graph.compile(checkpointer=checkpointer)
 
 
-# 检查点文件：刷新页面不影响，服务重启也能接着选。
-# 放在单独的子目录里，Docker 部署时挂一个卷进去，容器重建也不会丢暂停中的流程。
-CHECKPOINT_PATH = (
-    Path(__file__).resolve().parent.parent.parent
-    / "databases"
-    / "checkpoints"
-    / "route_checkpoints.sqlite"
-)
-
-
 def mark_chosen_plan(text, chosen_name):
     """对比文本里只让选中的那个方案带“（你选的）”。"""
     if not text:
@@ -324,18 +311,11 @@ def force_line_prefix(text, prefix):
     return "\n".join(lines)
 
 
-def make_checkpointer():
-    """优先用文件存；文件打不开就退回内存，至少不影响其他模块。"""
-    try:
-        CHECKPOINT_PATH.parent.mkdir(parents=True, exist_ok=True)
-        connection = sqlite3.connect(str(CHECKPOINT_PATH), check_same_thread=False)
-        return SqliteSaver(connection)
-    except Exception as e:
-        print(f"[路线] 检查点文件打不开，改用内存：{e}")
-        return MemorySaver()
-
-
-# 路线决策和攻略共用这个检查点文件，靠线程号区分（攻略的线程号以 guide- 开头）
-route_checkpointer = make_checkpointer()
+# 暂停现场交给 core.checkpoints 管（文件和"打不开退回内存"都在那边）。
+# 路线和攻略共用同一个 saver，靠线程号区分（攻略的线程号以 guide- 开头）。
+route_checkpointer = get_checkpointer()
 route_graph = build_route_graph(route_checkpointer)
+
+# 过渡用：攻略图现在还从这里拿检查点。等攻略独立成 modules/guide 之后，
+# 它自己调 core.checkpoints.get_checkpointer()，这一行就删掉。
 guide_checkpointer = route_checkpointer

@@ -19,25 +19,26 @@
 | --- | --- | --- |
 | 闲聊 / 对话 | `/chat` | 基于 LangGraph 的对话图，流式返回纯文本 |
 | 角色扮演 | `/chat`（带 `role_id`）+ `/roleplay/*` | 预设角色、自己写角色、AI 帮我查；会话复用闲聊的表 |
-| 智能出行 | `/trip/chat` | 双模式：路线决策（查真实多方案、人工选一条）+ 旅游攻略（天气 → 景点 → 人工勾选 → 行程 → 路线），SSE 事件流 |
+| 智能出行·路线规划 | `/trip/chat` | 查真实多方案、人工选一条；SSE 事件流 |
+| 智能出行·旅游攻略 | `/guide/chat` | 天气 → 景点 → 人工勾选 → 行程 → 游玩建议；SSE 事件流 |
 | 智能客服 | `/customer/chat` | RAG 三层检索问答（关键词 → 向量 → 混合），SSE 事件流 |
 
-出行模块和客服模块都不是独立 app，它们是 ctOS 的能力。
+出行和客服都不是独立 app，它们是 ctOS 的能力。
 
 每个业务模块各有一张 LangGraph 图，互不干扰：
 
 - 闲聊：`START → chat_node → END`，最简单的一张图
 - 角色扮演：不走图，直接拼提示词调模型流式输出（`modules/roleplay/stream.py`）
-- 出行·路线决策：`START → collect_routes → ask_user（暂停等选方案）→ compare_routes → decide_route → write_tips → END`
-- 出行·旅游攻略：`START → weather → spots_agent →（工具循环）→ ask_spots（暂停等勾选）→ planner → route_agent → END`
+- 路线规划：`START → collect_routes → ask_user（暂停等选方案）→ compare_routes → decide_route → write_tips → END`
+- 旅游攻略：`START → weather → spots_agent →（工具循环）→ ask_spots（暂停等勾选）→ planner → advice → END`
 - 客服：`START → retrieve → generate → END`，一条直线
 
-三者的一个重要区别：**闲聊、角色扮演和出行会把我说的内容存进数据库**，左侧栏能翻到历史记录；
+一个重要区别：**闲聊、角色扮演和出行会把我说的内容存进数据库**，左侧栏能翻到历史记录；
 **智能客服问答本身不写数据库**（但会把最近 3 轮对话带上，用来理解追问），刷新页面就没了。
 
 ### 后端接口一览
 
-除 `/auth/*`、`/health`、`/trip/ping`、`/customer/ping`、`/notice`、`/feedback` 和静态资源外，
+除 `/auth/*`、`/health`、`/trip/ping`、`/guide/ping`、`/customer/ping`、`/notice`、`/feedback` 和静态资源外，
 **所有接口都要先登录**，请求头带 `Authorization: Bearer <token>`。
 
 | 方法 | 路径 | 所属模块 | 说明 |
@@ -59,12 +60,13 @@
 | `GET` | `/roleplay/session/{id}` | 角色扮演 | 这个会话是哪个角色（普通聊天返回 `role: null`） |
 | `GET` | `/roleplay/memory/{role_id}` | 角色扮演 | 这个角色记住了什么 |
 | `POST` | `/roleplay/memory/clear` | 角色扮演 | 清空这个角色的记忆 |
-| `POST` | `/trip/chat` | 出行 | 请求 `{"query": "...", "history": [...], "chat_id": 可选}`，返回 SSE |
-| `POST` | `/trip/route/choose` | 出行 | 路线决策暂停后，用户选了哪个方案，继续写结论 |
-| `POST` | `/trip/guide/spots` | 出行 | 旅游攻略暂停后，用户勾掉/补充了哪些景点，继续排行程 |
-| `POST` | `/trip/guide/route` | 出行 | 旅游攻略跑完后，用户要不要查真实路线 |
-| `GET` | `/trip/ping` | 出行 | 存活检测 |
-| `GET` | `/trip/list` | 出行 | 最近的出行记录，默认最多 50 条 |
+| `POST` | `/trip/chat` | 出行·路线 | 请求 `{"query": "...", "history": [...], "chat_id": 可选}`，返回 SSE |
+| `POST` | `/guide/chat` | 出行·攻略 | 同上 |
+| `POST` | `/trip/route/choose` | 出行·路线 | 路线暂停后，用户选了哪个方案，继续写结论 |
+| `POST` | `/guide/spots` | 出行·攻略 | 攻略暂停后，用户勾掉/补充了哪些景点，继续排行程 |
+| `GET` | `/trip/ping` | 出行·路线 | 存活检测 |
+| `GET` | `/guide/ping` | 出行·攻略 | 存活检测 |
+| `GET` | `/trip/list` | 出行 | 最近的出行记录，默认最多 50 条（带 `last_kind`） |
 | `GET` | `/trip/{id}` | 出行 | 单条出行记录，含各段产出和用户原话 |
 | `DELETE` | `/trip/{id}` | 出行 | 删除出行记录，子表级联删除 |
 | `POST` | `/trip/delete-batch` | 出行 | 批量删除，请求 `{"ids": [...]}` |

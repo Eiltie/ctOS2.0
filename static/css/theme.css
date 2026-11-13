@@ -1962,3 +1962,12 @@ html[data-theme="cyber"] .rp-btn {
     border-color: rgba(148, 163, 184, 0.2);
     background: rgba(6, 11, 18, 0.7);
 }
+
+/* 卡片展开时的高亮。clean / street 两个主题在 theme.css 里有 .trip-card 的背景覆盖，
+   这里只补 is-open 的状态，避免展开后看不出区别 */
+html[data-theme="clean"] .trip-card.is-open,
+html[data-theme="street"] .trip-card.is-open {
+    background: var(--panel-2);
+    border-color: var(--cyan-border);
+    box-shadow: var(--soft-shadow);
+}

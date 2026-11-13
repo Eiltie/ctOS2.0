@@ -208,6 +208,11 @@
         </div>
 
         <div id="view-trip" class="view-section">
+            <!-- 模式切换：路线规划（主）/ 旅游攻略。
+                 样式和闲聊页的插件条一致，但类名分开，
+                 免得和闲聊的 .chat-plugin 处理函数串到一起 -->
+            <div class="trip-plugins" id="trip-plugins"></div>
+
             <!-- 开场态：还没开始聊时，欢迎语和输入框居中显示 -->
             <div id="trip-hero" class="trip-hero">
                 <div class="hero-greeting">
@@ -222,8 +227,11 @@
                     <button class="send-btn trip-send-btn" id="trip-send-hero" type="button" onclick="tripSendOrStop()" title="发送">➤</button>
                 </div>
 
-                <!-- 预设问题，由 trip.js 填进来 -->
+                <!-- 预设问题，由 trip/base.js 按当前模式填进来 -->
                 <div class="trip-quick" id="trip-quick-hero"></div>
+
+                <!-- 攻略模式放景点卡片墙；路线模式留空 -->
+                <div class="trip-cardwall" id="trip-cardwall"></div>
             </div>
 
             <!-- 对话态：聊开之后输入框落到底部，内容往上排 -->
@@ -378,7 +386,9 @@
     <!-- 加载顺序不能乱：
          1. common/ 里都是无状态工具，先加载
          2. app.js 定义全局 state 和闲聊逻辑
-         3. trip.js / customer.js 依赖 app.js 里的 state 和 common/ 里的工具 -->
+         3. trip/ 下先加载壳子和两个模式，最后才是入口 trip.js
+            （base 会调 tripRenderPluginBar，那个函数在 trip.js 里）
+         4. customer.js 依赖 app.js 里的 state 和 common/ 里的工具 -->
     <script src="/static/js/common/config.js"></script>
     <script src="/static/js/common/utils.js"></script>
     <script src="/static/js/common/announcement.js"></script>
@@ -392,6 +402,9 @@
     <script src="/static/js/common/feedback.js"></script>
     <script src="/static/js/common/theme.js"></script>
     <script src="/static/js/app.js"></script>
+    <script src="/static/js/trip/base.js"></script>
+    <script src="/static/js/trip/route.js"></script>
+    <script src="/static/js/trip/guide.js"></script>
     <script src="/static/js/trip.js"></script>
     <script src="/static/js/customer.js"></script>
 </body>

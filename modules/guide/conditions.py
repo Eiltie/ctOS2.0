@@ -1,7 +1,10 @@
-"""出行｜攻略图里景点节点的条件路由
+"""旅游攻略｜景点节点的条件路由
 
-做什么：判断 spots_agent 跑完后是继续搜工具，还是交给用户勾选景点。
-被谁用：modules/trip/graph.py 的 add_conditional_edges("spots_agent", should_continue)。
+做什么：判断 spots_agent 跑完后是继续搜工具，还是停下来让用户勾选景点。
+被谁用：modules/guide/graph.py 的 add_conditional_edges("spots_agent", should_continue)。
+
+为什么叫 conditions 而不是 route：
+  原来的文件名 route.py 容易被读成"路线规划"，其实它只是图上的条件判断。
 """
 
 from langgraph.graph import END

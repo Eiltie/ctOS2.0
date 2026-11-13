@@ -18,12 +18,10 @@ from langchain_core.messages import HumanMessage
 
 from api.routes.auth import current_tenant, router as auth_router
 from api.routes.trial import router as trial_router          # 访客账号（可删，见该文件头）
+from core.sse import stream_from_thread
 from modules.chat.stream import run_graph
-from modules.trip.stream import (
-    guide_choose_stream,
-    guide_route_stream,
-    trip_stream,
-)
+from modules.guide.stream import resume_guide, start_guide
+from modules.trip.stream import trip_stream
 from modules.trip.route_decision_stream import route_choose_stream
 from modules.customer.stream import customer_stream
 from modules.roleplay.presets import public_role
@@ -184,12 +182,11 @@ class GuideSpotsRequest(BaseModel):
     added: str = ""
 
 
-class GuideRouteRequest(BaseModel):
-    """攻略跑完后，用户要不要按真实路线再查一遍。"""
-    thread_id: str
-    want_route: bool = True
-    query: str = ""
-    city: str = ""
+class GuideRequest(BaseModel):
+    """旅游攻略的入口：一句话 + 最近说过的话。"""
+    query: str
+    history: list[str] = []
+    # 不传 = 新开一个出行会话
     chat_id: int | None = None
 
 
@@ -517,42 +514,52 @@ async def trip_route_choose(
     )
 
 
-@app.post("/trip/guide/spots")
-async def trip_guide_spots(
+@app.get("/guide/ping")
+async def guide_ping():
+    """旅游攻略存活检测（不需要登录，给监控用）。"""
+    return {"ok": True, "module": "旅游攻略"}
+
+
+@app.post("/guide/chat")
+async def guide_chat(req: GuideRequest, authorization: str | None = Header(default=None)):
+    """把一句话交给旅游攻略，返回 SSE 事件流。"""
+    tenant_id = tenant_of(authorization)
+
+    async def gen():
+        # 攻略图是同步的，交给工作线程跑，别堵住事件循环
+        async for event in stream_from_thread(
+            start_guide(
+                req.query,
+                chat_id=req.chat_id,
+                tenant_id=tenant_id,
+                history=req.history,
+            )
+        ):
+            yield event
+
+    return StreamingResponse(gen(), media_type="text/event-stream", headers=sse_headers())
+
+
+def guide_spots_response(req: GuideSpotsRequest, tenant_id: int):
+    """景点勾选之后继续跑：两个端点（新旧）共用这一段。"""
+
+    async def gen():
+        answer = {"removed": req.removed, "added": req.added}
+        async for event in stream_from_thread(
+            resume_guide(req.thread_id, answer, tenant_id=tenant_id)
+        ):
+            yield event
+
+    return StreamingResponse(gen(), media_type="text/event-stream", headers=sse_headers())
+
+
+@app.post("/guide/spots")
+async def guide_spots(
     req: GuideSpotsRequest,
     authorization: str | None = Header(default=None),
 ):
-    """攻略暂停在景点清单后，用户勾选完，继续排行程。"""
-    tenant_id = tenant_of(authorization)
-    answer = {"removed": req.removed, "added": req.added}
-
-    return StreamingResponse(
-        guide_choose_stream(req.thread_id, answer, tenant_id=tenant_id),
-        media_type="text/event-stream",
-        headers=sse_headers(),
-    )
-
-
-@app.post("/trip/guide/route")
-async def trip_guide_route(
-    req: GuideRouteRequest,
-    authorization: str | None = Header(default=None),
-):
-    """攻略跑完后，按真实路线查行程里的移动，或者直接收尾。"""
-    tenant_id = tenant_of(authorization)
-
-    return StreamingResponse(
-        guide_route_stream(
-            req.thread_id,
-            req.want_route,
-            req.query,
-            req.city,
-            chat_id=req.chat_id,
-            tenant_id=tenant_id,
-        ),
-        media_type="text/event-stream",
-        headers=sse_headers(),
-    )
+    """攻略暂停在景点清单后，用户勾选完，继续排行程、写游玩建议。"""
+    return guide_spots_response(req, tenant_of(authorization))
 
 
 @app.get("/trip/list")

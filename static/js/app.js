@@ -1400,6 +1400,12 @@ function switchView(viewName){
   const activeInput = $({ chat: "chat-input", trip: "trip-input", customer: "customer-input" }[viewName]);
   if (activeInput && meta && meta.ph) activeInput.placeholder = meta.ph;
 
+  // 出行页的输入提示按当前模式变（路线 / 攻略），交回给 trip 自己管，
+  // 否则切回出行页时会被上面那行覆盖成通用提示语
+  if (viewName === "trip" && typeof tripRenderPlaceholder === "function"){
+    tripRenderPlaceholder();
+  }
+
   // 换模块时退出多选，避免勾选状态带到另一个列表上
   if (historySelectMode){
     historySelectMode = false;
