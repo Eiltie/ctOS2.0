@@ -139,20 +139,10 @@
         </div>
 
         <div class="sidebar-footer">
-            <div class="status-row"><span>账号</span><span class="status-value" id="user-email"></span></div>
-            <div class="status-row"><span>状态</span><span class="status-online"><span class="status-dot"></span> 在线</span></div>
-            <div class="status-row"><span>模型</span><span class="status-value" id="foot-model">deepseek-v4-flash</span></div>
-            <div class="status-row"><span>端点</span><span class="status-value" id="foot-endpoint">POST /chat</span></div>
             <!-- 反馈入口（桌面端侧栏）。不需要了删掉这个按钮 -->
             <button id="feedback-entry" class="feedback-entry" type="button" onclick="openFeedback()">
                 <span class="fe-ic">💬</span> 提交反馈
             </button>
-            <!-- 访客模式下显示「账号登录」；登录真实账号后改为「退出当前账号」。
-                 两个按钮的显隐由 renderUserBadge() 控制。 -->
-            <button id="login-entry" class="login-entry" type="button"
-                    onclick="showLogin()" style="display:none">账号登录</button>
-            <button id="logout-btn" class="logout-btn" type="button"
-                    onclick="logout()" style="display:none">退出当前账号</button>
         </div>
     </div>
 
@@ -163,10 +153,26 @@
                 <div class="nav-tab" onclick="switchView('trip')">智能出行</div>
                 <div class="nav-tab" onclick="switchView('customer')">智能客服</div>
             </div>
-            <div class="nav-status">
+
+            <!-- 右侧一栏：当前模块状态 + 账号 + 退出 / 登录。
+                 账号和退出按钮原来在侧栏底部，现在统一收在这一行。 -->
+            <div class="top-right">
                 <div id="status-chat" class="tag-status view-section active">LANGGRAPH · READY</div>
                 <div id="status-trip" class="tag-status view-section">TRIP AGENT · READY</div>
                 <div id="status-customer" class="tag-status view-section">RAG · READY</div>
+
+                <!-- 身份：绿点 + 邮箱（访客显示「访客」），鼠标悬停看完整邮箱 -->
+                <div class="user-chip" title="当前账号">
+                    <span class="status-dot"></span>
+                    <span class="user-chip-name status-value" id="user-email"></span>
+                </div>
+
+                <!-- 访客模式下显示「账号登录」；登录真实账号后改为「退出当前账号」。
+                     两个按钮的显隐由 renderUserBadge() 控制。 -->
+                <button id="login-entry" class="login-entry" type="button"
+                        onclick="showLogin()" style="display:none">账号登录</button>
+                <button id="logout-btn" class="logout-btn" type="button"
+                        onclick="logout()" style="display:none">退出当前账号</button>
             </div>
         </div>
 
