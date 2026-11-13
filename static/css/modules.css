@@ -1,4 +1,4 @@
-.trip-turn {
+﻿.trip-turn {
     display: flex;
     flex-direction: column;
     gap: 14px;
@@ -23,7 +23,7 @@
 
 #history-trip .history-item .del { opacity: 0.7; }
 
-/* 标题行的多选图标按钮，靠右对齐 */
+/* 鏍囬琛岀殑澶氶€夊浘鏍囨寜閽紝闈犲彸瀵归綈 */
 .history-title {
     display: flex;
     align-items: center;
@@ -50,7 +50,7 @@
     background: rgba(34, 211, 238, 0.10);
 }
 
-/* 圆形勾选圈：未选中是空心细边，选中是青色填充 + 对勾 */
+/* 鍦嗗舰鍕鹃€夊湀锛氭湭閫変腑鏄┖蹇冪粏杈癸紝閫変腑鏄潚鑹插～鍏?+ 瀵瑰嬀 */
 .pick-dot {
     position: relative;
     flex-shrink: 0;
@@ -68,7 +68,7 @@
     background-color: var(--cyan);
     border-color: var(--cyan);
 }
-/* 对勾用两条线拼出来，不依赖字体 */
+/* 瀵瑰嬀鐢ㄤ袱鏉＄嚎鎷煎嚭鏉ワ紝涓嶄緷璧栧瓧浣?*/
 .pick-dot.on::after {
     content: "";
     position: absolute;
@@ -81,7 +81,7 @@
     transform: rotate(45deg);
 }
 
-/* 多选模式下底部浮出的操作条 */
+/* 澶氶€夋ā寮忎笅搴曢儴娴嚭鐨勬搷浣滄潯 */
 .history-select-bar {
     position: sticky;
     bottom: 0;
@@ -145,7 +145,7 @@
     text-align: left;
 }
 
-/* 开场态：欢迎语和输入框一起居中，像 DeepSeek 首页那样 */
+/* 寮€鍦烘€侊細娆㈣繋璇拰杈撳叆妗嗕竴璧峰眳涓紝鍍?DeepSeek 棣栭〉閭ｆ牱 */
 .trip-hero {
     flex: 1;
     display: flex;
@@ -166,7 +166,7 @@
     letter-spacing: 0.5px;
 }
 
-/* 左边的图标。图片是黑底线条，这里限制尺寸并稍微提亮 */
+/* 宸﹁竟鐨勫浘鏍囥€傚浘鐗囨槸榛戝簳绾挎潯锛岃繖閲岄檺鍒跺昂瀵稿苟绋嶅井鎻愪寒 */
 .hero-icon {
     width: 40px;
     height: 40px;
@@ -175,7 +175,7 @@
     opacity: 0.92;
 }
 
-/* 居中位置的输入框，比底部的宽一些 */
+/* 灞呬腑浣嶇疆鐨勮緭鍏ユ锛屾瘮搴曢儴鐨勫涓€浜?*/
 .hero-input {
     position: relative;
     display: flex;
@@ -205,7 +205,7 @@
 }
 .hero-input input::placeholder { color: var(--text-muted); }
 
-/* 开场页的预设问题：胶囊按钮，点了直接发出去 */
+/* 寮€鍦洪〉鐨勯璁鹃棶棰橈細鑳跺泭鎸夐挳锛岀偣浜嗙洿鎺ュ彂鍑哄幓 */
 .trip-quick {
     display: flex;
     flex-wrap: wrap;
@@ -221,7 +221,7 @@
 }
 
 
-/* 正文容器：四段内容按顺序写进这里，读起来是一篇连贯的行程文档 */
+/* 姝ｆ枃瀹瑰櫒锛氬洓娈靛唴瀹规寜椤哄簭鍐欒繘杩欓噷锛岃璧锋潵鏄竴绡囪繛璐殑琛岀▼鏂囨。 */
 .trip-flow {
     width: 100%;
     display: flex;
@@ -230,7 +230,7 @@
     margin-top: 4px;
 }
 
-/* 每一段 = 小标题 + 正文 */
+/* 姣忎竴娈?= 灏忔爣棰?+ 姝ｆ枃 */
 .trip-block {
     width: 100%;
 }
@@ -253,7 +253,7 @@
     word-break: break-word;
 }
 
-/* 状态行：显示"正在做什么"，会被下一条状态覆盖，不进入正文 */
+/* 鐘舵€佽锛氭樉绀?姝ｅ湪鍋氫粈涔?锛屼細琚笅涓€鏉＄姸鎬佽鐩栵紝涓嶈繘鍏ユ鏂?*/
 .trip-status-line {
     width: 100%;
     font-family: monospace;
@@ -264,11 +264,11 @@
     transition: color 0.3s;
 }
 
-/* 跑完了：变青色，前面加个对勾 */
+/* 璺戝畬浜嗭細鍙橀潚鑹诧紝鍓嶉潰鍔犱釜瀵瑰嬀 */
 .trip-status-line[data-state="done"] { color: var(--cyan); }
-.trip-status-line[data-state="done"]::before { content: "✓ "; }
+.trip-status-line[data-state="done"]::before { content: "鉁?"; }
 
-/* 出错：变红色 */
+/* 鍑洪敊锛氬彉绾㈣壊 */
 .trip-status-line[data-state="error"] { color: #fda4af; }
 .trip-status-line[data-state="error"]::before { content: "! "; }
 
@@ -287,7 +287,7 @@
     animation: slide-up 0.3s ease-out forwards;
 }
 
-/* 后端一收到请求就发的那句反馈，改成顶部状态行显示，不进入正文 */
+/* 鍚庣涓€鏀跺埌璇锋眰灏卞彂鐨勯偅鍙ュ弽棣堬紝鏀规垚椤堕儴鐘舵€佽鏄剧ず锛屼笉杩涘叆姝ｆ枃 */
 .trip-err {
     width: 100%;
     align-self: flex-start;
@@ -349,7 +349,7 @@
     padding-top: var(--sticky-h, 0px);
 }
 
-/* 顶部标题：开场时稍大，跑起来后缩成一行小字，把空间让给内容 */
+/* 椤堕儴鏍囬锛氬紑鍦烘椂绋嶅ぇ锛岃窇璧锋潵鍚庣缉鎴愪竴琛屽皬瀛楋紝鎶婄┖闂磋缁欏唴瀹?*/
 .trip-fixed .trip-header {
     text-align: center;
     margin: 0;
@@ -437,7 +437,7 @@
     margin-top: 4px;
 }
 
-/* 路线决策：候选方案选择面板 */
+/* 璺嚎鍐崇瓥锛氬€欓€夋柟妗堥€夋嫨闈㈡澘 */
 .route-ask {
     width: 100%;
     padding: 14px 16px;
@@ -521,7 +521,7 @@
     opacity: 0.75;
 }
 
-/* 等用户选方案时的提示：比状态行更显眼，避免以为流程已经结束 */
+/* 绛夌敤鎴烽€夋柟妗堟椂鐨勬彁绀猴細姣旂姸鎬佽鏇存樉鐪硷紝閬垮厤浠ヤ负娴佺▼宸茬粡缁撴潫 */
 .route-ask-hint {
     width: 100%;
     padding: 8px 12px;
@@ -533,7 +533,7 @@
     animation: pulse-logo 1.4s infinite alternate;
 }
 
-/* 攻略：景点清单勾选 */
+/* 鏀荤暐锛氭櫙鐐规竻鍗曞嬀閫?*/
 .spot-list {
     display: flex;
     flex-direction: column;
@@ -681,7 +681,7 @@
     animation: blink 0.8s infinite;
 }
 
-/* ===== 登录页 ===== */
+/* ===== 鐧诲綍椤?===== */
 
 .login-screen {
   position: fixed;
@@ -704,7 +704,7 @@
   box-shadow: 0 0 60px rgba(0, 229, 255, 0.06);
 }
 
-/* 登录弹层右上角的关闭按钮：关掉就回到访客模式 */
+/* 鐧诲綍寮瑰眰鍙充笂瑙掔殑鍏抽棴鎸夐挳锛氬叧鎺夊氨鍥炲埌璁垮妯″紡 */
 .login-close {
   position: absolute;
   top: 10px;
@@ -856,7 +856,7 @@
   color: #00e5ff;
 }
 
-/* ===== 登录弹层底部的「继续以访客身份使用」 ===== */
+/* ===== 鐧诲綍寮瑰眰搴曢儴鐨勩€岀户缁互璁垮韬唤浣跨敤銆?===== */
 
 .login-guest {
   width: 100%;
@@ -883,7 +883,7 @@
   cursor: not-allowed;
 }
 
-/* 侧栏底部的账号入口 / 退出按钮 */
+/* 渚ф爮搴曢儴鐨勮处鍙峰叆鍙?/ 閫€鍑烘寜閽?*/
 .login-entry {
   margin-top: 10px;
   width: 100%;
@@ -919,11 +919,11 @@
   background: rgba(255, 107, 107, 0.16);
 }
 
-/* ===== 应用容器 =====
-   加登录页时用 <div id="app-root"> 包住了 sidebar + main-content。
-   原来 body 是 flex 容器，两个子元素并排；加了这一层之后，
-   body 只有一个子元素，必须让 app-root 自己也是 flex，
-   否则 sidebar 和主内容会上下堆叠。 */
+/* ===== 搴旂敤瀹瑰櫒 =====
+   鍔犵櫥褰曢〉鏃剁敤 <div id="app-root"> 鍖呬綇浜?sidebar + main-content銆?
+   鍘熸潵 body 鏄?flex 瀹瑰櫒锛屼袱涓瓙鍏冪礌骞舵帓锛涘姞浜嗚繖涓€灞備箣鍚庯紝
+   body 鍙湁涓€涓瓙鍏冪礌锛屽繀椤昏 app-root 鑷繁涔熸槸 flex锛?
+   鍚﹀垯 sidebar 鍜屼富鍐呭浼氫笂涓嬪爢鍙犮€?*/
 .app-root {
   display: flex;
   width: 100%;
@@ -933,30 +933,30 @@
 
 
 /* ============================================================
-   手机端适配（宽度 ≤ 768px）
+   鎵嬫満绔€傞厤锛堝搴?鈮?768px锛?
    ------------------------------------------------------------
-   桌面端的样式一行不动，所有改动都包在媒体查询里。
-   目标是「能用」，不是「精致」：
-     - 侧栏收成抽屉，点汉堡按钮滑出
-     - 主区占满屏幕
-     - 输入框字号 16px（小于 16px iOS 会自动放大页面）
-     - 用 dvh 代替 vh，软键盘弹出时布局跟着缩，输入框不会被顶出屏幕
+   妗岄潰绔殑鏍峰紡涓€琛屼笉鍔紝鎵€鏈夋敼鍔ㄩ兘鍖呭湪濯掍綋鏌ヨ閲屻€?
+   鐩爣鏄€岃兘鐢ㄣ€嶏紝涓嶆槸銆岀簿鑷淬€嶏細
+     - 渚ф爮鏀舵垚鎶藉眽锛岀偣姹夊牎鎸夐挳婊戝嚭
+     - 涓诲尯鍗犳弧灞忓箷
+     - 杈撳叆妗嗗瓧鍙?16px锛堝皬浜?16px iOS 浼氳嚜鍔ㄦ斁澶ч〉闈級
+     - 鐢?dvh 浠ｆ浛 vh锛岃蒋閿洏寮瑰嚭鏃跺竷灞€璺熺潃缂╋紝杈撳叆妗嗕笉浼氳椤跺嚭灞忓箷
    ============================================================ */
 
-/* 汉堡按钮和遮罩：桌面上不存在 */
+/* 姹夊牎鎸夐挳鍜岄伄缃╋細妗岄潰涓婁笉瀛樺湪 */
 .sidebar-toggle { display: none; }
 .sidebar-mask { display: none; }
 
 
 @media (max-width: 768px) {
 
-  /* ---------- 1. 视口高度：100dvh 跟着地址栏/软键盘变化 ---------- */
+  /* ---------- 1. 瑙嗗彛楂樺害锛?00dvh 璺熺潃鍦板潃鏍?杞敭鐩樺彉鍖?---------- */
   html, body { height: 100dvh; }
 
-  /* 防止 iOS 双击放大后回不去 */
+  /* 闃叉 iOS 鍙屽嚮鏀惧ぇ鍚庡洖涓嶅幓 */
   body { touch-action: manipulation; }
 
-  /* ---------- 2. 侧栏改成抽屉 ---------- */
+  /* ---------- 2. 渚ф爮鏀规垚鎶藉眽 ---------- */
   .sidebar {
     position: fixed;
     top: 0;
@@ -966,20 +966,20 @@
     z-index: 200;
     transform: translateX(-100%);
     transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-    /* 刘海屏左侧留白 */
+    /* 鍒樻捣灞忓乏渚х暀鐧?*/
     padding-left: env(safe-area-inset-left);
     box-shadow: 4px 0 24px rgba(0, 0, 0, 0.6);
   }
 
   body.sidebar-open .sidebar { transform: translateX(0); }
 
-  /* 抽屉打开时把汉堡按钮藏起来，否则会盖住侧栏的 logo */
+  /* 鎶藉眽鎵撳紑鏃舵妸姹夊牎鎸夐挳钘忚捣鏉ワ紝鍚﹀垯浼氱洊浣忎晶鏍忕殑 logo */
   body.sidebar-open .sidebar-toggle {
     opacity: 0;
     pointer-events: none;
   }
 
-  /* 抽屉打开时的遮罩 */
+  /* 鎶藉眽鎵撳紑鏃剁殑閬僵 */
   .sidebar-mask {
     display: block;
     position: fixed;
@@ -996,7 +996,7 @@
     pointer-events: auto;
   }
 
-  /* 汉堡按钮：固定在左上角 */
+  /* 姹夊牎鎸夐挳锛氬浐瀹氬湪宸︿笂瑙?*/
   .sidebar-toggle {
     display: flex;
     flex-direction: column;
@@ -1025,13 +1025,13 @@
     transition: 0.2s;
   }
 
-  /* ---------- 3. 主区占满、给汉堡按钮让位 ---------- */
+  /* ---------- 3. 涓诲尯鍗犳弧銆佺粰姹夊牎鎸夐挳璁╀綅 ---------- */
   .main-content {
     width: 100%;
     padding-top: env(safe-area-inset-top);
   }
 
-  /* 顶部导航：汉堡按钮占了左边，给 tab 让出位置 */
+  /* 椤堕儴瀵艰埅锛氭眽鍫℃寜閽崰浜嗗乏杈癸紝缁?tab 璁╁嚭浣嶇疆 */
   .top-nav {
     height: 54px;
     padding: 0 8px 0 54px;
@@ -1056,7 +1056,7 @@
     text-overflow: ellipsis;
   }
 
-  /* 右上角的状态标签和「新会话」在手机上没地方放，隐藏状态标签 */
+  /* 鍙充笂瑙掔殑鐘舵€佹爣绛惧拰銆屾柊浼氳瘽銆嶅湪鎵嬫満涓婃病鍦版柟鏀撅紝闅愯棌鐘舵€佹爣绛?*/
   .nav-status,
   .top-right { gap: 6px; flex-shrink: 0; }
   .tag-status { display: none !important; }
@@ -1067,7 +1067,7 @@
     white-space: nowrap;
   }
 
-  /* ---------- 4. 聊天区：左右留白收窄，气泡放宽 ---------- */
+  /* ---------- 4. 鑱婂ぉ鍖猴細宸﹀彸鐣欑櫧鏀剁獎锛屾皵娉℃斁瀹?---------- */
   .chat-area {
     padding: 16px 12px;
     gap: 16px;
@@ -1083,14 +1083,14 @@
     gap: 8px;
   }
 
-  /* 字体 16px：iOS 上小于 16px 的输入框，聚焦时会自动放大整个页面 */
+  /* 瀛椾綋 16px锛歩OS 涓婂皬浜?16px 鐨勮緭鍏ユ锛岃仛鐒︽椂浼氳嚜鍔ㄦ斁澶ф暣涓〉闈?*/
   .input-wrapper input { font-size: 16px; }
   .input-wrapper { padding: 6px 12px; }
 
   .quick-prompts { gap: 6px; }
   .prompt-btn { padding: 5px 9px; font-size: 11px; }
 
-  /* ---------- 5. 出行页 ---------- */
+  /* ---------- 5. 鍑鸿椤?---------- */
   .trip-hero { padding: 0 16px 40px; gap: 20px; }
   .hero-greeting { font-size: 20px; gap: 8px; text-align: center; }
   .hero-icon { width: 32px; height: 32px; }
@@ -1105,24 +1105,24 @@
   .trip-user-msg { max-width: 92%; }
   .trip-chat, .trip-err { padding: 12px 13px; font-size: 13px; }
 
-  /* 进度条：手机上四个步骤横排太挤，缩小间距 */
+  /* 杩涘害鏉★細鎵嬫満涓婂洓涓楠ゆí鎺掑お鎸わ紝缂╁皬闂磋窛 */
   .trip-fixed .process-flow { gap: 6px; row-gap: 6px; }
   .trip-fixed .process-step { font-size: 11px; gap: 5px; }
   .trip-fixed .step-num { width: 20px; height: 20px; font-size: 10px; }
   .trip-fixed .step-arrow { width: 12px; }
 
-  /* 示例卡片竖排 */
+  /* 绀轰緥鍗＄墖绔栨帓 */
   .trip-cards { grid-template-columns: 1fr; gap: 8px; }
   .trip-card { padding: 12px; }
 
   .trip-scroll-btn { right: 14px; bottom: 100px; }
 
-  /* ---------- 6. 客服页 ---------- */
+  /* ---------- 6. 瀹㈡湇椤?---------- */
   .customer-welcome { margin-top: -30px; }
   .radar-wrap { width: 64px; height: 64px; }
   .customer-welcome h2 { font-size: 17px; }
 
-  /* ---------- 7. 登录页：手机上几乎铺满 ---------- */
+  /* ---------- 7. 鐧诲綍椤碉細鎵嬫満涓婂嚑涔庨摵婊?---------- */
   .login-screen { padding: 16px; }
   .login-box {
     max-width: 100%;
@@ -1132,7 +1132,7 @@
   }
   .login-input { font-size: 16px; }
 
-  /* ---------- 8. 侧栏内部：底部信息精简 ---------- */
+  /* ---------- 8. 渚ф爮鍐呴儴锛氬簳閮ㄤ俊鎭簿绠€ ---------- */
   .sidebar-footer {
     padding: 12px;
     padding-bottom: calc(12px + env(safe-area-inset-bottom));
@@ -1143,7 +1143,7 @@
 }
 
 
-/* 很窄的老手机（iPhone SE 320px）：再收一档 */
+/* 寰堢獎鐨勮€佹墜鏈猴紙iPhone SE 320px锛夛細鍐嶆敹涓€妗?*/
 @media (max-width: 380px) {
   .nav-tab { font-size: 11px; padding: 5px 2px; }
   .hero-greeting { font-size: 17px; }
@@ -1151,7 +1151,7 @@
 }
 
 
-/* 横屏手机：高度很矮，去掉一些上下留白 */
+/* 妯睆鎵嬫満锛氶珮搴﹀緢鐭紝鍘绘帀涓€浜涗笂涓嬬暀鐧?*/
 @media (max-width: 900px) and (orientation: landscape) and (max-height: 500px) {
   .top-nav { height: 46px; }
   .trip-hero { padding-bottom: 20px; gap: 14px; }
@@ -1159,15 +1159,15 @@
 }
 
 /* ============================================================
-   ===== 反馈（独立功能，不需要了整段删掉）=====
+   ===== 鍙嶉锛堢嫭绔嬪姛鑳斤紝涓嶉渶瑕佷簡鏁存鍒犳帀锛?====
    ------------------------------------------------------------
-   入口有两个：
-     - 桌面：侧栏底部的 #feedback-entry
-     - 手机：右下角的 #feedback-fab（侧栏是抽屉，放侧栏里找不到）
-   弹窗两者共用。
+   鍏ュ彛鏈変袱涓細
+     - 妗岄潰锛氫晶鏍忓簳閮ㄧ殑 #feedback-entry
+     - 鎵嬫満锛氬彸涓嬭鐨?#feedback-fab锛堜晶鏍忔槸鎶藉眽锛屾斁渚ф爮閲屾壘涓嶅埌锛?
+   寮圭獥涓よ€呭叡鐢ㄣ€?
    ============================================================ */
 
-/* ---------- 桌面侧栏入口 ---------- */
+/* ---------- 妗岄潰渚ф爮鍏ュ彛 ---------- */
 .feedback-entry {
   margin-top: 6px;
   width: 100%;
@@ -1193,12 +1193,12 @@
 
 .feedback-entry .fe-ic { font-size: 13px; }
 
-/* ---------- 手机浮标 ---------- */
+/* ---------- 鎵嬫満娴爣 ---------- */
 .feedback-fab {
   display: none;
   position: fixed;
   right: 14px;
-  /* 让开底部输入框，再避开 iPhone 底部横条 */
+  /* 璁╁紑搴曢儴杈撳叆妗嗭紝鍐嶉伩寮€ iPhone 搴曢儴妯潯 */
   bottom: calc(84px + env(safe-area-inset-bottom));
   z-index: 150;
   width: 44px;
@@ -1221,7 +1221,7 @@
   box-shadow: 0 0 18px rgba(34, 211, 238, 0.45);
 }
 
-/* ---------- 弹窗 ---------- */
+/* ---------- 寮圭獥 ---------- */
 .feedback-modal {
   display: none;
   position: fixed;
@@ -1332,7 +1332,7 @@ textarea.fb-input { height: 84px; line-height: 1.6; }
 .fb-btn.ghost { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); }
 .fb-btn.ghost:hover { border-color: var(--cyan-border); color: var(--cyan); }
 
-/* 提交成功的小提示 */
+/* 鎻愪氦鎴愬姛鐨勫皬鎻愮ず */
 .feedback-toast {
   position: fixed;
   left: 50%;
@@ -1353,22 +1353,22 @@ textarea.fb-input { height: 84px; line-height: 1.6; }
   to { opacity: 1; transform: translate(-50%, 0); }
 }
 
-/* ---------- 手机上：入口换成浮标，弹窗铺满 ---------- */
+/* ---------- 鎵嬫満涓婏細鍏ュ彛鎹㈡垚娴爣锛屽脊绐楅摵婊?---------- */
 @media (max-width: 768px) {
-  /* 抽屉里那个入口在手机上用不上，藏掉 */
+  /* 鎶藉眽閲岄偅涓叆鍙ｅ湪鎵嬫満涓婄敤涓嶄笂锛岃棌鎺?*/
   .feedback-entry { display: none; }
 
   .feedback-fab { display: flex; align-items: center; justify-content: center; }
 
   .fb-box { max-width: none; padding: 20px; }
 
-  /* 输入框 16px：小于 16px 时 iOS 聚焦会自动放大整个页面 */
+  /* 杈撳叆妗?16px锛氬皬浜?16px 鏃?iOS 鑱氱劍浼氳嚜鍔ㄦ斁澶ф暣涓〉闈?*/
   .fb-input { font-size: 16px; }
 
   textarea.fb-input { height: 96px; }
 }
 
-/* ===== 闲聊插件条（普通聊天 / 角色扮演） ===== */
+/* ===== 闂茶亰鎻掍欢鏉★紙鏅€氳亰澶?/ 瑙掕壊鎵紨锛?===== */
 
 .chat-plugins {
     display: flex;
@@ -1403,15 +1403,15 @@ textarea.fb-input { height: 84px; line-height: 1.6; }
     color: var(--accent-ink, #041018);
 }
 
-/* 角色聊天时，底部那排普通聊天的快捷问题就不显示了 */
+/* 瑙掕壊鑱婂ぉ鏃讹紝搴曢儴閭ｆ帓鏅€氳亰澶╃殑蹇嵎闂灏变笉鏄剧ず浜?*/
 .role-chat-mode .quick-prompts { display: none; }
 
-/* 选角色时，聊天区和输入框都藏起来 */
+/* 閫夎鑹叉椂锛岃亰澶╁尯鍜岃緭鍏ユ閮借棌璧锋潵 */
 .role-select-mode .chat-area,
 .role-select-mode .bottom-section { display: none; }
 
 
-/* ===== 选角色页 ===== */
+/* ===== 閫夎鑹查〉 ===== */
 
 .role-select {
     flex: 1;
@@ -1518,7 +1518,7 @@ textarea.fb-input { height: 84px; line-height: 1.6; }
 }
 
 
-/* ===== 角色聊天顶部的角色条 / 记忆条 ===== */
+/* ===== 瑙掕壊鑱婂ぉ椤堕儴鐨勮鑹叉潯 / 璁板繂鏉?===== */
 
 .role-bar {
     display: flex;
@@ -1593,7 +1593,7 @@ textarea.fb-input { height: 84px; line-height: 1.6; }
 }
 
 
-/* ===== 手机端 ===== */
+/* ===== 鎵嬫満绔?===== */
 
 @media (max-width: 900px) {
     .chat-plugins { padding: 9px 16px; }
@@ -1608,7 +1608,7 @@ textarea.fb-input { height: 84px; line-height: 1.6; }
     .role-banner { font-size: 11.5px; }
 }
 
-/* ===== 自己写角色：入口卡片 + 表单 ===== */
+/* ===== 鑷繁鍐欒鑹诧細鍏ュ彛鍗＄墖 + 琛ㄥ崟 ===== */
 
 .role-advanced {
     margin-top: 24px;
@@ -1795,7 +1795,7 @@ textarea.fb-input { height: 84px; line-height: 1.6; }
     .role-adv-row { grid-template-columns: 1fr; }
 }
 
-/* ===== 侧栏：角色扮演菜单 ===== */
+/* ===== 渚ф爮锛氳鑹叉壆婕旇彍鍗?===== */
 
 .role-menu {
     margin-top: 14px;
@@ -1886,7 +1886,7 @@ textarea.fb-input { height: 84px; line-height: 1.6; }
     color: var(--text-muted);
 }
 
-/* ===== 侧栏角色菜单：主题 ===== */
+/* ===== 渚ф爮瑙掕壊鑿滃崟锛氫富棰?===== */
 
 html[data-theme="street"] .role-menu {
     border-top: 2px solid var(--ink);
@@ -1929,7 +1929,7 @@ html[data-theme="cyber"] .role-menu-new {
     border-color: rgba(34, 211, 238, 0.3);
 }
 
-/* ===== 角色聊天：查看档案按钮 + 档案弹窗 ===== */
+/* ===== 瑙掕壊鑱婂ぉ锛氭煡鐪嬫。妗堟寜閽?+ 妗ｆ寮圭獥 ===== */
 
 .role-actions {
     display: flex;
@@ -2087,7 +2087,7 @@ html[data-theme="cyber"] .role-menu-new {
     color: var(--cyan);
 }
 
-/* ===== 角色档案：下载终端 + 确认单 ===== */
+/* ===== 瑙掕壊妗ｆ锛氫笅杞界粓绔?+ 纭鍗?===== */
 
 .role-download-modal,
 .role-confirm-modal {
@@ -2190,7 +2190,7 @@ html[data-theme="cyber"] .role-menu-new {
 }
 
 .rd-status::before {
-    content: "▸ ";
+    content: "鈻?";
     color: #22d3ee;
 }
 
@@ -2332,9 +2332,9 @@ html[data-theme="cyber"] .role-menu-new {
     .rcp-btn { flex: 1; }
 }
 
-/* ===== 档案下载 / 确认单：跟随主题 ===== */
+/* ===== 妗ｆ涓嬭浇 / 纭鍗曪細璺熼殢涓婚 ===== */
 
-/* 简洁现代：浅色数据卡片 */
+/* 绠€娲佺幇浠ｏ細娴呰壊鏁版嵁鍗＄墖 */
 html[data-theme="clean"] .role-download-modal,
 html[data-theme="clean"] .role-confirm-modal {
     background: rgba(15, 23, 42, 0.28);
@@ -2424,7 +2424,7 @@ html[data-theme="clean"] .rcp-btn.primary:hover {
     filter: brightness(1.06);
 }
 
-/* 街头黑客：硬边、黑白黄 */
+/* 琛楀ご榛戝锛氱‖杈广€侀粦鐧介粍 */
 html[data-theme="street"] .role-download-modal,
 html[data-theme="street"] .role-confirm-modal {
     background: rgba(17, 24, 39, 0.34);
@@ -2499,7 +2499,7 @@ html[data-theme="street"] .rcp-btn.primary:hover {
     color: var(--yellow);
 }
 
-/* 赛博暗色：保留暗底霓虹 */
+/* 璧涘崥鏆楄壊锛氫繚鐣欐殫搴曢湏铏?*/
 html[data-theme="cyber"] .rd-box,
 html[data-theme="cyber"] .rcp-box {
     border-color: rgba(34, 211, 238, 0.42);
@@ -2511,7 +2511,7 @@ html[data-theme="cyber"] .rcp-box {
     box-shadow: 0 0 50px rgba(34, 211, 238, 0.16), inset 0 0 50px rgba(34, 211, 238, 0.03);
 }
 
-/* ===== 角色卡片：删除自己创建的角色 ===== */
+/* ===== 瑙掕壊鍗＄墖锛氬垹闄よ嚜宸卞垱寤虹殑瑙掕壊 ===== */
 
 .role-card {
     position: relative;
@@ -2563,21 +2563,21 @@ html[data-theme="cyber"] .role-card-del:hover {
     color: #f87171;
 }
 
-/* ===== 手机端：角色页面细节 ===== */
+/* ===== 鎵嬫満绔細瑙掕壊椤甸潰缁嗚妭 ===== */
 
-/* 角色选择 / 表单页面，反馈浮标会压住内容 */
+/* 瑙掕壊閫夋嫨 / 琛ㄥ崟椤甸潰锛屽弽棣堟诞鏍囦細鍘嬩綇鍐呭 */
 body.role-mode .feedback-fab {
     display: none;
 }
 
-/* 给底部留出滚动余量，最后一排按钮不会被挡住 */
+/* 缁欏簳閮ㄧ暀鍑烘粴鍔ㄤ綑閲忥紝鏈€鍚庝竴鎺掓寜閽笉浼氳鎸′綇 */
 @media (max-width: 900px) {
     .role-select {
         padding-bottom: 96px;
     }
 }
 
-/* 更窄的手机上，角色条的按钮换到下一行 */
+/* 鏇寸獎鐨勬墜鏈轰笂锛岃鑹叉潯鐨勬寜閽崲鍒颁笅涓€琛?*/
 @media (max-width: 360px) {
     .role-banner {
         flex-wrap: wrap;
@@ -2591,7 +2591,7 @@ body.role-mode .feedback-fab {
     }
 }
 
-/* ===== 更新公告 ===== */
+/* ===== 鏇存柊鍏憡 ===== */
 
 .notice-btn {
     display: inline-flex;
@@ -2717,7 +2717,7 @@ body.role-mode .feedback-fab {
 }
 
 .notice-items li::before {
-    content: "▸";
+    content: "鈻?;
     position: absolute;
     left: 0;
     color: var(--cyan);
@@ -2743,7 +2743,7 @@ body.role-mode .feedback-fab {
     filter: brightness(1.06);
 }
 
-/* 更新公告：街头主题 */
+/* 鏇存柊鍏憡锛氳澶翠富棰?*/
 html[data-theme="street"] .notice-btn {
     border: 2px solid var(--ink);
     border-radius: 0;
@@ -2775,7 +2775,7 @@ html[data-theme="street"] .notice-ok {
     color: var(--yellow);
 }
 
-/* 更新公告：赛博主题 */
+/* 鏇存柊鍏憡锛氳禌鍗氫富棰?*/
 html[data-theme="cyber"] .notice-btn {
     border-color: rgba(34, 211, 238, 0.28);
     background: rgba(34, 211, 238, 0.05);
@@ -2792,7 +2792,7 @@ html[data-theme="cyber"] .notice-ok {
     box-shadow: 0 0 16px rgba(34, 211, 238, 0.25);
 }
 
-/* 手机端：按钮只留图标，避免顶栏拥挤 */
+/* 鎵嬫満绔細鎸夐挳鍙暀鍥炬爣锛岄伩鍏嶉《鏍忔嫢鎸?*/
 @media (max-width: 700px) {
     .notice-btn {
         width: 30px;
@@ -2804,7 +2804,7 @@ html[data-theme="cyber"] .notice-ok {
     }
 }
 
-/* ===== 侧栏操作栏：新会话 / 主题 / 公告 ===== */
+/* ===== 渚ф爮鎿嶄綔鏍忥細鏂颁細璇?/ 涓婚 / 鍏憡 ===== */
 
 .sidebar-actions {
     display: flex;
@@ -2858,13 +2858,13 @@ html[data-theme="cyber"] .notice-ok {
     display: inline;
 }
 
-/* 手机端也保留侧栏里的文字，不要变成纯图标 */
+/* 鎵嬫満绔篃淇濈暀渚ф爮閲岀殑鏂囧瓧锛屼笉瑕佸彉鎴愮函鍥炬爣 */
 .sidebar-actions .notice-btn {
     width: auto;
     padding: 0 8px;
 }
 
-/* 街头主题：操作栏也走硬边 */
+/* 琛楀ご涓婚锛氭搷浣滄爮涔熻蛋纭竟 */
 html[data-theme="street"] .sidebar-actions {
     border-bottom: 2px solid var(--ink);
 }
@@ -2877,7 +2877,7 @@ html[data-theme="street"] .sidebar-actions .notice-btn {
     box-shadow: 2px 2px 0 var(--ink);
 }
 
-/* 侧栏三个按钮在 260px 宽时不要换行 */
+/* 渚ф爮涓変釜鎸夐挳鍦?260px 瀹芥椂涓嶈鎹㈣ */
 .sidebar-actions .sidebar-action-btn,
 .sidebar-actions .theme-btn,
 .sidebar-actions .theme-label,
@@ -2900,14 +2900,14 @@ html[data-theme="street"] .sidebar-actions .notice-btn {
     gap: 1.5px;
 }
 
-/* 手机抽屉里也显示“主题”两个字，不然只剩三个点不知道是什么 */
+/* 鎵嬫満鎶藉眽閲屼篃鏄剧ず鈥滀富棰樷€濅袱涓瓧锛屼笉鐒跺彧鍓╀笁涓偣涓嶇煡閬撴槸浠€涔?*/
 @media (max-width: 700px) {
     .sidebar-actions .theme-label {
         display: inline;
     }
 }
 
-/* 手机端：行程进度压成一行，尽量把高度让给输出 */
+/* 鎵嬫満绔細琛岀▼杩涘害鍘嬫垚涓€琛岋紝灏介噺鎶婇珮搴﹁缁欒緭鍑?*/
 @media (max-width: 600px) {
     .trip-fixed {
         padding: 6px 10px 5px;
@@ -2947,7 +2947,7 @@ html[data-theme="street"] .sidebar-actions .notice-btn {
     }
 }
 
-/* ===== 发送按钮：停止 / 重试 ===== */
+/* ===== 鍙戦€佹寜閽細鍋滄 / 閲嶈瘯 ===== */
 
 .send-btn.is-stop {
     background: #ef4444;
@@ -2987,15 +2987,15 @@ html[data-theme="cyber"] .send-btn.is-stop {
 }
 
 /* ============================================================
-   ===== 顶栏右上角：状态 + 账号 + 退出 / 登录 =====
+   ===== 椤舵爮鍙充笂瑙掞細鐘舵€?+ 璐﹀彿 + 閫€鍑?/ 鐧诲綍 =====
    ------------------------------------------------------------
-   结构（static/index.html → .top-nav → .top-right）：
-     .tag-status   当前模块状态（闲聊 / 出行 / 客服各一个，切换时切换）
-     .user-chip    绿点 + 邮箱（访客显示「访客」，title 里是完整邮箱）
-     .logout-btn   真实账号：退出当前账号
-     .login-entry  访客：账号登录（两者显隐由 renderUserBadge() 控制）
-   侧栏底部只留「提交反馈」一个按钮。
-   主题色全部走变量，三套主题自动适配，下面只补少量明暗差异。
+   缁撴瀯锛坰tatic/index.html 鈫?.top-nav 鈫?.top-right锛夛細
+     .tag-status   褰撳墠妯″潡鐘舵€侊紙闂茶亰 / 鍑鸿 / 瀹㈡湇鍚勪竴涓紝鍒囨崲鏃跺垏鎹級
+     .user-chip    缁跨偣 + 閭锛堣瀹㈡樉绀恒€岃瀹€嶏紝title 閲屾槸瀹屾暣閭锛?
+     .logout-btn   鐪熷疄璐﹀彿锛氶€€鍑哄綋鍓嶈处鍙?
+     .login-entry  璁垮锛氳处鍙风櫥褰曪紙涓よ€呮樉闅愮敱 renderUserBadge() 鎺у埗锛?
+   渚ф爮搴曢儴鍙暀銆屾彁浜ゅ弽棣堛€嶄竴涓寜閽€?
+   涓婚鑹插叏閮ㄨ蛋鍙橀噺锛屼笁濂椾富棰樿嚜鍔ㄩ€傞厤锛屼笅闈㈠彧琛ュ皯閲忔槑鏆楀樊寮傘€?
    ============================================================ */
 
 .top-right {
@@ -3006,7 +3006,7 @@ html[data-theme="cyber"] .send-btn.is-stop {
     margin-left: 12px;
 }
 
-/* ---------- 身份卡：绿点 + 邮箱 ---------- */
+/* ---------- 韬唤鍗★細缁跨偣 + 閭 ---------- */
 .user-chip {
     display: inline-flex;
     align-items: center;
@@ -3037,7 +3037,7 @@ html[data-theme="cyber"] .send-btn.is-stop {
     text-overflow: ellipsis;
 }
 
-/* ---------- 退出 / 登录：同一个位置、同一个尺寸，只换配色 ---------- */
+/* ---------- 閫€鍑?/ 鐧诲綍锛氬悓涓€涓綅缃€佸悓涓€涓昂瀵革紝鍙崲閰嶈壊 ---------- */
 .top-right .logout-btn,
 .top-right .login-entry {
     flex: 0 0 auto;
@@ -3079,7 +3079,7 @@ html[data-theme="cyber"] .send-btn.is-stop {
     border-color: var(--cyan);
 }
 
-/* ---------- 侧栏底部：只剩反馈入口 ---------- */
+/* ---------- 渚ф爮搴曢儴锛氬彧鍓╁弽棣堝叆鍙?---------- */
 .sidebar-footer {
     padding: 12px;
     gap: 0;
@@ -3102,18 +3102,18 @@ html[data-theme="cyber"] .send-btn.is-stop {
     filter: brightness(0.98);
 }
 
-/* 浏览器宽度不够时，顶栏右侧先把邮箱收短 */
+/* 娴忚鍣ㄥ搴︿笉澶熸椂锛岄《鏍忓彸渚у厛鎶婇偖绠辨敹鐭?*/
 @media (max-width: 1180px) {
     .user-chip { max-width: 150px; }
 }
 
-/* 平板：状态标签让位，只留账号 + 退出，保证都不换行 */
+/* 骞虫澘锛氱姸鎬佹爣绛捐浣嶏紝鍙暀璐﹀彿 + 閫€鍑猴紝淇濊瘉閮戒笉鎹㈣ */
 @media (max-width: 900px) {
     .top-right .tag-status { display: none; }
     .top-right { margin-left: 8px; gap: 8px; }
 }
 
-/* 顶栏里所有东西都保持单行 */
+/* 椤舵爮閲屾墍鏈変笢瑗块兘淇濇寔鍗曡 */
 .top-right,
 .top-right .tag-status,
 .user-chip,
@@ -3123,7 +3123,7 @@ html[data-theme="cyber"] .send-btn.is-stop {
     white-space: nowrap;
 }
 
-/* 手机 / 窄屏：状态标签已在上面隐藏，这里收紧邮箱给按钮让位 */
+/* 鎵嬫満 / 绐勫睆锛氱姸鎬佹爣绛惧凡鍦ㄤ笂闈㈤殣钘忥紝杩欓噷鏀剁揣閭缁欐寜閽浣?*/
 @media (max-width: 768px) {
     .top-right { margin-left: 6px; gap: 5px; }
     .user-chip { max-width: 104px; height: 28px; padding: 0 8px; gap: 5px; }
@@ -3132,7 +3132,7 @@ html[data-theme="cyber"] .send-btn.is-stop {
     .top-right .login-entry { height: 28px; padding: 0 9px; font-size: 11.5px; }
 }
 
-/* ---------- 主题微调 ---------- */
+/* ---------- 涓婚寰皟 ---------- */
 
 html[data-theme="cyber"] .user-chip {
     background: var(--panel);
@@ -3144,7 +3144,7 @@ html[data-theme="cyber"] .user-chip .status-dot {
     box-shadow: 0 0 8px rgba(34, 211, 238, 0.6);
 }
 
-/* 街头主题：方角 + 黑描边，跟顶栏其他元素一致 */
+/* 琛楀ご涓婚锛氭柟瑙?+ 榛戞弿杈癸紝璺熼《鏍忓叾浠栧厓绱犱竴鑷?*/
 html[data-theme="street"] .user-chip,
 html[data-theme="street"] .top-right .logout-btn,
 html[data-theme="street"] .top-right .login-entry,
@@ -3177,7 +3177,7 @@ html[data-theme="street"] .top-right .logout-btn:hover {
 
 html[data-theme="street"] .sidebar-footer .feedback-entry .fe-ic { color: var(--ink); }
 
-/* ===== 出行方案卡片（简洁主题） ===== */
+/* ===== 鍑鸿鏂规鍗＄墖锛堢畝娲佷富棰橈級 ===== */
 
 .route-cards-ask {
     width: 100%;
@@ -3331,7 +3331,7 @@ html[data-theme="street"] .sidebar-footer .feedback-entry .fe-ic { color: var(--
     filter: brightness(1.06);
 }
 
-/* 手机端：卡片单列 */
+/* 鎵嬫満绔細鍗＄墖鍗曞垪 */
 @media (max-width: 900px) {
     .route-card-grid {
         grid-template-columns: 1fr;
@@ -3342,7 +3342,7 @@ html[data-theme="street"] .sidebar-footer .feedback-entry .fe-ic { color: var(--
     }
 }
 
-/* ===== 行程卡片 ===== */
+/* ===== 琛岀▼鍗＄墖 ===== */
 
 .trip-days {
     display: flex;
@@ -3434,7 +3434,7 @@ html[data-theme="street"] .sidebar-footer .feedback-entry .fe-ic { color: var(--
     line-height: 1.7;
 }
 
-/* ===== 景点卡片 ===== */
+/* ===== 鏅偣鍗＄墖 ===== */
 
 .trip-spots {
     display: grid;
@@ -3497,5 +3497,181 @@ html[data-theme="street"] .sidebar-footer .feedback-entry .fe-ic { color: var(--
 
     .trip-day-weather {
         font-size: 11px;
+    }
+}
+
+/* ===== 鍑鸿锛氭ā寮忓垏鎹㈡潯锛堣矾绾胯鍒?/ 鏃呮父鏀荤暐锛?===== */
+
+/* 缁撴瀯鍜岄棽鑱婇〉鐨?.chat-plugins 涓€鑷达紝浣嗙被鍚嶇嫭绔嬶紝
+   鍏嶅緱鍜?app.js 閲?.chat-plugin 鐨勫鐞嗗嚱鏁颁覆鍦ㄤ竴璧?*/
+.trip-plugins {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+    padding: 10px 10%;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-main);
+    overflow-x: auto;
+}
+
+.trip-plugin {
+    padding: 5px 13px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color .2s ease, background .2s ease, border-color .2s ease;
+}
+
+.trip-plugin:hover {
+    background: var(--cyan-dim);
+    color: var(--cyan);
+}
+
+.trip-plugin.active {
+    background: var(--cyan);
+    border-color: var(--cyan);
+    color: var(--accent-ink, #041018);
+}
+
+
+/* ===== 鍑鸿璁板綍鐨勬ā寮忔爣绛?===== */
+
+.kind-tag {
+    flex-shrink: 0;
+    margin-right: 6px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    line-height: 1.6;
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+}
+
+.kind-tag.route {
+    color: var(--cyan);
+    border-color: var(--cyan-border);
+    background: var(--cyan-dim);
+}
+
+.kind-tag.guide {
+    color: #c4b5fd;
+    border-color: rgba(196, 181, 253, .4);
+    background: rgba(196, 181, 253, .12);
+}
+
+.kind-tag.chat {
+    color: var(--text-muted);
+}
+
+
+/* ===== 鏀荤暐寮€鍦洪〉鐨勬櫙鐐瑰崱鐗囧 ===== */
+
+.trip-cardwall {
+    width: 100%;
+    max-width: 900px;
+    margin-top: 6px;
+}
+
+.trip-cardwall-title {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.trip-card-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+/* 鍗＄墖閲岀殑绠€浠嬮粯璁ゆ敹璧凤紝鐐瑰紑鎵嶆樉绀?*/
+.guide-card-intro {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border-color);
+    font-size: 12px;
+    line-height: 1.65;
+    color: var(--text-muted);
+}
+
+.gci-line {
+    margin-bottom: 6px;
+}
+
+.gci-note {
+    opacity: .65;
+}
+
+.gci-go {
+    width: 100%;
+    margin-top: 4px;
+    padding: 7px 0;
+    border: 1px solid var(--cyan-border);
+    border-radius: 6px;
+    background: var(--cyan-dim);
+    color: var(--cyan);
+    font-size: 12px;
+    cursor: pointer;
+    transition: background .2s;
+}
+
+.gci-go:hover {
+    background: rgba(34, 211, 238, .25);
+}
+
+.trip-card.is-open {
+    border-color: var(--cyan);
+    background-color: var(--panel-2, #161b22);
+}
+
+
+/* ===== 璧伴敊妯″紡鏃剁殑杞満闈㈡澘 ===== */
+
+.suggest-ask .route-ask-question {
+    margin-bottom: 10px;
+}
+
+.suggest-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.suggest-go {
+    padding: 7px 14px;
+    border: 1px solid var(--cyan-border);
+    border-radius: 999px;
+    background: var(--cyan-dim);
+    color: var(--cyan);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .2s, border-color .2s;
+}
+
+.suggest-go:hover {
+    background: rgba(34, 211, 238, .25);
+    border-color: var(--cyan);
+}
+
+
+@media (max-width: 900px) {
+    .trip-plugins {
+        padding: 9px 16px;
+    }
+
+    .trip-card-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .trip-card-grid {
+        grid-template-columns: 1fr;
     }
 }
