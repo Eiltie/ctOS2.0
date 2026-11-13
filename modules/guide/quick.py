@@ -9,7 +9,9 @@
   路线入口也用它，是因为"问天气"不该被逼着先报起点终点。
 """
 
+from core.llm import get_llm
 from modules.guide.node import weather_node
+from modules.guide.prompts import DESCRIBE_PROMPT
 
 FALLBACK = "这次没查到天气，换个城市名再试试。"
 
@@ -28,3 +30,18 @@ def answer_weather(query):
         return FALLBACK
 
     return text or FALLBACK
+
+
+def describe_places(query):
+    """用几句话说清一个地方大概怎么玩，给"转去攻略"那个按钮做铺垫。
+
+    只写"分几块、各适合什么"，不排行程——排了就变成攻略了。
+    失败返回空字符串，调用方自己给兜底话术。
+    """
+    prompt = DESCRIBE_PROMPT.replace("{user_query}", query)
+
+    try:
+        return get_llm().invoke(prompt).content.strip()
+    except Exception as e:
+        print(f"[出行] 简短介绍生成失败：{e}")
+        return ""

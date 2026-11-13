@@ -562,17 +562,6 @@ async def guide_spots(
     return guide_spots_response(req, tenant_of(authorization))
 
 
-# 过渡期保留：老前端的景点勾选还在打 /trip/guide/spots。
-# 阶段 3 前端切到 /guide/spots 之后删掉这一段。
-@app.post("/trip/guide/spots")
-async def trip_guide_spots(
-    req: GuideSpotsRequest,
-    authorization: str | None = Header(default=None),
-):
-    """老端点，行为和 /guide/spots 完全一样。"""
-    return guide_spots_response(req, tenant_of(authorization))
-
-
 @app.get("/trip/list")
 async def trip_list(authorization: str | None = Header(default=None)):
     """列出本租户最近的出行会话，前端左侧列表用。"""

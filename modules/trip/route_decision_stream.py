@@ -16,7 +16,9 @@ from langchain_core.messages import AIMessageChunk
 from langgraph.types import Command
 
 from core.sse import sse, stream_from_thread
+from core.tools.suggest import suggest_guide
 from databases.db_trip import save_trip_turn
+from modules.guide.quick import describe_places
 from modules.trip.need import (
     build_initial_state,
     check_need,
@@ -203,13 +205,41 @@ def ask_place(question, place_name, city, query, chat_id, tenant_id):
     yield _chat_and_save(question, query, chat_id, tenant_id)
 
 
+def _suggest_guide(query, chat_id, tenant_id):
+    """这句更像"想去玩几天"：先给几行介绍，再给一个转去攻略的按钮。
+
+    不排行程，也不问起点终点——只帮用户判断"值不值得点那个按钮"。
+    """
+    intro = describe_places(query) or "这句更像是想出去玩几天，不像是查路线。"
+    saved_chat_id = _save(query, {"chat_reply": intro}, "CHAT", chat_id, tenant_id)
+
+    yield sse({"kind": "CHAT", "message": intro, "chat_id": saved_chat_id})
+    yield sse({
+        "kind": "SUGGEST",
+        "to": "guide",
+        "query": query,
+        "reason": "要不要我按你说的天数，排一份具体攻略？",
+    })
+
+
 def start_route_decision(query, history=None, chat_id=None, tenant_id=None):
     """路线决策的第一步：解析需求、查地点、查候选，然后停在选方案。"""
     yield sse({"kind": "START", "mode": "ROUTE", "query": query})
     yield _step("route_need")
 
+    # 走错门：这句明明是想玩几天，先给几行介绍和转场按钮。
+    # 放在调模型之前，省掉一次没必要的解析
+    if suggest_guide(query):
+        yield from _suggest_guide(query, chat_id, tenant_id)
+        return
+
     need = parse_route_need(query, history)
     if need is None:
+        # 解析不出来，先看是不是走错门了
+        if suggest_guide(query):
+            yield from _suggest_guide(query, chat_id, tenant_id)
+            return
+
         yield _chat_and_save(
             "我没太听懂起点和终点。能说得具体一点吗？"
             "比如「从杭州东站到灵隐寺怎么走」。",
@@ -219,6 +249,11 @@ def start_route_decision(query, history=None, chat_id=None, tenant_id=None):
 
     problem = check_need(need)
     if problem:
+        # 缺起点终点，但这句明明是"想去玩几天"——别硬追问，给个转场
+        if suggest_guide(query):
+            yield from _suggest_guide(query, chat_id, tenant_id)
+            return
+
         yield _chat_and_save(problem, query, chat_id, tenant_id)
         return
 
