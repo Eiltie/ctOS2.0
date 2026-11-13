@@ -145,6 +145,7 @@
     {
       "id": "trip-route",
       "module": "trip",
+      "mode": "route",
       "input": "从杭州东站到灵隐寺怎么走？",
       "must_have_all": [
         "灵隐寺"
@@ -162,6 +163,7 @@
     {
       "id": "trip-guide",
       "module": "trip",
+      "mode": "guide",
       "input": "下周去杭州玩 3 天，带老人，节奏慢一点。",
       "must_have_all": [
         "杭州"
@@ -183,6 +185,7 @@
     {
       "id": "trip-weather",
       "module": "trip",
+      "mode": "route",
       "input": "杭州今天天气怎么样？",
       "must_have_all": [
         "杭州"
@@ -430,6 +433,7 @@
     {
       "id": "trip-route-elder",
       "module": "trip",
+      "mode": "route",
       "input": "从杭州东站到灵隐寺，带老人，少走路。",
       "must_have_all": [
         "灵隐寺"
@@ -445,6 +449,7 @@
     {
       "id": "trip-route-bus",
       "module": "trip",
+      "mode": "route",
       "input": "从杭州东站到灵隐寺坐公交怎么走？",
       "must_have_all": [
         "灵隐寺"
@@ -460,6 +465,7 @@
     {
       "id": "trip-guide-kid",
       "module": "trip",
+      "mode": "guide",
       "input": "成都 4 天带小孩，想去科技馆，别太赶。",
       "must_have_all": [
         "成都"
@@ -482,6 +488,7 @@
     {
       "id": "trip-weather-rain",
       "module": "trip",
+      "mode": "route",
       "input": "杭州明天下雨吗？",
       "must_have_all": [
         "杭州"
@@ -503,6 +510,7 @@
     {
       "id": "trip-guide-budget",
       "module": "trip",
+      "mode": "guide",
       "input": "杭州 3 天，预算 1000，带老人。",
       "must_have_groups": [
         [
@@ -522,6 +530,7 @@
     {
       "id": "trip-place-city-prefix",
       "module": "trip",
+      "mode": "route",
       "input": "从杭州东站到北京故宫怎么走？",
       "must_have_all": [
         "故宫"
@@ -535,6 +544,7 @@
     {
       "id": "trip-place-ambiguous",
       "module": "trip",
+      "mode": "route",
       "input": "从北京站到长城怎么走？",
       "must_have_any": [
         "哪一个",
@@ -544,6 +554,39 @@
         "哪个城市"
       ],
       "max_seconds": 180
+    },
+    {
+      "id": "trip-route-time",
+      "module": "trip",
+      "mode": "route",
+      "input": "9 点要到西湖开会，从杭州东站几点出门合适？",
+      "must_have_all": [
+        "西湖"
+      ],
+      "must_have_any": [
+        "出发",
+        "分钟",
+        "提前",
+        "几点"
+      ],
+      "max_seconds": 180
+    },
+    {
+      "id": "trip-guide-advice",
+      "module": "trip",
+      "mode": "guide",
+      "input": "杭州 2 天怎么玩",
+      "min_chars": 120,
+      "must_have_all": [
+        "杭州"
+      ],
+      "must_have_any": [
+        "预约",
+        "提前",
+        "注意",
+        "带"
+      ],
+      "max_seconds": 210
     }
   ]
 }

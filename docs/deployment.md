@@ -380,6 +380,20 @@ curl http://127.0.0.1:8080/health
 docker exec ctos2-db psql -U ctos_app ctos2 -c "\dt"
 ```
 
+**从"智能出行"升级到"路线规划 + 旅游攻略"要做的一次性迁移**：
+
+```bash
+# 补上 trip_ai_outputs.advice 列（攻略第四段从"详细路线"改成"游玩建议"）
+docker exec ctos2-app python -m core.db
+
+# 重启应用，让客服读到新的知识库
+docker restart ctos2-app
+```
+
+不补 `advice` 列也能跑：`db_trip.py` 会在存库前检查列在不在，
+不在时跳过那一列，攻略照样生成，只是「游玩建议」不进历史记录。老记录的
+`route_plan` 列不动，页面上显示成「详细路线（旧版）」。
+
 **域名和 TLS**：在域名商处把 `ctos2.cn` 和 `www.ctos2.cn` 都指向服务器 IP，
 这两条记录都在 Cloudflare 里托管（走代理），HTTPS 证书由 Cloudflare 自动签发和续期，
 应用本身**不需要**配任何证书或反向代理。

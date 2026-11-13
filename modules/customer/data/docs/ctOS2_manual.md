@@ -238,9 +238,9 @@ uvicorn.run(app, host=host, port=port)
 
 ### 3.2 智能出行模块
 
-点击「智能出行」入口，用自然语言描述需求即可。它有两种模式，会自动判断：
+点击「智能出行」入口，顶部有两条：**路线规划**（主功能）和**旅游攻略**。你自己点，系统不再猜。
 
-**模式一：路线决策**，例如：
+**模式一：路线规划**，例如：
 
 ```
 从杭州东站到灵隐寺怎么走，带老人，少走路
@@ -263,23 +263,34 @@ uvicorn.run(app, host=host, port=port)
 2. **推荐景点** —— 结合天气和同行人推荐景点，必要时联网查门票、开放时间
 3. **暂停等你勾选** —— 景点清单出来后停下来，可以去掉不想去的、补一个想去的
 4. **安排行程** —— 按确认后的景点排出逐日行程
-5. **规划路线** —— 细化成带具体时刻和交通耗时的路线
-6. **问要不要查真实路线** —— 选了才用高德把每天相邻站点的真实距离和耗时再算一遍
+5. **写游玩建议** —— 节奏、预约、交通卡、同行人注意、避坑、备选、预算
+
+**攻略只有一个暂停点**（勾景点），勾完一路跑完。攻略不规划距离和逐段路线，
+需要精确路线时切到路线规划；跨城大交通也不规划，建议用 12306 或航司 App 查。
 
 **每一步的产出都会实时显示在页面上。**
 
-后端契约是 `POST /trip/chat`，请求体 `{"query": "...", "history": [...], "chat_id": null}`，
-响应是 `text/event-stream` 的 SSE 事件流。
+**走错模式怎么办**：不偷偷切，而是给一个转场按钮。
+在路线里说「想去杭州玩3天」，会先说说杭州大概分几块，再给「去旅游攻略 →」按钮，
+点了带着这句话切过去并直接开始跑；反过来也一样。
 
-**人工确认（HITL）怎么实现**：两个暂停点都用 LangGraph 的 `interrupt()`。
-图跑到暂停节点会停住，把现场存进 `databases/route_checkpoints.sqlite`（运行产物，已 gitignore），
-同时向前端发一个 `ASK` 或 `ASK_SPOTS` / `ASK_ROUTE` 事件。用户点完后调对应的接口继续：
+后端契约有两个：
+
+| 模块 | 路径 | 请求体 |
+| --- | --- | --- |
+| 路线规划 | `POST /trip/chat` | `{"query": "...", "history": [...], "chat_id": null}` |
+| 旅游攻略 | `POST /guide/chat` | `{"query": "...", "history": [...], "chat_id": null}` |
+
+响应都是 `text/event-stream` 的 SSE 事件流。
+
+**人工确认（HITL）怎么实现**：暂停都用 LangGraph 的 `interrupt()`。
+图跑到暂停节点会停住，把现场存进 `databases/checkpoints/route_checkpoints.sqlite`（运行产物，已 gitignore），
+同时向前端发一个 `ASK` 或 `ASK_SPOTS` 事件。用户点完后调对应的接口继续：
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| `POST` | `/trip/route/choose` | 路线决策：用户选了哪个方案，继续写结论 |
-| `POST` | `/trip/guide/spots` | 旅游攻略：用户勾掉/补充了哪些景点，继续排行程 |
-| `POST` | `/trip/guide/route` | 旅游攻略：用户要不要查真实路线 |
+| `POST` | `/trip/route/choose` | 路线规划：用户选了哪个方案，继续写结论 |
+| `POST` | `/guide/spots` | 旅游攻略：用户勾掉/补充了哪些景点，继续排行程 |
 
 继续时后端用 `Command(resume=...)` 恢复，同样的线程号从检查点取回现场。
 
@@ -299,17 +310,16 @@ uvicorn.run(app, host=host, port=port)
 
 这段解析出的 JSON 是给程序用的，**不会流给用户看**；页面上展示的是解析后再写的天气总结。
 
-**出行模块还带一个「意图分流」**：进图之前会先判断这句话属于哪一种。
+**没有自动分流了**：拆分之前进流程前会先用一次模型判断「这句话是路线、攻略还是闲聊」，
+现在模式由页面上点，那层判断已经删除。多轮补充（「改成5天」「改成8点出发」）
+由各模块自己的需求解析接住——解析时把前几轮说过的话一起喂给模型，一次调用搞定。
+所以路线一轮的耗时比拆分前少了大约一次模型调用。
 
-- 路线需求 → 走路线决策
-- 攻略需求 → 走旅游攻略
-- 闲聊（打招呼、道谢、问你是谁） → **不跑图**，直接回一句话
-
-三条路径都会存库，用 `trip_sessions.turn_kind` 区分：
-`ROUTE` 表示路线决策，`TRAVEL` 表示旅游攻略，`CHAT` 表示闲聊分流。
+存库仍用 `trip_sessions.turn_kind` 区分：`ROUTE` 路线、`TRAVEL` 攻略、`CHAT` 只回了一句话。
 
 **出行记录**存在另外三张表里，和闲聊的会话表分开。左侧栏在出行模式下会切换成出行记录列表，
-点开可以恢复当时的结果，也可以删除。
+每条带一个模式标签（路线 / 攻略 / 问答），点开可以恢复当时的结果，也可以删除。
+拆分前的老记录里，攻略的第四段存在 `route_plan` 列，页面上显示成「详细路线（旧版）」。
 
 对应接口：
 
@@ -318,8 +328,7 @@ uvicorn.run(app, host=host, port=port)
 | `GET` | `/trip/list` | 最近的出行记录（默认最多 50 条） |
 | `GET` | `/trip/{id}` | 单条记录的完整内容（含各段产出） |
 | `DELETE` | `/trip/{id}` | 删除一条记录，子表级联删除 |
-| `GET` | `/trip/ping` | 存活检测 |
-
+| `GET` | `/trip/ping`、`GET /guide/ping` | 两个模块各自的存活检测 |
 **计时**：页面右下角会显示「规划中 12s」。中途停在选择面板时计时会暂停，
 不会把用户思考的时间算进用时。
 
@@ -812,8 +821,10 @@ ctOS2.0/
 ├── core/                       # 跨模块公用
 │   ├── llm.py                  # 唯一的模型客户端 get_llm()，也负责加载 .env
 │   ├── db.py                   # ★ PostgreSQL 连接 + 统一建表入口
+│   ├── checkpoints.py          # 出行的暂停现场（路线和攻略共用一个）
+│   └── tools/                  # 外部数据工具：search / weather / amap / suggest
 │   ├── auth.py                 # bcrypt 密码哈希 + JWT 签发校验
-│   └── sse.py                  # SSE 事件打包
+│   ├── sse.py                  # SSE 事件打包
 ├── databases/                  # 表和读写
 │   ├── db_tenant.py            # 全局身份表 tenants
 │   ├── db_auth.py              # 用户表 users
@@ -822,7 +833,8 @@ ctOS2.0/
 │   └── db_view.py              # 命令行查看工具
 ├── modules/                    # 三个业务模块
 │   ├── chat/                   # 闲聊：graph / node / prompts / state / stream / sessions
-│   ├── trip/                   # 智能出行：graph / node / tools / prompts / route / state / stream / understand / cli
+│   ├── trip/                   # 路线规划：need / route_decision_* / stream / cli
+│   ├── guide/                  # 旅游攻略：graph / node / prompts / state / conditions / ask / quick / stream
 │   └── customer/               # 智能客服（RAG）：graph / node / state / prompts / stream / rag_* / eval
 ├── static/                     # 前端（无构建步骤）
 │   ├── index.html

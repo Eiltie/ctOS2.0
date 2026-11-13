@@ -108,20 +108,32 @@ def find_chat_id(events):
     return None
 
 
-def trip_answer(client, base, query, headers):
-    """跑一次出行；遇到地点/景点/路线选择时自动选默认项。"""
+def trip_answer(client, base, query, headers, mode="route"):
+    """跑一次出行；遇到地点/景点/路线选择时自动选默认项。
+
+    mode = "route" 走 /trip/chat（路线规划）
+    mode = "guide" 走 /guide/chat（旅游攻略）
+    拆分之后两个模块各有自己的入口，评测用例要写明跑哪一边。
+    """
     start = time.time()
-    events, _ = post_sse(client, base, "/trip/chat",
+    entry = "/guide/chat" if mode == "guide" else "/trip/chat"
+
+    events, _ = post_sse(client, base, entry,
                          {"query": query, "history": []}, headers)
     parts = []
     chat_id = None
-    place_name = ""
 
     for _ in range(4):
         chat_id = chat_id or find_chat_id(events)
         text = trip_text(events)
         if text:
             parts.append(text)
+
+        # 走错模式：后端会给一个转场建议，这不是结果，记下来方便排查
+        suggest = next((ev for ev in events if ev.get("kind") == "SUGGEST"), None)
+        if suggest:
+            parts.append(f"（这句被判断为更适合「{suggest.get('to')}」）")
+            break
 
         ask_place = next((ev for ev in events if ev.get("kind") == "ASK_PLACE"), None)
         if ask_place:
@@ -137,27 +149,18 @@ def trip_answer(client, base, query, headers):
             continue
 
         ask = next((ev for ev in events
-                    if ev.get("kind") in ("ASK", "ASK_SPOTS", "ASK_ROUTE")), None)
+                    if ev.get("kind") in ("ASK", "ASK_SPOTS")), None)
         if not ask:
             break
 
-        kind = ask.get("kind")
         thread_id = ask.get("thread_id") or ""
 
-        if kind == "ASK_SPOTS":
-            events, _ = post_sse(client, base, "/trip/guide/spots", {
+        if ask.get("kind") == "ASK_SPOTS":
+            # 攻略唯一的一个暂停点：景点清单确认
+            events, _ = post_sse(client, base, "/guide/spots", {
                 "thread_id": thread_id,
                 "removed": [],
                 "added": "",
-            }, headers)
-
-        elif kind == "ASK_ROUTE":
-            events, _ = post_sse(client, base, "/trip/guide/route", {
-                "thread_id": thread_id,
-                "want_route": False,
-                "query": "",
-                "city": "",
-                "chat_id": chat_id,
             }, headers)
 
         else:
@@ -325,7 +328,8 @@ def run_case(client, base, case, headers):
         elif module == "customer":
             answer, elapsed, extra = run_customer(client, base, case, headers)
         elif module == "trip":
-            answer, elapsed, chat_id = trip_answer(client, base, case["input"], headers)
+            answer, elapsed, chat_id = trip_answer(
+                client, base, case["input"], headers, mode=case.get("mode", "route"))
             extra = f"会话 {chat_id}" if chat_id else ""
         elif case.get("kind") == "role_session":
             answer, elapsed, extra = run_platform_role(client, base, case, headers)
