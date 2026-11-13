@@ -1,13 +1,14 @@
 const TRIP_MODES = {
   TRAVEL: {
-    steps: ["weather", "spots", "itinerary", "route_plan"],
-    stepLabels: ["查询天气", "推荐景点", "安排行程", "规划路线"],
+    steps: ["weather", "spots", "itinerary", "advice"],
+    stepLabels: ["查询天气", "推荐景点", "安排行程", "游玩建议"],
     sections: [
       { key: "weather",     label: "天气" },
       { key: "spots",       label: "景点推荐" },
       { key: "itinerary",   label: "行程安排" },
-      { key: "route_plan",  label: "详细路线" },
-      { key: "guide_route", label: "真实路线" }
+      { key: "advice",      label: "游玩建议" },
+      // 拆分前的老记录第四段是"详细路线"，advice 为空时才显示
+      { key: "route_plan",  label: "详细路线（旧版）" }
     ]
   },
   ROUTE: {

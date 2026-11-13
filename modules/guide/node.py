@@ -1,49 +1,46 @@
-"""出行｜四个图节点的实现
+"""旅游攻略｜四个图节点的实现
 
-做什么：weather 解析需求+查天气，spots 搜景点，planner 排行程，route 查路线。
-被谁用：modules/trip/graph.py 注册为节点。
-注意：spots 的循环在图里（conditional_edges），route 的循环藏在本文件的 for 里。
+做什么：weather 解析需求+查天气，spots 搜景点，planner 排行程，advice 写游玩建议。
+被谁用：modules/guide/graph.py 注册为节点。
+注意：spots 的循环在图里（conditional_edges），其余节点都是一次模型调用。
 """
 
 import json
 from datetime import date, timedelta
 
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 
 from core.llm import get_llm
-from core.tools.amap import get_directions
 from core.tools.search import web_search
 from core.tools.weather import get_weather
-from modules.trip.prompts import (
+from modules.guide.prompts import (
+    ADVICE_PROMPT,
     PARSE_QUERY_PROMPT,
     PLANNER_PROMPT,
-    ROUTE_PROMPT,
-    ROUTE_TASK_PROMPT,
     SPOTS_PROMPT,
     SPOTS_TASK_PROMPT,
     WEATHER_SUMMARY_PROMPT,
 )
-from modules.trip.state import AgentState
+from modules.guide.state import GuideState
 
-# 出行图的四个节点：天气 → 景点 → 行程 → 路线
-# 循环次数上限
 # 景点 Agent 最多搜几轮
 MAX_SEARCH = 3
 
-# 路线 Agent 最多问几轮
-MAX_ROUTE_ROUNDS = 8
 
-
-def weather_node(state: AgentState) -> dict:
+def weather_node(state: GuideState) -> dict:
     """节点一：解析需求、查真实天气、写成总结，返回目的地/天数/日期/天气。"""
     llm = get_llm()
     user_query = state["user_query"]
+
+    # 历史用来接"改成5天""换成成都"这种补充；没聊过就给一句占位
+    history_text = "\n".join(state.get("history") or []) or "（还没聊过）"
 
     today = date.today()
     prompt = (PARSE_QUERY_PROMPT
               .replace("{today}", str(today))
               .replace("{weekday}", "一二三四五六日"[today.weekday()])
               .replace("{tomorrow}", str(today + timedelta(days=1)))
+              .replace("{history}", history_text)
               .replace("{user_query}", user_query))
 
     raw = llm.with_config(tags=["internal"]).invoke(prompt).content.strip()
@@ -53,6 +50,7 @@ def weather_node(state: AgentState) -> dict:
         parsed = json.loads(raw)
         destination = (parsed.get("destination") or "").strip()
     except (json.JSONDecodeError, AttributeError):
+        parsed = {}
         destination = ""
 
     if not destination:
@@ -81,7 +79,7 @@ def weather_node(state: AgentState) -> dict:
 
 
 def split_spot_names(text):
-    """把景点清单里最后一行“景点清单：A、B、C”拆出来，返回（去掉这一行的正文, 名字列表）。
+    """把景点清单里最后一行"景点清单：A、B、C"拆出来，返回（去掉这一行的正文, 名字列表）。
 
     模型偶尔漏写或写歪，这时候正文原样返回、名字列表为空，不影响原来的显示。
     """
@@ -107,7 +105,7 @@ def split_spot_names(text):
     return text, []
 
 
-def spots_agent_node(state: AgentState) -> dict:
+def spots_agent_node(state: GuideState) -> dict:
     """节点二：景点 ReAct 循环，没调工具时返回最终景点清单。"""
     history = state["messages"]
 
@@ -147,7 +145,7 @@ def _count_searches(messages: list) -> int:
     return sum(len(m.tool_calls) for m in messages if getattr(m, "tool_calls", None))
 
 
-def planner_node(state: AgentState) -> dict:
+def planner_node(state: GuideState) -> dict:
     """节点三：把景点排成逐日行程，返回 itinerary。"""
     prompt = (PLANNER_PROMPT
               .replace("{destination}", state["destination"])
@@ -165,43 +163,27 @@ def planner_node(state: AgentState) -> dict:
 
 
 def format_name_list(names):
-    """把名字列表拼成“A、B”这种样子，空列表给一个说明。"""
+    """把名字列表拼成"A、B"这种样子，空列表给一个说明。"""
     names = [name.strip() for name in names if name and str(name).strip()]
     if not names:
         return "（没有要去掉的）"
     return "、".join(names)
 
 
-def route_agent_node(state: AgentState) -> dict:
-    """节点四：带工具查路线的循环，返回 route_plan。"""
-    messages = [
-        SystemMessage(content=ROUTE_PROMPT),
-        HumanMessage(content=ROUTE_TASK_PROMPT
-                     .replace("{destination}", state["destination"])
-                     .replace("{days}", str(state["days"]))
-                     .replace("{start_date}", state["start_date"])
-                     .replace("{user_query}", state["user_query"])
-                     .replace("{itinerary}", state["itinerary"])),
-    ]
+def advice_node(state: GuideState) -> dict:
+    """节点四：写游玩建议，返回 advice。
 
-    llm = get_llm().bind_tools([get_directions])
+    这一段替代了拆分前的 route_agent（那个节点会用高德查每天的移动）。
+    现在攻略不碰地图：需要精确路线时，交给路线规划模块。
+    """
+    prompt = (ADVICE_PROMPT
+              .replace("{destination}", state["destination"])
+              .replace("{days}", str(state["days"]))
+              .replace("{start_date}", state["start_date"])
+              .replace("{weather}", state["weather"])
+              .replace("{itinerary}", state["itinerary"])
+              .replace("{user_query}", state["user_query"]))
 
-    # 循环藏在这个函数里：要查路线就替它查，查完接回消息再来一轮，不调工具就收工
-    ai = None
-    for _ in range(MAX_ROUTE_ROUNDS):
-        ai = llm.invoke(messages)
-        if not ai.tool_calls:
-            break
-        messages.append(ai)
-        for call in ai.tool_calls:
-            try:
-                result = get_directions.invoke(call["args"])
-            except Exception as e:
-                result = f"这个查询没成功（{e}），请检查参数后重试。"
-            messages.append(ToolMessage(content=result, tool_call_id=call["id"]))
+    text = get_llm().invoke(prompt).content.strip()
 
-    # 轮次用完还在要工具：不给工具，让它用手上信息直接写路线
-    if ai.tool_calls:
-        ai = get_llm().invoke(messages)
-
-    return {"route_plan": ai.content or "（本次没能生成路线，请重试）", "node_path": ["route_agent"]}
+    return {"advice": text or "（本次没能生成游玩建议，请重试）", "node_path": ["advice"]}

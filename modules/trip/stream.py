@@ -1,23 +1,22 @@
-"""出行｜模块对外唯一出口
+"""出行｜模块对外出口（阶段过渡版）
 
-做什么：分流(路线 / 攻略 / 闲聊) → 在工作线程里跑对应的图 → 边跑边吐 SSE。
+做什么：天气问答短路 → 意图分流 → 路线决策 / 旅游攻略。
 被谁用：api/main.py 的 POST /trip/chat。
-注意：同步的 LangGraph 必须留在工作线程里，挪回事件循环会让 SSE 被整体缓冲。
+
+注意：这个文件正在过渡。
+  旅游攻略已经搬到 modules/guide（自己的图、自己的 stream、自己的端点），
+  这里保留分流只是为了让老的 /trip/chat 在拆分期间还能用。
+  阶段 3 会把 understand 和这段分流一起删掉，那时这里只剩路线。
 """
 
 from core.sse import sse, stream_from_thread
 from databases.db_trip import save_trip_turn
-from modules.trip.guide_stream import (
-    check_guide_route,
-    finish_guide,
-    resume_guide,
-    start_guide,
-)
-from modules.trip.node import weather_node
+from modules.guide.quick import answer_weather
+from modules.guide.stream import resume_guide, start_guide
 from modules.trip.route_decision_stream import start_route_decision
 from modules.trip.understand import understand_query
 
-# 只是问天气时，不用把它塞进“旅游攻略”或“路线”流程
+# 只是问天气时，不用把它塞进"旅游攻略"或"路线"流程
 WEATHER_WORDS = ("天气", "气温", "温度", "下雨", "降雨", "冷不冷", "热不热")
 ROUTE_WORDS = ("怎么走", "路线", "坐什么", "堵不堵", "多久")
 
@@ -40,13 +39,7 @@ def _save(user_query, ai_output, turn_kind, chat_id, tenant_id):
 
 def _weather_reply(query, chat_id, tenant_id):
     """只问天气：直接查天气，不要跑完整的攻略流程。"""
-    try:
-        state = weather_node({"user_query": query, "messages": []})
-        text = (state.get("weather") or "").strip()
-    except Exception as e:
-        print(f"[天气] 查询失败：{e}")
-        text = "这次没查到天气，换个城市名再试试。"
-
+    text = answer_weather(query)
     saved_chat_id = _save(query, {"chat_reply": text}, "CHAT", chat_id, tenant_id)
     yield sse({"kind": "CHAT", "message": text, "chat_id": saved_chat_id})
 
@@ -73,7 +66,6 @@ def _run_trip(query: str, history: list[str], chat_id, tenant_id=None):
 
     这段跑在工作线程里，不占用事件循环。
     """
-    # query 是用户原话（存库、回显），merged_query 是合并后的需求，只喂给下游的图
     if _is_weather_query(query):
         yield from _weather_reply(query, chat_id, tenant_id)
         return
@@ -86,28 +78,16 @@ def _run_trip(query: str, history: list[str], chat_id, tenant_id=None):
         return
 
     if kind == "ROUTE":
-        yield from start_route_decision(query, merged_query, chat_id, tenant_id)
+        # 路线侧自己会用 history 合并多轮补充，不再需要 merged_query
+        yield from start_route_decision(query, history, chat_id, tenant_id)
         return
 
-    # 旅游攻略：会先停在景点清单，等用户勾完再继续
-    yield sse({"kind": "START", "mode": "TRAVEL", "query": query, "understood": merged_query})
-    yield from start_guide(query, merged_query, chat_id, tenant_id)
+    # 旅游攻略：图在 modules/guide，会先停在景点清单，等用户勾完再继续
+    yield sse({"kind": "START", "mode": "TRAVEL", "query": query})
+    yield from start_guide(query, chat_id=chat_id, tenant_id=tenant_id, history=history)
 
 
-async def guide_choose_stream(thread_id, answer, chat_id=None, tenant_id=None):
-    """用户在景点清单上点确认后，接着排行程、查路线。"""
-    async for event in stream_from_thread(resume_guide(thread_id, answer)):
-        yield event
-
-
-async def guide_route_stream(thread_id, want_route, query, city, chat_id=None, tenant_id=None):
-    """用户回答“要不要查真实路线”之后收尾。"""
-    if want_route:
-        async for event in stream_from_thread(
-            check_guide_route(thread_id, city, query, chat_id, tenant_id)
-        ):
-            yield event
-        return
-
-    async for event in stream_from_thread(finish_guide(thread_id, query, chat_id, tenant_id)):
+async def guide_choose_stream(thread_id, answer, tenant_id=None):
+    """用户在景点清单上点确认后，接着排行程、写游玩建议。"""
+    async for event in stream_from_thread(resume_guide(thread_id, answer, tenant_id=tenant_id)):
         yield event
