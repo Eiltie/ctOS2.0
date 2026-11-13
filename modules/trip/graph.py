@@ -8,6 +8,7 @@
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 
+from core.tools.search import web_search
 from modules.trip.guide_ask import ask_spots_node
 from modules.trip.node import (
     planner_node,
@@ -15,9 +16,8 @@ from modules.trip.node import (
     spots_agent_node,
     weather_node,
 )
-from modules.trip.route_decision_graph import guide_checkpointer
-from modules.trip.tools import web_search
 from modules.trip.route import should_continue
+from modules.trip.route_decision_graph import guide_checkpointer
 from modules.trip.state import AgentState
 
 # 攻略图结构：天气 → 景点（含搜索循环）→ 等用户勾选 → 行程 → 路线

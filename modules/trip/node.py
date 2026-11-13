@@ -10,8 +10,10 @@ from datetime import date, timedelta
 
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 
-from modules.trip.tools import get_directions, get_weather, web_search
 from core.llm import get_llm
+from core.tools.amap import get_directions
+from core.tools.search import web_search
+from core.tools.weather import get_weather
 from modules.trip.prompts import (
     PARSE_QUERY_PROMPT,
     PLANNER_PROMPT,

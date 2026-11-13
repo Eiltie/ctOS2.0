@@ -320,7 +320,7 @@ def stop_name_from_text(text):
 
 def check_guide_route(thread_id, city, query, chat_id=None, tenant_id=None):
     """按真实路线查行程里每天的相邻站点，再写一段说明。"""
-    from modules.trip.route_decision_tools import get_bus_choices, get_drive_choices
+    from core.tools.amap import get_bus_choices, get_drive_choices
 
     config = {"configurable": {"thread_id": thread_id}}
     state = guide_graph.get_state(config)
@@ -405,7 +405,7 @@ def pick_place(name, city):
     比如“京杭大运河博物馆（拱宸桥馆区）”，高德认不出全名，
     但去掉括号、加“杭州”前缀之后就能查到。
     """
-    from modules.trip.route_decision_tools import find_place
+    from core.tools.amap import find_place
 
     short_name = name.split("（")[0].split("(")[0].strip()
 

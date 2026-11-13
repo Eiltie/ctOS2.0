@@ -14,6 +14,8 @@ from langgraph.types import Command
 
 from core.llm import get_llm
 from core.sse import sse, stream_from_thread
+from core.tools.amap import find_place, find_place_candidates
+from core.tools.weather import get_weather
 from databases.db_trip import save_trip_turn
 from modules.trip.route_decision_graph import (
     ROUTE_SECTION_KEYS,
@@ -23,14 +25,11 @@ from modules.trip.route_decision_graph import (
 )
 from modules.trip.route_decision_prompts import PARSE_ROUTE_NEED_PROMPT
 from modules.trip.route_decision_tools import (
-    find_place,
-    find_place_candidates,
     format_need_text,
     make_route_title,
     normalize_preference,
     normalize_want_mode,
 )
-from modules.trip.tools import get_weather
 
 # 路线决策的四步提示语。前端按后端发的 STEP 事件点亮进度条
 ROUTE_STEP_TEXT = {

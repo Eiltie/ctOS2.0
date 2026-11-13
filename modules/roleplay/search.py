@@ -9,7 +9,7 @@ import json
 from core.llm import get_llm
 from modules.roleplay.openings import make_opening
 from modules.roleplay.roles import DEFAULT_ROLE_BOUNDARIES
-from modules.trip.tools import web_search
+from core.tools.search import web_search
 
 # 搜索和整理都要稳一点，不要自由发挥
 SEARCH_TEMPERATURE = 0.4
