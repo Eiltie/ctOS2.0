@@ -73,8 +73,7 @@ api/main.py          ← 唯一入口，所有路由都在这里
    │
    ├─ POST /auth/trial ──→ 访客账号（页面首次打开自动调用）
    ├─ POST /chat      ──→ 闲聊 / 角色扮演   纯文本流
-   ├─ POST /trip/chat ──→ 路线规划          SSE 事件流
-   ├─ POST /guide/chat ─→ 旅游攻略          SSE 事件流
+   ├─ POST /trip/chat ──→ 智能出行（Agent 判断：自己答 / 路线 / 攻略）  SSE 事件流
    └─ POST /customer/chat ─→ 客服           SSE 事件流
 ```
 
@@ -188,8 +187,11 @@ POST /chat（不带 role_id）
 **路线规划和旅游攻略是它的能力（子图），不是用户能选的菜单。**
 用户不需要知道内部用了哪个，正如不需要知道 Agent 用了哪个工具。
 
-> 现阶段前端还有一个"路线规划 | 旅游攻略"的模式条，那是过渡：
-> 前端仍按模式打 `/trip/chat` 或 `/guide/chat`。收入口在下一步做。
+**入口只有一个**：`POST /trip/chat`。
+
+> 前端还有一个"路线规划 | 旅游攻略"的模式条，那是界面上的过渡（下一步收口）。
+> `POST /guide/chat` 已经改成转发壳，打它和打 `/trip/chat` 完全一样，
+> 由 Agent 判断该干嘛——从攻略那个入口问"怎么走"，照样会被派去路线。
 
 ### 4.0.1 Agent 那一圈怎么转
 
@@ -294,7 +296,7 @@ save_trip_turn()        databases/db_trip.py
     trip_user_inputs（用户原话）
     trip_ai_outputs（产出，哪些列存在写哪些）
 
-事件协议（两边一样）：SAY / START / STEP / TOKEN / DONE / SUGGEST（过渡期还会发，收入口后删）
+事件协议：SAY / START / STEP / TOKEN / DONE / CHAT / ASK / ASK_PLACE / ASK_SPOTS / SAVED / ERROR
                     ASK / ASK_PLACE（路线）、ASK_SPOTS（攻略）
                     CHAT / SAVED / ERROR
 ```

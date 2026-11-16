@@ -1,12 +1,12 @@
-"""旅游攻略｜模块对外唯一出口
+"""旅游攻略｜这个能力的对外出口
 
 做什么：跑攻略图 → 停在景点清单等用户勾选 → 继续排行程、写游玩建议 → 存库。
-被谁用：api/main.py 的 POST /guide/chat 和 POST /guide/spots。
+被谁用：modules/trip/agent.py（Agent 判断 action=guide 后调）和 api/main.py（勾完继续）。
 注意：同步生成器，统一交给 core.sse.stream_from_thread 跑；暂停现场存在检查点文件里。
 
-和拆分前的区别：
-  1. 没有第二个暂停点了。勾完景点一路跑到"游玩建议"，不再问"要不要查真实路线"。
-  2. 不再 import 路线模块的任何东西。
+走到这里的前提：
+  Agent 已经判断这一句该做攻略。所以这里不再做"是不是走错门"的判断，
+  只负责把这份攻略办到底。
 """
 
 import uuid
@@ -16,7 +16,6 @@ from langgraph.types import Command
 
 from core.checkpoints import get_checkpointer
 from core.sse import sse
-from modules.trip.suggest import suggest_route
 from databases.db_trip import save_trip_turn
 from modules.trip.capabilities.guide.graph import build_graph
 
@@ -159,22 +158,11 @@ def guide_events(chunks, thread_id, context):
 
 
 def start_guide(query, chat_id=None, tenant_id=None, history=None):
-    """攻略第一步：跑图，停在景点清单等用户勾选。"""
-    # 走错门：这句明显是在问"怎么走"，不该做攻略。
-    # 放在调模型之前判断——攻略的解析器很宽容，任何一句话都能抠出个城市来，
-    # 等它失败再判断基本等不到。
-    if suggest_route(query):
-        message = "这句更像是在问具体怎么走，不是想玩什么。"
-        saved_chat_id = _save_chat(query, message, chat_id, tenant_id)
-        yield sse({"kind": "CHAT", "message": message, "chat_id": saved_chat_id})
-        yield sse({
-            "kind": "SUGGEST",
-            "to": "route",
-            "query": query,
-            "reason": "要不要去路线规划里，比一比怎么走更合适？",
-        })
-        return
+    """攻略第一步：跑图，停在景点清单等用户勾选。
 
+    走到这里说明 Agent 已经判断"这句该做攻略"。所以这里不再做"走错门"的判断，
+    只负责把这份攻略办到底；认不出目的地就如实让用户补。
+    """
     thread_id = "guide-" + uuid.uuid4().hex
     config = {"configurable": {"thread_id": thread_id}}
 
@@ -201,21 +189,14 @@ def start_guide(query, chat_id=None, tenant_id=None, history=None):
         chunks = guide_graph.stream(initial, config, stream_mode=["updates", "messages"])
         yield from guide_events(chunks, thread_id, context)
     except ValueError as e:
-        # 认不出目的地。先看是不是走错门了——用户其实是想问怎么走
+        # 认不出目的地：如实说清楚，让用户补一个城市名
         get_checkpointer().delete_thread(thread_id)
-        if suggest_route(query):
-            message = "这句更像是在问具体怎么走，不是想玩什么。"
-            saved_chat_id = _save_chat(query, message, chat_id, tenant_id)
-            yield sse({"kind": "CHAT", "message": message, "chat_id": saved_chat_id})
-            yield sse({
-                "kind": "SUGGEST",
-                "to": "route",
-                "query": query,
-                "reason": "要不要去路线规划里，比一比怎么走更合适？",
-            })
-            return
-
-        yield sse({"kind": "ERROR", "message": f"这次没跑通：{e}"})
+        yield sse({
+            "kind": "CHAT",
+            "message": f"没能从「{query}」里认出目的地，说个城市名我再排一次。",
+            "chat_id": _save_chat(query, f"没能从「{query}」里认出目的地",
+                                  chat_id, tenant_id),
+        })
         return
     except Exception as e:
         get_checkpointer().delete_thread(thread_id)

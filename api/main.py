@@ -20,7 +20,7 @@ from api.routes.auth import current_tenant, router as auth_router
 from api.routes.trial import router as trial_router          # 访客账号（可删，见该文件头）
 from core.sse import stream_from_thread
 from modules.chat.stream import run_graph
-from modules.trip.capabilities.guide.stream import resume_guide, start_guide
+from modules.trip.capabilities.guide.stream import resume_guide
 from modules.trip.stream import trip_stream
 from modules.trip.capabilities.route.stream import route_choose_stream
 from modules.customer.stream import customer_stream
@@ -481,7 +481,10 @@ async def trip_ping():
 
 @app.post("/trip/chat")
 async def trip_chat(req: TripRequest, authorization: str | None = Header(default=None)):
-    """把一句话交给出行模块，返回 SSE 事件流。"""
+    """智能出行的唯一入口：一句话进来，Agent 判断该干嘛。
+
+    路线规划、旅游攻略都是它内部的能力，用户不需要（也没法）选。
+    """
     tenant_id = tenant_of(authorization)
 
     return StreamingResponse(
@@ -522,22 +525,13 @@ async def guide_ping():
 
 @app.post("/guide/chat")
 async def guide_chat(req: GuideRequest, authorization: str | None = Header(default=None)):
-    """把一句话交给旅游攻略，返回 SSE 事件流。"""
-    tenant_id = tenant_of(authorization)
+    """过渡端点：把请求转给 /trip/chat（同一个智能出行服务）。
 
-    async def gen():
-        # 攻略图是同步的，交给工作线程跑，别堵住事件循环
-        async for event in stream_from_thread(
-            start_guide(
-                req.query,
-                chat_id=req.chat_id,
-                tenant_id=tenant_id,
-                history=req.history,
-            )
-        ):
-            yield event
-
-    return StreamingResponse(gen(), media_type="text/event-stream", headers=sse_headers())
+    智能出行已经收成一个入口，用户不该再"选模式"。
+    这个端点只是为了让老页面还能用；前端切到 /trip/chat 之后删掉。
+    """
+    return await trip_chat(TripRequest(query=req.query, history=req.history, chat_id=req.chat_id),
+                           authorization=authorization)
 
 
 def guide_spots_response(req: GuideSpotsRequest, tenant_id: int):

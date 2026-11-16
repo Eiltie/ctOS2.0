@@ -198,7 +198,7 @@ modules/<模块名>/
 | `node.py` | 88 | Agent 唯一的节点：调一次模型，判断 + 该答的顺手答了 |
 | `state.py` | 19 | Agent 状态：`messages`（+ 预留的 node_path / extra_context） |
 | `prompts.py` | 62 | Agent 的判断提示词：三个动作、判断要点、示例 |
-| `suggest.py` | 47 | 纯关键词的辅助判断（过渡期还在用，收入口后删） |
+| `suggest.py` | 47 | 纯关键词的辅助判断（已经没人用了，下一步删） |
 | `capabilities/` | — | 这个模块的**能力**（子图），见下面两小节 |
 
 **关键细节**：
@@ -234,18 +234,18 @@ modules/<模块名>/
 | `graph.py` | 49 | 攻略图：`weather → spots_agent ⇄ tools → ask_spots → planner → advice` |
 | `stream.py` | 292 | 出口：开始、暂停、勾完继续、存库 |
 | `node.py` | 196 | 四个节点：天气、景点 ReAct 循环、排行程、写游玩建议 |
-| `prompts.py` | 273 | 攻略提示词（含"走错门时给几行介绍"的 DESCRIBE_PROMPT） |
+| `prompts.py` | 273 | 攻略提示词（含"给几行简短介绍"的 DESCRIBE_PROMPT） |
 | `state.py` | 48 | 攻略状态：目的地、天数、四段产出、消息列表 |
 | `conditions.py` | 22 | 条件路由：景点搜够了就去 planner，没够就继续搜 |
 | `ask.py` | 31 | 景点清单的暂停节点 |
-| `quick.py` | 55 | 只问天气的快捷回答 + 转场用的简短介绍 |
+| `quick.py` | 55 | 只问天气的快捷回答 + 简短介绍（给「自己答」用） |
 | `cli.py` | 118 | **终端调试入口**，跑的是攻略图（路线要暂停选方案，得在网页里用） |
 
 **关键细节**：
 - 攻略**不碰地图**：没有查逐日路线那一段，需要精确路线时交给路线规划
 - 只有一个暂停点（勾景点），勾完一路跑到「游玩建议」再入库
 - `resume_guide()` 会校验 `tenant_id`，拿别人的暂停现场续不上
-- 入口先做一次 `suggest_route()` 关键词判断，走错门直接给转场，不白跑一遍图
+- 进来就说明 Agent 已经判断过该做攻略，这里不再做"走错门"判断
 
 ### `core/tools/` —— 外部数据工具（谁都能用）
 

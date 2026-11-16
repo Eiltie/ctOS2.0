@@ -152,9 +152,12 @@ static/
 | 模块 | 请求 | 响应 | 前端文件 |
 | --- | --- | --- | --- |
 | 闲聊 / 角色扮演 | `POST /chat` `{ messages, session_id?, role_id? }` | `text/plain` 流式正文 + 响应头 `X-Session-Id` | `app.js` |
-| 智能出行 · 路线 | `POST /trip/chat` `{ query, history, chat_id? }` | `text/event-stream`（SSE） | `trip/route.js` |
-| 智能出行 · 攻略 | `POST /guide/chat` `{ query, history, chat_id? }` | `text/event-stream`（SSE） | `trip/guide.js` |
+| 智能出行 | `POST /trip/chat` `{ query, history, chat_id? }` | `text/event-stream`（SSE） | `trip/base.js` + `trip/route.js` / `trip/guide.js` |
 | 智能客服 | `POST /customer/chat` `{ query, history }` | `text/event-stream`（SSE） | `customer.js` |
+
+> 智能出行只有 `/trip/chat` 一个入口：说什么由 Agent 判断。
+> 前端现在还按模式条打 `/guide/chat`，那是过渡——该端点已经改成转发壳，
+> 打它和打 `/trip/chat` 一模一样。下一步会删掉模式条。
 
 `POST /chat` 带 `role_id` 就是角色扮演，不带就是普通闲聊，两条路共用会话和消息表。
 
@@ -215,13 +218,13 @@ static/
 
 | kind | 字段 | 前端处理 |
 | --- | --- | --- |
-| `START` | `mode`? + `query`? | 出行：切到对应模式（`ROUTE` / `TRAVEL`）并点亮第一步；客服：占位符已经显示 |
+| `START` | `mode`? + `query`? | 出行：走的是哪条能力（`ROUTE` / `TRAVEL`），点亮对应进度条；客服：占位符已经显示 |
 | `SAY` | `text` | 一句提示（例如「收到，正在理解你的需求…」），不占段落 |
 | `STEP` | `key` + `text` | 该段卡片显示「正在查询天气…」之类的进度提示 |
 | `TOKEN` | `key`? + `text` | 逐字追加到对应段落（出行带 `key`，客服不带） |
 | `DONE` | `key`? + `text` | 用整段文本定稿，纠正逐字拼接的偏差 |
-| `SUGGEST` | `to` + `query` + `reason` | 走错模式了：给一个「去旅游攻略 / 去路线规划」的按钮，点了带原话切过去 |
-| `CHAT` | `message` + `chat_id` | 直接回一句（只问天气、走错模式的说明） |
+| `SUGGEST` | `to` + `query` + `reason` | 过渡期的转场（后端已不再发，前端保留处理逻辑，下一步删） |
+| `CHAT` | `message` + `chat_id` | 直接回一句（Agent 自己答的那类：推荐、准备清单、天气） |
 | `ASK_PLACE` | 地名候选 | 路线：地点有歧义时停下来让你挑一个 |
 | `ASK` | 候选路线 | 路线：候选出来了，等你选一条 |
 | `ASK_SPOTS` | 景点清单 | 攻略：清单出来了，等你勾选 / 补充 |
