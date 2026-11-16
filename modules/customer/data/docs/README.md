@@ -247,7 +247,7 @@ pip install -r config/requirements.txt
 Agent 编排（langgraph / langchain 系列 / openai / httpx）、
 客服模块（chromadb / jieba / rank-bm25）、
 数据库（psycopg）、认证（python-jose / bcrypt）。
-其中 `langgraph-checkpoint-sqlite` 是出行暂停现场用的——`modules/trip/route_decision_graph.py`
+其中 `langgraph-checkpoint-sqlite` 是出行暂停现场用的——`modules/trip/capabilities/route/graph.py`
 用它把 interrupt 的状态落到 `databases/checkpoints/`；业务数据本身仍然走 PostgreSQL。
 
 ### 2. 配置环境变量
@@ -365,7 +365,7 @@ python -X utf8 -m api.main
 出行模块可以脱离 Web 服务在终端直接跑：
 
 ```bash
-python -X utf8 -m modules.trip.cli
+python -X utf8 -m modules.trip.capabilities.guide.cli
 ```
 
 > Windows 控制台默认 GBK，不加 `-X utf8` 中文可能乱码。

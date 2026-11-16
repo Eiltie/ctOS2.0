@@ -16,23 +16,23 @@ from langchain_core.messages import AIMessageChunk
 from langgraph.types import Command
 
 from core.sse import sse, stream_from_thread
-from core.tools.suggest import suggest_guide
+from modules.trip.suggest import suggest_guide
 from databases.db_trip import save_trip_turn
-from modules.guide.quick import describe_places
-from modules.trip.need import (
+from modules.trip.capabilities.guide.quick import describe_places
+from modules.trip.capabilities.route.need import (
     build_initial_state,
     check_need,
     find_places,
     get_weather_text,
     parse_route_need,
 )
-from modules.trip.route_decision_graph import (
+from modules.trip.capabilities.route.graph import (
     ROUTE_SECTION_KEYS,
     ROUTE_TOKEN_KEYS,
     route_checkpointer,
     route_graph,
 )
-from modules.trip.route_decision_tools import (
+from modules.trip.capabilities.route.tools import (
     format_need_text,
     make_route_title,
 )

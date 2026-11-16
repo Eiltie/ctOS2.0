@@ -211,7 +211,7 @@ uvicorn.run(app, host=host, port=port)
 | 查知识库是否就绪 | `python -X utf8 -m modules.customer.rag_store` |
 | 检索测评（40 题） | `python -X utf8 -m modules.customer.rag_eval` |
 | 看数据库内容 | `python -X utf8 -m databases.db_view` |
-| 终端调试出行 | `python -X utf8 -m modules.trip.cli` |
+| 终端调试出行 | `python -X utf8 -m modules.trip.capabilities.guide.cli` |
 | 验证客服流式封装 | `python -X utf8 -m modules.customer.stream` |
 
 > 线上这些命令要在容器里跑，前面加 `docker exec ctos2-app`，例如
@@ -787,7 +787,7 @@ python -X utf8 -m modules.customer.rag_ingest
 
 **单独调试出行模块**（不启动 Web 服务）：
 ```bash
-python -X utf8 -m modules.trip.cli
+python -X utf8 -m modules.trip.capabilities.guide.cli
 ```
 
 **单独调试智能客服模块**：

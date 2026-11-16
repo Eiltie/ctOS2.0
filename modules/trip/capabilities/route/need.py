@@ -2,7 +2,7 @@
 
 做什么：把"用户这句话 + 前几轮说过的话"变成一份结构化的路线需求，
         再检查起点/终点/城市够不够、去地图上把地点查出来。
-被谁用：modules/trip/route_decision_stream.py。
+被谁用：modules/trip/capabilities/route/stream.py。
 注意：不生成给用户看的结论，只负责"搞清楚用户要什么"。
 
 为什么单独成文件：
@@ -16,8 +16,8 @@ from datetime import date, datetime, timedelta
 from core.llm import get_llm
 from core.tools.amap import find_place
 from core.tools.weather import get_weather
-from modules.trip.route_decision_prompts import PARSE_ROUTE_NEED_PROMPT
-from modules.trip.route_decision_tools import normalize_preference, normalize_want_mode
+from modules.trip.capabilities.route.prompts import PARSE_ROUTE_NEED_PROMPT
+from modules.trip.capabilities.route.tools import normalize_preference, normalize_want_mode
 
 # 这些词太笼统，直接查地图会认错地方，先反问用户
 VAGUE_PLACES = {

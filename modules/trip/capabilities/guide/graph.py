@@ -14,10 +14,10 @@ from langgraph.prebuilt import ToolNode
 
 from core.checkpoints import get_checkpointer
 from core.tools.search import web_search
-from modules.guide.ask import ask_spots_node
-from modules.guide.conditions import should_continue
-from modules.guide.node import advice_node, planner_node, spots_agent_node, weather_node
-from modules.guide.state import GuideState
+from modules.trip.capabilities.guide.ask import ask_spots_node
+from modules.trip.capabilities.guide.conditions import should_continue
+from modules.trip.capabilities.guide.node import advice_node, planner_node, spots_agent_node, weather_node
+from modules.trip.capabilities.guide.state import GuideState
 
 # 景点搜索用的工具节点
 tools_node = ToolNode([web_search], handle_tool_errors=True)

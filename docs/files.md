@@ -188,25 +188,35 @@ modules/<模块名>/
 
 ---
 
-### `modules/trip/` —— 路线规划（主功能）
+### `modules/trip/` —— 智能出行
+
+| 文件 | 行数 | 职责 |
+| --- | --- | --- |
+| `stream.py` | 84 | 模块对外出口：天气问答短路 → 路线决策 |
+| `suggest.py` | 47 | 判断「这句更像路线还是攻略」（纯关键词），走错门时给转场 |
+| `capabilities/` | — | 这个模块的**能力**（子图），见下面两小节 |
+
+> **目录约定**：`modules/` 底下每一项都是 ctOS 的一个**模块**（chat / roleplay / trip / customer），
+> 层级一致。模块自己的能力和子图放在 `capabilities/` 里，因为只有这个模块用；
+> 多个模块共用的（搜索、天气、地图）才放 `core/tools/`。
+
+### `modules/trip/capabilities/route/` —— 路线规划
 
 | 文件 | 行数 | 职责 |
 | --- | --- | --- |
 | `need.py` | 173 | **需求解析**：`parse_route_need(query, history)` 出 JSON、`check_need` 校验、`find_places` 查地点、拼需求确认文本 |
-| `route_decision_graph.py` | 321 | 路线决策图：`collect → interrupt → compare → decide → tips` |
-| `route_decision_stream.py` | 411 | 路线出口：SSE、暂停恢复、存库 |
-| `route_decision_tools.py` | ~320 | 推荐打分和排版（不调模型、不发网络请求） |
-| `route_decision_prompts.py` | ~110 | 路线 4 个提示词：解析（含 history 合并）、对比、推荐、提醒 |
-| `stream.py` | 84 | 对外出口：天气问答短路 → 路线决策 |
-| `cli.py` | 118 | **终端调试入口**，跑的是攻略图（路线要暂停选方案，得在网页里用） |
+| `graph.py` | 321 | 路线决策图：`collect → interrupt → compare → decide → tips` |
+| `stream.py` | 411 | 路线出口：SSE、暂停恢复、存库 |
+| `tools.py` | ~320 | 推荐打分和排版（不调模型、不发网络请求） |
+| `prompts.py` | ~110 | 路线 4 个提示词：解析（含 history 合并）、对比、推荐、提醒 |
 
 **关键细节**：
 - 需求解析把 `history` 一起喂给模型，所以"改成8点出发"这类补充一次调用就能接上，不用先合并再解析
-- `route_decision_tools.py` 只剩业务判断：跨城只查驾车、带老人不推荐走路、下雨不推荐骑车、按偏好打分
+- `tools.py` 只剩业务判断：跨城只查驾车、带老人不推荐走路、下雨不推荐骑车、按偏好打分
 - 路线决策的 HITL：图停在 `ask_user`，用 `interrupt` 保存现场；用户选完走 `/trip/route/choose`，用 `Command(resume=...)` 继续
 - 暂停现场由 `core/checkpoints.py` 统一管（路线和攻略共用一个 sqlite 文件，靠线程号前缀区分）；文件打不开时自动退回内存
 
-### `modules/guide/` —— 旅游攻略
+### `modules/trip/capabilities/guide/` —— 旅游攻略
 
 | 文件 | 行数 | 职责 |
 | --- | --- | --- |
@@ -218,6 +228,7 @@ modules/<模块名>/
 | `conditions.py` | 22 | 条件路由：景点搜够了就去 planner，没够就继续搜 |
 | `ask.py` | 31 | 景点清单的暂停节点 |
 | `quick.py` | 55 | 只问天气的快捷回答 + 转场用的简短介绍 |
+| `cli.py` | 118 | **终端调试入口**，跑的是攻略图（路线要暂停选方案，得在网页里用） |
 
 **关键细节**：
 - 攻略**不碰地图**：没有查逐日路线那一段，需要精确路线时交给路线规划
@@ -358,7 +369,7 @@ modules/<模块名>/
 | `static/js/trip/route.js` | 413 |
 | `static/index.html` | 411 |
 | `databases/clean_db.py` | 375 |
-| `modules/trip/route_decision_stream.py` | 364 |
+| `modules/trip/capabilities/route/stream.py` | 364 |
 
 **如果一个文件超过 500 行，考虑拆分。** 目前超标的只剩样式表（`modules.css`、`theme.css`）、
 两个前端大文件（`app.js`、`trip/base.js`）、`api/main.py` 和 `core/tools/amap.py`。

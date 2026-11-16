@@ -6,7 +6,7 @@
 
 from langgraph.types import interrupt
 
-from modules.guide.state import GuideState
+from modules.trip.capabilities.guide.state import GuideState
 
 
 def ask_spots_node(state: GuideState) -> dict:

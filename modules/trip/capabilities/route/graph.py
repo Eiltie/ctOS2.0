@@ -1,7 +1,7 @@
 """出行｜路线决策的小图
 
 做什么：查候选路线 → 暂停让人选 → 写对比/推荐/提醒。
-被谁用：modules/trip/route_decision_stream.py。
+被谁用：modules/trip/capabilities/route/stream.py。
 注意：暂停用 LangGraph 的 interrupt，状态存在 databases/checkpoints/route_checkpoints.sqlite。
       这个文件是运行产物，已经在 .gitignore 里。
 """
@@ -14,12 +14,12 @@ from langgraph.types import interrupt
 
 from core.checkpoints import get_checkpointer
 from core.llm import get_llm
-from modules.trip.route_decision_prompts import (
+from modules.trip.capabilities.route.prompts import (
     ROUTE_COMPARE_PROMPT,
     ROUTE_DECISION_PROMPT,
     ROUTE_TIPS_PROMPT,
 )
-from modules.trip.route_decision_tools import (
+from modules.trip.capabilities.route.tools import (
     choice_to_card,
     choose_recommended,
     collect_route_choices,

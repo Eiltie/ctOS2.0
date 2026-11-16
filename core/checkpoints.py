@@ -1,7 +1,7 @@
 """出行流程的 LangGraph 检查点（暂停现场）。
 
 做什么：把"暂停现场存在哪、打不开怎么办、进程里几个实例"收在一处。
-被谁用：路线决策（modules/trip/route_decision_graph.py）、旅游攻略（拆分后）。
+被谁用：路线决策（modules/trip/capabilities/route/graph.py）、旅游攻略（拆分后）。
 
 为什么要有这个文件：
   原来 make_checkpointer() 写在路线决策的图里，攻略要用就得

@@ -16,9 +16,9 @@ from langgraph.types import Command
 
 from core.checkpoints import get_checkpointer
 from core.sse import sse
-from core.tools.suggest import suggest_route
+from modules.trip.suggest import suggest_route
 from databases.db_trip import save_trip_turn
-from modules.guide.graph import build_graph
+from modules.trip.capabilities.guide.graph import build_graph
 
 guide_graph = build_graph()
 

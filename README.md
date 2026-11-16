@@ -313,7 +313,7 @@ python -X utf8 eval/run_eval.py
 python -X utf8 eval/run_eval.py --only trip-route,trip-guide,trip-route-time
 
 # 旅游攻略，终端里对话（路线要暂停选方案，得在网页里用）
-python -X utf8 -m modules.trip.cli
+python -X utf8 -m modules.trip.capabilities.guide.cli
 
 # 检查线上是否可访问
 powershell -ExecutionPolicy Bypass -File scripts\check_online.ps1

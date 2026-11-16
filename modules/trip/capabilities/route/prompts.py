@@ -1,7 +1,7 @@
 """出行｜路线决策的四个提示词
 
 做什么：解析路线需求、写候选对比、写推荐理由、写出发提醒。
-被谁用：modules/trip/route_decision_graph.py。
+被谁用：modules/trip/capabilities/route/graph.py。
 注意：这里只放提示词，不放代码逻辑。
 """
 

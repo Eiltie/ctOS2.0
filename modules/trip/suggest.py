@@ -1,7 +1,7 @@
 """判断一句话更像"查路线"还是"做攻略"。
 
 做什么：只在"流程跑不下去"的时候用一下，决定要不要给用户一个转场按钮。
-被谁用：modules/trip/route_decision_stream.py（走错门去攻略）、
+被谁用：modules/trip/capabilities/route/stream.py（走错门去攻略）、
         modules/guide/stream.py（走错门去路线）。
 
 为什么不用模型：

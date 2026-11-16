@@ -1,8 +1,8 @@
 """旅游攻略模块。
 
 对外只有两个出口（都返回 SSE 事件流）：
-    modules.guide.stream.start_guide   开始做攻略，停在景点清单
-    modules.guide.stream.resume_guide  勾完景点之后继续，一路跑到游玩建议
+    stream.start_guide   开始做攻略，停在景点清单
+    stream.resume_guide  勾完景点之后继续，一路跑到游玩建议
 
 读这里的顺序：
     1. graph.py    这张图就是攻略的全部流程

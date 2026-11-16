@@ -40,19 +40,16 @@ ctOS2.0/
 │   └── feedback_view.py   ← 命令行查看反馈
 │   （数据在 PostgreSQL 里，不在仓库中；线上在 ctos2-db 容器的命名卷 ctos2-pgdata）
 │   （databases/checkpoints/ 是出行的暂停现场，运行产物，不入 git）
-├── modules/
+├── modules/               ← 这里每一项都是 ctOS 的一个模块，层级一致
 │   ├── chat/              ← 闲聊（graph/node/state/prompts/stream/sessions）
 │   ├── roleplay/          ← 角色扮演（roles/presets/prompts/stream/search/memory/openings）
-│   ├── trip/              ← 路线规划（主功能）
-│   │   ├── 需求：need.py（解析 + 校验 + 查地点，带多轮合并）
-│   │   ├── 图：route_decision_graph.py
-│   │   ├── 出口：route_decision_stream.py、stream.py
-│   │   ├── 规则与排版：route_decision_tools.py
-│   │   └── 提示词：route_decision_prompts.py；终端调试：cli.py
-│   ├── guide/             ← 旅游攻略（独立模块，和路线互不依赖）
-│   │   ├── 图：graph.py（weather → spots ⇄ tools → ask_spots → planner → advice）
+│   ├── trip/              ← 智能出行
 │   │   ├── 出口：stream.py
-│   │   └── node/prompts/state/conditions/ask/quick
+│   │   ├── 判断：suggest.py（这句更像路线还是攻略）
+│   │   └── capabilities/      ← 智能出行的能力（子图），只有这个模块用
+│   │       ├── route/          路线规划：need / graph / stream / tools / prompts
+│   │       └── guide/          旅游攻略：graph / stream / node / prompts / state /
+│   │                           conditions / ask / quick / cli（终端调试）
 │   └── customer/          ← 客服（graph/node/state/prompts/stream + rag_* + data/）
 ├── static/                ← 前端（无构建步骤）
 ├── docs/                  ← 本文档
@@ -182,7 +179,7 @@ POST /chat（不带 role_id）
 出行页顶部：  [ 路线规划 ]  [ 旅游攻略 ]      ← 默认路线规划
                  │                │
       POST /trip/chat      POST /guide/chat
-      modules/trip/        modules/guide/
+      modules/trip/        modules/trip/capabilities/guide/
 ```
 
 两边**互不 import**，只共用 `core/` 里的东西（llm / sse / db / tools / checkpoints）。
@@ -204,14 +201,14 @@ POST /trip/chat
    │
    └─ trip_stream()              modules/trip/stream.py（先发 SAY「收到…」）
         ├─ _is_weather_query()   只问天气 → 直接回一句，存 CHAT，结束
-        └─ start_route_decision() modules/trip/route_decision_stream.py
+        └─ start_route_decision() modules/trip/capabilities/route/stream.py
              ├─ 走错门？ suggest_guide() → 介绍 + SUGGEST，结束
-             ├─ 解析需求 parse_route_need(query, history)   modules/trip/need.py
+             ├─ 解析需求 parse_route_need(query, history)   modules/trip/capabilities/route/need.py
              │     history 一起喂进去，一次调用搞定"改成5天"这类补充
              ├─ 校验     check_need()      缺起点/终点/城市 → 反问
              ├─ 查地点   find_place()      core/tools/amap.py
              ├─ 查天气   get_weather()     core/tools/weather.py
-             ├─ 查候选   route_graph       modules/trip/route_decision_graph.py
+             ├─ 查候选   route_graph       modules/trip/capabilities/route/graph.py
              │     ├─ collect_routes   查驾车/公交/步行/骑行（route_decision_tools.py）
              │     ├─ ask_user         interrupt() 暂停，等用户选方案
              │     ├─ compare_routes   写对比
@@ -237,9 +234,9 @@ POST /trip/chat
 ```
 POST /guide/chat
    │
-   └─ start_guide()              modules/guide/stream.py
+   └─ start_guide()              modules/trip/capabilities/guide/stream.py
         ├─ 走错门？ suggest_route() → SUGGEST，结束
-        ├─ 跑图  guide_graph      modules/guide/graph.py
+        ├─ 跑图  guide_graph      modules/trip/capabilities/guide/graph.py
         │     ├─ weather          解析需求（带 history）+ 查天气 + 写总结
         │     ├─ spots_agent      搜景点（ReAct 循环，最多 3 轮）
         │     ├─ ask_spots        interrupt() 暂停：用户勾掉/补充景点
@@ -282,18 +279,18 @@ save_trip_turn()        databases/db_trip.py
 `db_trip.py` 里的 `route_columns_ready()` / `advice_column_ready()` 会在第一次存库前检查列在不在，
 不在时跳过那几列，不会拖垮其他模块。
 
-**提示词在哪**：路线 `modules/trip/route_decision_prompts.py`；攻略 `modules/guide/prompts.py`。
+**提示词在哪**：路线 `modules/trip/capabilities/route/prompts.py`；攻略 `modules/trip/capabilities/guide/prompts.py`。
 
 **读攻略的顺序**：
-1. `modules/guide/graph.py`（**这张图就是攻略的全部逻辑**）
-2. `modules/guide/stream.py`（开始、暂停、继续、存库）
-3. `modules/guide/node.py`（四个节点的实现）
+1. `modules/trip/capabilities/guide/graph.py`（**这张图就是攻略的全部逻辑**）
+2. `modules/trip/capabilities/guide/stream.py`（开始、暂停、继续、存库）
+3. `modules/trip/capabilities/guide/node.py`（四个节点的实现）
 
 **读路线决策的顺序**：
-1. `modules/trip/route_decision_graph.py`（图：查候选 → 暂停 → 写对比/推荐/提醒）
-2. `modules/trip/route_decision_stream.py`（SSE 出口、恢复）
-3. `modules/trip/need.py`（需求解析、校验、查地点）
-4. `modules/trip/route_decision_tools.py`（推荐打分和排版，不调模型）
+1. `modules/trip/capabilities/route/graph.py`（图：查候选 → 暂停 → 写对比/推荐/提醒）
+2. `modules/trip/capabilities/route/stream.py`（SSE 出口、恢复）
+3. `modules/trip/capabilities/route/need.py`（需求解析、校验、查地点）
+4. `modules/trip/capabilities/route/tools.py`（推荐打分和排版，不调模型）
 ## 五、客服链路（RAG）
 
 ```
@@ -341,7 +338,7 @@ POST /customer/chat
 | 数据库连接 | `core/db.py` 的 `get_conn()` / `query()` / `execute()` / `transaction()` | 全部 |
 | 会话读写 | `modules/chat/sessions.py` | 闲聊 + 角色扮演 |
 | 联网搜索工具 | `core/tools/search.py` 的 `web_search()` | 路线 + 攻略 + 角色扮演（AI 帮我查） |
-| 检查点 | `modules/trip/route_decision_graph.py`（路线 + 攻略共用一份） | 出行 |
+| 检查点 | `modules/trip/capabilities/route/graph.py`（路线 + 攻略共用一份） | 出行 |
 
 **统一约定**：存库失败不拖垮主流程——各模块自己 `try/except`，打印后继续。
 
@@ -360,7 +357,7 @@ POST /customer/chat
 | 检索三层怎么合并 | `hybrid_search` | 只有 `modules/customer/rag_search.py` 定义一次 |
 | 知识库配置在哪 | `CHROMA_DIR` | `modules/customer/rag_config.py` |
 | 谁在发 SSE 事件 | `"kind":` | 各模块的 stream 文件 |
-| 人工确认在哪暂停 | `interrupt(` | `modules/guide/ask.py` + `route_decision_graph.py` |
+| 人工确认在哪暂停 | `interrupt(` | `modules/trip/capabilities/guide/ask.py` + `route_decision_graph.py` |
 | 角色记忆规则 | `MEMORY_LIMIT` / `add_one_round` | `modules/roleplay/memory.py` + `databases/db_roleplay.py` |
 
 ---
@@ -372,7 +369,7 @@ POST /customer/chat
 ```
 modules/weather/
 ├── __init__.py
-├── graph.py       ← 图结构（照抄 modules/guide/graph.py）
+├── graph.py       ← 图结构（照抄 modules/trip/capabilities/guide/graph.py）
 ├── node.py        ← 节点实现
 ├── prompts.py     ← 提示词
 ├── state.py       ← TypedDict 状态（可选，简单模块可以直接用 dict）

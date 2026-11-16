@@ -1,6 +1,6 @@
 """旅游攻略的终端调试入口（不需要 Web 服务）。
 
-    python -X utf8 -m modules.trip.cli
+    python -X utf8 -m modules.trip.capabilities.guide.cli
 
 做法：直接跑攻略图，把四段产出打印出来。
 注意：路线决策要在网页里用（中途要暂停让你选方案），终端里只支持攻略。
@@ -12,7 +12,7 @@ import uuid
 
 from langgraph.types import Command
 
-from modules.guide.stream import GUIDE_SECTION_KEYS, guide_graph
+from modules.trip.capabilities.guide.stream import GUIDE_SECTION_KEYS, guide_graph
 
 # 输入这些词退出
 EXIT_WORDS = {"exit", "quit", "q", "退出"}

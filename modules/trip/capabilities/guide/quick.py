@@ -10,8 +10,8 @@
 """
 
 from core.llm import get_llm
-from modules.guide.node import weather_node
-from modules.guide.prompts import DESCRIBE_PROMPT
+from modules.trip.capabilities.guide.node import weather_node
+from modules.trip.capabilities.guide.prompts import DESCRIBE_PROMPT
 
 FALLBACK = "这次没查到天气，换个城市名再试试。"
 

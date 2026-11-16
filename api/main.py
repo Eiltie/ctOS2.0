@@ -20,9 +20,9 @@ from api.routes.auth import current_tenant, router as auth_router
 from api.routes.trial import router as trial_router          # 访客账号（可删，见该文件头）
 from core.sse import stream_from_thread
 from modules.chat.stream import run_graph
-from modules.guide.stream import resume_guide, start_guide
+from modules.trip.capabilities.guide.stream import resume_guide, start_guide
 from modules.trip.stream import trip_stream
-from modules.trip.route_decision_stream import route_choose_stream
+from modules.trip.capabilities.route.stream import route_choose_stream
 from modules.customer.stream import customer_stream
 from modules.roleplay.presets import public_role
 from modules.roleplay.roles import DEFAULT_ROLE_BOUNDARIES, all_roles, get_role, public_profile

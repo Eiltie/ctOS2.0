@@ -11,8 +11,8 @@
 
 from core.sse import sse, stream_from_thread
 from databases.db_trip import save_trip_turn
-from modules.guide.quick import answer_weather
-from modules.trip.route_decision_stream import start_route_decision
+from modules.trip.capabilities.guide.quick import answer_weather
+from modules.trip.capabilities.route.stream import start_route_decision
 
 # 只是问天气时，不用把它塞进路线流程
 WEATHER_WORDS = ("天气", "气温", "温度", "下雨", "降雨", "冷不冷", "热不热")

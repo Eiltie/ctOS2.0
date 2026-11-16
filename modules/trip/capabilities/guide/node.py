@@ -13,7 +13,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from core.llm import get_llm
 from core.tools.search import web_search
 from core.tools.weather import get_weather
-from modules.guide.prompts import (
+from modules.trip.capabilities.guide.prompts import (
     ADVICE_PROMPT,
     PARSE_QUERY_PROMPT,
     PLANNER_PROMPT,
@@ -21,7 +21,7 @@ from modules.guide.prompts import (
     SPOTS_TASK_PROMPT,
     WEATHER_SUMMARY_PROMPT,
 )
-from modules.guide.state import GuideState
+from modules.trip.capabilities.guide.state import GuideState
 
 # 景点 Agent 最多搜几轮
 MAX_SEARCH = 3
