@@ -178,11 +178,64 @@ def place_options(place_name, city):
 
 
 def need_place_choice(place_name, city):
-    """这个地名是不是该先让用户挑一个具体位置。"""
+    """这个地名是不是该先让用户挑一个具体位置。
+
+    只有「这类名字本来就指一片地方」并且「真查到好几个」才值得问。
+    只查到一条时问了也没意义——没得选，点一下还是它自己。
+    """
     if not any(word in place_name for word in BROAD_PLACE_WORDS):
         return False
 
+    # 至少两条候选才构成一个"选择"
     return len(place_options(place_name, city)) >= 2
+
+
+def can_ask_place(place_name, city):
+    """认不准时，值不值得把候选摆出来。
+
+    两条标准，必须同时满足才问：
+      1. 至少两条候选——只有一条用户没得选，点完还是原来那个名字，
+         重新解析一遍可能又回到同样的状态（以前就卡在这里）
+      2. 这几条候选真的分不清——见 _needs_user_to_pick()。
+         高德经常返回"主地点 + 同名的另一个小地方"，第一条明显最匹配时直接用它。
+    """
+    options = place_options(place_name, city)
+    if len(options) < 2:
+        return False
+
+    return _needs_user_to_pick(place_name, options)
+
+
+def _needs_user_to_pick(place_name, options):
+    """这几条候选是不是真的需要用户来指。
+
+    高德的两种返回要分开对待：
+      A. 主地点 + 同名的另一个小地方（查"灵隐寺"带出"富阳灵隐寺"）
+         → 第一条明显最匹配，直接用，别问
+      B. 名字本来就指一片地方，真有好几处（"长城"有八达岭、慕田峪、司马台）
+         → 得让用户选
+
+    区分的依据是地址里名字**前面紧挨着什么**：
+      A 型：…富阳区**富阳**灵隐寺     ← 名字前面是"富阳"，多了一个地名
+      B 型：…通州区**长城**(西门)     ← 名字前面是"通州区"，那是行政区，不是地名修饰
+    所以：名字前面紧挨着"省/市/区/县/镇/村"这类行政后缀，就是 B 型；
+    紧挨着一个具体地名（富阳、慕田峪），就是同名变体，不用问。
+    """
+    admin_suffix = ("省", "市", "区", "县", "镇", "村", "道", "路", "街")
+
+    for option in options[1:]:
+        address = option["label"]
+        index = address.find(place_name)
+        if index <= 0:
+            continue
+
+        before = address[:index]
+        # 名字前面紧挨着行政后缀：这是个独立的同名地点，属于 B 型
+        if before.endswith(admin_suffix):
+            return True
+        # 否则是加了地名前缀的变体（富阳灵隐寺），跳过
+
+    return False
 
 
 def ask_place(question, place_name, city, query, chat_id, tenant_id):
@@ -228,7 +281,8 @@ def start_route_decision(query, history=None, chat_id=None, tenant_id=None):
 
     start, end, problem = find_places(need)
     if problem:
-        # 能列出候选就让人点，列不出来才用文字追问
+        # 能列出两个以上候选就让人点；只有一个（或一个都没有）就别问了——
+        # 只查到一条时用户没得选，点了还是它自己，会来回绕。
         place_name = ""
 
         if "太笼统" in problem or "不太确定" in problem:
@@ -237,7 +291,7 @@ def start_route_decision(query, history=None, chat_id=None, tenant_id=None):
             elif need["destination"] in problem:
                 place_name = need["destination"]
 
-        if place_name:
+        if place_name and can_ask_place(place_name, need.get("city") or ""):
             yield from ask_place(
                 f"「{place_name}」我查到的不太确定，你指的是下面哪个？",
                 place_name,

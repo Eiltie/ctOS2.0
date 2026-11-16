@@ -135,21 +135,50 @@ def drop_city_prefix(place_name, city):
     return ""
 
 
+def _address_is_specific(address):
+    """地址是否已经具体到"区/路/门牌"这一级。
+
+    为什么要看地址而不只看 level：
+      高德对很多具体的地方（园区、商圈、楼宇）根本不返回 level，
+      比如"南山科技园"地址是"广东省深圳市南山区科技园"、level 却是空。
+      以前把"没有 level"当成"认不准"，结果查得准的地方也一直被追问。
+    """
+    if not address:
+        return False
+
+    # 停在省/市级（没有"区/县/路/街/号/村"这类更细的标识）才算笼统
+    specific_marks = ("区", "县", "路", "街", "道", "号", "村", "镇", "园", "大厦",
+                      "广场", "中心", "公园", "机场", "车站", "站")
+    return any(mark in address for mark in specific_marks)
+
+
 def _to_place(name, place, wanted_city):
     """把高德返回的一条结果整理成地点字典。"""
     location = _text(place.get("location"))
     level = _text(place.get("level"))
     result_city = _text(place.get("city"))
+    address = _text(place.get("formatted_address")) or _text(place.get("district"))
+
+    # 判"太笼统"的标准，按可信度从高到低：
+    #   1. level 明确是村庄/城市/省份/国家 → 笼统
+    #   2. level 是"门牌号/兴趣点/单元/楼"这类 → 具体
+    #   3. 没有 level（高德对很多园区、商圈就是不给）→ 看地址够不够具体
+    if level in ("村庄", "城市", "省份", "国家", "省", "市"):
+        too_vague = True
+    elif level in ("门牌号", "兴趣点", "单元", "楼", "公交站", "地铁站", "商厦", "楼宇"):
+        too_vague = False
+    else:
+        too_vague = not _address_is_specific(address)
 
     return {
         "name": name,
-        "address": _text(place.get("formatted_address")) or _text(place.get("district")),
+        "address": address,
         "location": location,
         "city": result_city,
         "province": _text(place.get("province")),
         "adcode": _text(place.get("adcode")),
         "level": level,
-        "too_vague": (not level) or (level in VAGUE_LEVELS),
+        "too_vague": too_vague,
         "different_city": bool(wanted_city and not _city_matches(result_city, wanted_city)),
     }
 
