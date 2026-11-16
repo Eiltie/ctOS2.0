@@ -22,7 +22,7 @@ from core.sse import stream_from_thread
 from modules.chat.stream import run_graph
 from modules.trip.capabilities.guide.stream import resume_guide
 from modules.trip.stream import trip_stream
-from modules.trip.capabilities.route.stream import route_choose_stream
+from modules.trip.capabilities.route.stream import resume_with_place, route_choose_stream
 from modules.customer.stream import customer_stream
 from modules.roleplay.presets import public_role
 from modules.roleplay.roles import DEFAULT_ROLE_BOUNDARIES, all_roles, get_role, public_profile
@@ -173,6 +173,12 @@ class RouteChoiceRequest(BaseModel):
     thread_id: str
     choice_id: str
     chat_id: int | None = None
+
+
+class PlaceChoiceRequest(BaseModel):
+    """地点没认准、用户从候选里挑了一个。"""
+    thread_id: str
+    place: str
 
 
 class GuideSpotsRequest(BaseModel):
@@ -515,6 +521,27 @@ async def trip_route_choose(
         media_type="text/event-stream",
         headers=sse_headers(),
     )
+
+
+@app.post("/trip/route/place")
+async def trip_route_place(
+    req: PlaceChoiceRequest,
+    authorization: str | None = Header(default=None),
+):
+    """地点没认准、用户从候选里挑了一个之后，从原来那份需求接着查。
+
+    和 /trip/chat 的区别：不重新解析、不重新判断。
+    用户点的就是哪个地点，就用哪个地点继续。
+    """
+    tenant_id = tenant_of(authorization)
+
+    async def gen():
+        async for event in stream_from_thread(
+            resume_with_place(req.thread_id, req.place, tenant_id=tenant_id)
+        ):
+            yield event
+
+    return StreamingResponse(gen(), media_type="text/event-stream", headers=sse_headers())
 
 
 @app.get("/guide/ping")

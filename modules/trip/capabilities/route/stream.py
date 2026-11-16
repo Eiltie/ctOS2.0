@@ -238,11 +238,44 @@ def _needs_user_to_pick(place_name, options):
     return False
 
 
-def ask_place(question, place_name, city, query, chat_id, tenant_id):
-    """地点认不准时，把候选摆出来让用户点。"""
+def _save_pending_need(need, query, history, chat_id, tenant_id):
+    """把"等用户挑地点"的现场存进检查点，返回线程号。
+
+    为什么要存：用户点完候选之后，要**从同一份需求接着跑**，
+    而不是把改写后的话重新发一遍（那样会重新解析、重新判断，
+    以前就是这么绕起来的）。
+    """
+    thread_id = "place-" + uuid.uuid4().hex
+    route_graph.update_state(
+        {"configurable": {"thread_id": thread_id}},
+        {
+            "user_query": query,
+            "merged_query": query,
+            "tenant_id": tenant_id,
+            "need": need,
+            "history": list(history or []),
+            "chat_id": chat_id,
+            "node_path": [],
+            "_waiting_for_place": True,
+        },
+    )
+    return thread_id
+
+
+def ask_place(question, place_name, city, query, chat_id, tenant_id,
+              need=None, history=None):
+    """地点认不准时，把候选摆出来让用户点。
+
+    带上 need 时，会先把"这份需求 + 线程号"存起来，
+    用户选完之后走 /trip/route/place 从这个线程接着跑，不用重新解析。
+    """
     options = place_options(place_name, city)
 
     if options:
+        thread_id = ""
+        if need is not None:
+            thread_id = _save_pending_need(need, query, history, chat_id, tenant_id)
+
         saved_chat_id = _save(query, {"chat_reply": question}, "CHAT", chat_id, tenant_id)
         yield sse({
             "kind": "ASK_PLACE",
@@ -250,10 +283,64 @@ def ask_place(question, place_name, city, query, chat_id, tenant_id):
             "name": place_name,
             "options": options,
             "chat_id": saved_chat_id,
+            "thread_id": thread_id,
         })
         return
 
     yield _chat_and_save(question, query, chat_id, tenant_id)
+
+
+def resume_with_place(thread_id, chosen_name, tenant_id=None):
+    """用户从候选里挑了一个地点：用原来的需求继续查，不重新解析。
+
+    和"把改写后的话重发一遍"相比，这一步：
+      - 不会重新调模型解析（省一次调用，也不会被改写跑偏）
+      - 不会重新走一遍 Agent 判断
+      - 用户点的就是哪个，就用哪个
+    """
+    config = {"configurable": {"thread_id": thread_id}}
+    state = route_graph.get_state(config)
+
+    if not state.values:
+        yield sse({"kind": "ERROR", "message": "这次选择已经失效了，请重新问一次。"})
+        return
+
+    saved_tenant = state.values.get("tenant_id")
+    if saved_tenant is not None and saved_tenant != tenant_id:
+        yield sse({"kind": "ERROR", "message": "这次选择不属于当前账号，请重新问一次。"})
+        return
+
+    need = state.values.get("need") or {}
+    query = state.values.get("user_query") or ""
+    history = state.values.get("history") or []
+    chat_id = state.values.get("chat_id")
+
+    chosen = (chosen_name or "").strip()
+    if not chosen:
+        yield sse({"kind": "ERROR", "message": "没收到你选的地点，再点一次试试。"})
+        return
+
+    # 用选中的名字替换需求里那个认不准的地点。
+    # 它可能填在起点，也可能填在终点——两个都试。
+    for key in ("origin", "destination"):
+        value = need.get(key) or ""
+        if not value:
+            continue
+        if value in chosen or chosen in value:
+            need[key] = chosen
+            break
+
+    route_checkpointer.delete_thread(thread_id)
+
+    yield sse({"kind": "START", "mode": "ROUTE", "query": query})
+    yield _step("route_need")
+
+    start, end, problem = find_places(need)
+    if problem:
+        yield from _chat_and_save(problem, query, chat_id, tenant_id)
+        return
+
+    yield from run_route_from_need(query, need, start, end, chat_id, tenant_id)
 
 
 def start_route_decision(query, history=None, chat_id=None, tenant_id=None):
@@ -297,6 +384,7 @@ def start_route_decision(query, history=None, chat_id=None, tenant_id=None):
                 place_name,
                 need.get("city") or "",
                 query, chat_id, tenant_id,
+                need=need, history=history,
             )
         else:
             yield _chat_and_save(problem, query, chat_id, tenant_id)
@@ -311,9 +399,21 @@ def start_route_decision(query, history=None, chat_id=None, tenant_id=None):
                 place_name,
                 need.get("city") or "",
                 query, chat_id, tenant_id,
+                need=need, history=history,
             )
             return
 
+    yield from run_route_from_need(query, need, start, end, chat_id, tenant_id)
+
+
+def run_route_from_need(query, need, start, end, chat_id=None, tenant_id=None):
+    """地点都查好了，接着查天气、跑图、停在选方案。
+
+    抽出来是因为有两条路会走到这里：
+      1. start_route_decision（地点一次就查准）
+      2. resume_with_place（用户从候选里点了一个）
+    两条都要"从同一份需求继续"，不能各写一遍。
+    """
     weather_text = get_weather_text(need)
     need_text = format_need_text(need, start, end, weather_text)
 
@@ -346,6 +446,7 @@ def start_route_decision(query, history=None, chat_id=None, tenant_id=None):
     saved_chat_id = save_route_turn(final_state, chat_id, tenant_id)
     route_checkpointer.delete_thread(thread_id)
     yield sse({"kind": "SAVED", "chat_id": saved_chat_id})
+
 
 
 def resume_route_decision(thread_id, choice_id, chat_id=None, tenant_id=None):

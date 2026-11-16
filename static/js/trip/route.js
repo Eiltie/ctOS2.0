@@ -68,20 +68,18 @@ function showPlaceChoices(turn, flow, event){
   scrollToWaitingPanel();
 }
 
-// 用选中的地点名替换原话里的那个名字，然后在当前这一轮里继续查，不再开新的一轮
+// 从候选里挑了一个地点：带着 thread_id 和这个地点，从原来那份需求接着跑。
+//
+// 为什么不再"改写原话重新发"：
+//   以前是把选中的名字替换进原话，再发给 /trip/chat 重新走一遍 Agent + 解析。
+//   那样会重新解析、重新判断，Agent 还可能再把名字改写回去，绕来绕去。
+//   现在后端在发 ASK_PLACE 时就把这份需求存进了检查点，
+//   这里只要说"我选的是哪个"。
 function pickPlace(event, option, panel){
   if (tripBusy) return;
 
-  const placeName = (option.label || "").split("(")[0].trim();
-  const asked = event.name || "";
-
-  let query = lastTripText || "";
-
-  if (asked && placeName && query.includes(asked)){
-    query = query.split(asked).join(placeName);
-  }else if (placeName){
-    query = placeName;
-  }
+  const placeName = (option.label || "").trim();
+  if (!placeName) return;
 
   // 旧面板、旧提示一起清掉，不留残影
   const turn = panel.closest(".trip-turn");
@@ -93,17 +91,52 @@ function pickPlace(event, option, panel){
     turn.querySelectorAll(".trip-status-line").forEach((line) => line.remove());
   }
 
-  lastTripText = query;
-  tripHistory = tripHistory.filter((item) => item !== asked);
+  // 没有 thread_id（老版本或后端没存成功）：退回改写原话重发
+  if (!event.thread_id){
+    const asked = event.name || "";
+    let query = lastTripText || "";
+    if (asked && lastTripText.includes(asked)){
+      query = lastTripText.split(asked).join(placeName);
+    }
+    resumeInTurn(turn, query);
+    return;
+  }
 
-  // 在原轮继续：不新建气泡，只把这句话接着交给后端
-  resumeInTurn(turn, query);
+  resumePlace(turn, event.thread_id, placeName);
 }
 
 // 在已有的一轮里继续跑，用户看不到新的气泡
 async function resumeInTurn(turn, text){
   const feed = tripFeed();
   if (!turn || !feed || tripBusy) return;
+
+  const result = await tripRunInTurn(
+    turn,
+    TRIP_ENDPOINT,
+    { query: text, history: tripHistory, chat_id: openChatId },
+  );
+
+  if (!result.failed && !result.aborted) tripHistory.push(text);
+}
+
+// 地点选完之后接着跑：把选中的地点交给后端，从原来那份需求继续
+async function resumePlace(turn, threadId, placeName){
+  const feed = tripFeed();
+  if (!turn || !feed || tripBusy) return;
+
+  // 不往 tripHistory 里塞这句——用户没说新的一句话，
+  // 这只是点了个候选，塞进去会把上下文搞乱
+  await tripRunInTurn(
+    turn,
+    "/trip/route/place",
+    { thread_id: threadId, place: placeName },
+  );
+}
+
+// 在原轮继续跑的那套收尾，两种续跑共用
+async function tripRunInTurn(turn, url, body){
+  const feed = tripFeed();
+  if (!turn || !feed || tripBusy) return { failed: null, aborted: false };
 
   tripBusy = true;
   tripCanRetry = false;
@@ -114,13 +147,7 @@ async function resumeInTurn(turn, text){
   const flow = createFlow(turn);
   const ctx = { turn, flow, touched: false, chatTurn: false, awaitingChoice: false, stepError: -1 };
 
-  const result = await tripStream(
-    TRIP_ENDPOINT,
-    { query: text, history: tripHistory, chat_id: openChatId },
-    (ev) => tripHandleEvent(ev, ctx),
-  );
-
-  if (!result.failed && !result.aborted) tripHistory.push(text);
+  const result = await tripStream(url, body, (ev) => tripHandleEvent(ev, ctx));
 
   tripBusy = false;
 
@@ -169,6 +196,8 @@ async function resumeInTurn(turn, text){
 
   const input = $("trip-input");
   if (input) input.focus();
+
+  return result;
 }
 
 

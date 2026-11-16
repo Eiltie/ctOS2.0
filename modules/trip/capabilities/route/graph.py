@@ -51,6 +51,10 @@ class RouteState(TypedDict):
     weather_text: str
     need_text: str
 
+    # 等用户挑地点时要存下来的东西（挑完从这份继续，不重新解析）
+    history: NotRequired[list]
+    chat_id: NotRequired[int]
+
     # 查完候选后填
     choices: list
     recommended_index: int
