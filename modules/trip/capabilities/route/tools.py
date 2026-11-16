@@ -267,6 +267,39 @@ def choice_to_card(choice):
     }
 
 
+def choice_to_row(choice):
+    """把一条候选整理成"表格里的一行"。
+
+    和 choice_to_card 的区别：
+      card 是用来"展示一张卡"的，带描述和标签，适合单独看；
+      row 是用来"横向比较"的，只留能对齐成列的几个数，适合并排比。
+
+    前端两种都会拿到：先摆表格（一眼比），表格下面再给完整文字。
+    """
+    mode = choice["mode"]
+
+    if mode == "drive":
+        name = "打车"
+    elif mode == "bus":
+        name = "公交/地铁"
+    elif mode == "walk":
+        name = "步行"
+    else:
+        name = "骑行"
+
+    # 换乘只在公交有意义，其他方式给"—"，表格里才不会出现"0 次"这种误导
+    transfer = f"{choice['transfer_count']} 次" if mode == "bus" else "—"
+
+    return {
+        "name": name,
+        "minutes": f"{choice['minutes']} 分钟",
+        "distance": f"{choice['distance_km']:.1f} km",
+        "cost": f"{choice['cost_yuan']:.0f} 元",
+        "walk": f"{choice['walk_km']:.1f} km" if choice["walk_km"] else "0",
+        "transfer": transfer,
+    }
+
+
 def format_choice_label(choice):
     """给前端按钮用的短标签，一行能看完。"""
     if choice["mode"] == "drive":

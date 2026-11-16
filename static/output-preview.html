@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="clean">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ctOS 出行 · 输出排版预览 v2</title>
+<script>
+  // 和真实页面一致：先用 localStorage 里的主题，没有就用浅色主题
+  (function () {
+    var saved = localStorage.getItem("ctos_theme");
+    if (saved === "clean" || saved === "street" || saved === "cyber") {
+      document.documentElement.dataset.theme = saved;
+    }
+  })();
+</script>
+<link rel="stylesheet" href="/static/css/style.css">
+<link rel="stylesheet" href="/static/css/modules.css">
+<link rel="stylesheet" href="/static/css/theme.css">
+<style>
+  /* 预览页只用真实页面没有的那几个类，其余全部复用 modules.css / theme.css */
+
+  body { background: var(--bg-main); }
+
+  .pv-wrap { max-width: 1100px; margin: 0 auto; padding: 26px 22px 140px; }
+  .pv-head h1 { font-size: 20px; color: var(--text-main); margin-bottom: 8px; }
+  .pv-head p { font-size: 13px; color: var(--text-muted); line-height: 1.8; }
+  .pv-head strong { color: var(--cyan); }
+
+  .pv-tabs {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    position: sticky; top: 0; z-index: 30;
+    padding: 12px 0; margin: 16px 0 6px;
+    background: var(--bg-main);
+    border-bottom: 1px solid var(--border-color);
+  }
+  .pv-tab {
+    padding: 7px 15px; border-radius: 999px; font-size: 13px; cursor: pointer;
+    border: 1px solid var(--border-color); background: transparent; color: var(--text-muted);
+    transition: .2s;
+  }
+  .pv-tab:hover { border-color: var(--cyan-border); color: var(--cyan); }
+  .pv-tab.active { background: var(--cyan); border-color: var(--cyan); color: var(--accent-ink, #041018); }
+
+  .pv-section { display: none; padding-top: 20px; }
+  .pv-section.active { display: block; }
+  .pv-section > h2 { font-size: 16px; color: var(--text-main); margin-bottom: 4px; }
+  .pv-note {
+    font-size: 12.5px; color: var(--text-muted); margin-bottom: 18px; line-height: 1.8;
+    padding-left: 10px; border-left: 2px solid var(--cyan-border);
+  }
+
+  /* 两个面板并排：现在 / 改成 */
+  .pv-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
+  @media (max-width: 980px) { .pv-compare { grid-template-columns: 1fr; } }
+
+  .pv-panel {
+    border: 1px solid var(--border-color); border-radius: 12px;
+    background: var(--panel, #fff); overflow: hidden;
+  }
+  .pv-label {
+    padding: 8px 14px; font-size: 11.5px; letter-spacing: .5px;
+    border-bottom: 1px solid var(--border-color); background: var(--panel-2, #f9fafb);
+  }
+  .pv-label.before { color: #b45309; }
+  .pv-label.after { color: #047857; }
+  .pv-body { padding: 16px; }
+  .pv-raw { white-space: pre-wrap; font-size: 13.5px; line-height: 1.75; color: var(--text-main); }
+
+  /* 表格 */
+  .pv-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .pv-table th, .pv-table td {
+    padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--border-color);
+  }
+  .pv-table th { font-size: 11.5px; font-weight: 600; color: var(--text-muted); }
+  .pv-table tr:last-child td { border-bottom: none; }
+  .pv-table td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pv-table tr.is-best { background: var(--cyan-dim); }
+  .pv-table .best { color: var(--cyan); font-weight: 600; }
+
+  /* 正文段落（保留全文） */
+  .pv-text { font-size: 13.5px; line-height: 1.8; color: var(--text-main); white-space: pre-wrap; }
+  .pv-seg { margin-top: 14px; }
+  .pv-seg-title {
+    font-size: 12.5px; font-weight: 600; color: var(--cyan);
+    padding-bottom: 6px; margin-bottom: 8px; border-bottom: 1px solid var(--border-color);
+  }
+
+  /* 可折叠 */
+  .pv-fold { border-top: 1px dashed var(--border-color); margin-top: 12px; padding-top: 10px; }
+  .pv-fold summary {
+    cursor: pointer; font-size: 12.5px; color: var(--cyan); list-style: none;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .pv-fold summary::-webkit-details-marker { display: none; }
+  .pv-fold summary::before { content: "▸"; transition: transform .2s; }
+  .pv-fold[open] summary::before { transform: rotate(90deg); }
+  .pv-fold[open] summary { margin-bottom: 10px; }
+
+  /* 卡片 */
+  .pv-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .pv-card {
+    border: 1px solid var(--border-color); border-radius: 12px; padding: 14px;
+    background: var(--panel, #fff);
+  }
+  .pv-card-head { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
+  .pv-emoji { font-size: 22px; line-height: 1; }
+  .pv-card h4 { font-size: 14px; margin: 0; color: var(--text-main); }
+  .pv-tagline { font-size: 12.5px; color: var(--text-muted); margin-bottom: 10px; }
+  .pv-kv { font-size: 12.5px; line-height: 1.8; color: var(--text-main); }
+  .pv-kv b { color: var(--text-muted); font-weight: 400; margin-right: 6px; }
+
+  /* 横向时间线 */
+  .pv-day {
+    border: 1px solid var(--border-color); border-radius: 12px;
+    background: var(--panel, #fff); padding: 14px; margin-bottom: 10px;
+  }
+  .pv-day-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .pv-day-badge {
+    font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 6px;
+    background: var(--cyan); color: var(--accent-ink, #041018);
+  }
+  .pv-day-date { font-size: 13px; font-weight: 500; color: var(--text-main); }
+  .pv-day-weather { font-size: 12px; color: var(--text-muted); margin-left: auto; }
+  .pv-stops { display: flex; gap: 8px; align-items: stretch; overflow-x: auto; padding-bottom: 4px; }
+  .pv-stop {
+    flex: 1 0 148px; border-radius: 10px; padding: 10px 12px;
+    border: 1px solid var(--border-color); background: var(--panel-2, #f9fafb);
+  }
+  .pv-stop-slot { font-size: 10.5px; color: var(--text-muted); margin-bottom: 4px; }
+  .pv-stop-name { font-size: 13px; color: var(--text-main); font-weight: 500; }
+  .pv-stop-dur { font-size: 11px; color: var(--cyan); margin-top: 4px; }
+  .pv-arrow { display: flex; align-items: center; color: var(--border-color); }
+
+  /* 天气条 */
+  .pv-weather { display: flex; gap: 10px; margin-bottom: 12px; }
+  .pv-wday {
+    flex: 1; border: 1px solid var(--border-color); border-radius: 10px;
+    padding: 12px; text-align: center; background: var(--panel, #fff);
+  }
+  .pv-wday .d { font-size: 11.5px; color: var(--text-muted); }
+  .pv-wday .i { font-size: 26px; margin: 6px 0; }
+  .pv-wday .t { font-size: 13px; color: var(--text-main); }
+
+  /* 清单 */
+  .pv-checks { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
+  .pv-check {
+    display: flex; gap: 9px; padding: 9px 12px; border-radius: 9px;
+    border: 1px solid var(--border-color); background: var(--panel, #fff);
+    font-size: 13px; color: var(--text-main);
+  }
+  .pv-check .box { color: var(--cyan); }
+</style>
+</head>
+<body>
+
+<div class="pv-wrap">
+
+  <div class="pv-head">
+    <h1>出行输出排版 · 预览 v2</h1>
+    <p>
+      这一版的原则：<strong>原文一个字不少</strong>。表格和卡片只是叠在文字上面的一层「索引」，方便一眼比较；
+      完整说明保留在下面，可以展开看。<br>
+      左边是现在的样子，右边是改完的样子。数据都是示例。
+    </p>
+  </div>
+
+  <div class="pv-tabs" id="tabs">
+    <button class="pv-tab active" data-s="route">① 路线</button>
+    <button class="pv-tab" data-s="days">② 行程</button>
+    <button class="pv-tab" data-s="spots">③ 景点</button>
+    <button class="pv-tab" data-s="weather">④ 天气</button>
+    <button class="pv-tab" data-s="prep">⑤ 建议清单</button>
+  </div>
+
+  <!-- ① 路线 -->
+  <section class="pv-section active" id="s-route">
+    <h2>路线：表格在上面当索引，完整结论在下面</h2>
+    <p class="pv-note">
+      表格只放「能横向比的数」：用时、距离、费用、步行、换乘。<br>
+      原来的红绿灯、路况、线路、推荐理由、出发提醒<strong>全部保留</strong>，放在表格下面。
+    </p>
+    <div class="pv-compare">
+
+      <div class="pv-panel">
+        <div class="pv-label before">现在（18 行竖排）</div>
+        <div class="pv-body">
+          <div class="pv-raw">方案一｜打车/驾车
+用时：约 54 分钟
+距离：16.7 公里
+费用：约 43 元
+步行：0.0 公里
+红绿灯：9 个
+路况：畅通 62%，拥堵 21%，缓行 12%
+
+方案二｜打车/驾车
+用时：约 53 分钟
+距离：14.1 公里
+费用：约 43 元
+步行：0.0 公里
+红绿灯：7 个
+路况：畅通 66%，拥堵 20%，缓行 11%
+
+方案三｜公交/地铁
+用时：约 66 分钟
+距离：15.2 公里
+费用：约 8 元
+步行：1.2 公里
+换乘：2 次
+线路：地铁1号线 → 地铁3号线 → 龙翔桥至灵隐专线
+
+推荐：方案三（公交/地铁）
+理由：
+1. 带老人出行，打车虽然快 12 分钟，但要多花 35 元……
+2. 地铁 19 号线直达，换乘 0 次……
+备选：方案一（打车）
+什么时候换：如果赶时间……
+建议出发：现在出发（预留 10 分钟）
+提醒：
+- 当前有小毛毛雨，路面湿滑……
+- 灵隐寺 7 号门附近下车后可能还需步行一段……</div>
+        </div>
+      </div>
+
+      <div class="pv-panel">
+        <div class="pv-label after">改成：表格 + 完整结论</div>
+        <div class="pv-body" style="padding:0">
+
+          <!-- 索引表 -->
+          <table class="pv-table">
+            <thead>
+              <tr><th>方式</th><th>用时</th><th>距离</th><th>费用</th><th>步行</th><th>换乘</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>打车</td><td class="num">54 分钟</td><td class="num">16.7 km</td>
+                <td class="num">43 元</td><td class="num">0</td><td class="num">0</td>
+              </tr>
+              <tr>
+                <td>打车（备选）</td><td class="num">53 分钟</td><td class="num">14.1 km</td>
+                <td class="num">43 元</td><td class="num">0</td><td class="num">0</td>
+              </tr>
+              <tr class="is-best">
+                <td class="best">公交/地铁 ★</td><td class="num">66 分钟</td><td class="num">15.2 km</td>
+                <td class="num">8 元</td><td class="num">1.2 km</td><td class="num">2 次</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- 明细：一个字不少 -->
+          <details class="pv-fold" open style="padding:0 14px 14px">
+            <summary>方案明细（红绿灯、路况、线路）</summary>
+            <div class="pv-text">方案一｜打车/驾车
+  红绿灯 9 个 · 路况：畅通 62%，拥堵 21%，缓行 12%
+
+方案二｜打车/驾车
+  红绿灯 7 个 · 路况：畅通 66%，拥堵 20%，缓行 11%
+
+方案三｜公交/地铁
+  线路：地铁1号线 → 地铁3号线 → 龙翔桥至灵隐专线</div>
+          </details>
+
+          <!-- 完整结论 -->
+          <div style="padding:0 14px 16px">
+            <div class="pv-seg">
+              <div class="pv-seg-title">推荐方案</div>
+              <div class="pv-text">推荐：方案三（公交/地铁）
+
+理由：
+1. 带老人出行，打车虽然快 12 分钟，但要多花 35 元；地铁不用在湿滑路面走长路。
+2. 地铁 19 号线直达，换乘 0 次，老人不用上下楼梯折腾。
+3. 今天小毛毛雨，地铁不受路况影响，时间更可控。
+
+备选：方案一（打车）
+什么时候换：如果赶时间，或者雨下大了不想走那 1.2 公里，直接打车。</div>
+            </div>
+
+            <div class="pv-seg">
+              <div class="pv-seg-title">出发提醒</div>
+              <div class="pv-text">建议出发：现在出发（预留 10 分钟）
+
+提醒：
+- 当前有小毛毛雨，路面湿滑，打车上下车注意搀扶老人，备好雨伞。
+- 灵隐寺 7 号门附近下车后可能还需步行一段。
+- 以上耗时按当前路况估算，出发前请再看一次实时路况。</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ② 行程 -->
+  <section class="pv-section" id="s-days">
+    <h2>行程：每天横着排，提示照旧在下面</h2>
+    <p class="pv-note">
+      一天的活动横向排开（手机上左右滑），<strong>「今日提示」「整体建议」这些文字原样保留</strong>。
+    </p>
+    <div class="pv-compare">
+
+      <div class="pv-panel">
+        <div class="pv-label before">现在</div>
+        <div class="pv-body">
+          <div class="pv-raw">Day 1｜11月16日｜小毛毛雨 12~19°C
+  上午：西湖游船（湖滨码头）（约 2 小时）
+  下午：白堤慢走（约 1.5 小时）
+  晚上：河坊街·南宋御街（晚餐 + 逛）
+  今日提示：游船可能因雨停航，出发前在官方渠道确认
+
+Day 2｜11月17日｜阵雨 12~17°C
+  上午：浙江省博物馆（之江馆）（约 3 小时）
+  下午：自由休息 / 回酒店
+  晚上： —
+  今日提示：博物馆周一闭馆，记得提前预约
+
+【整体建议】
+三天节奏偏松，第一天户外为主，第二天室内……</div>
+        </div>
+      </div>
+
+      <div class="pv-panel">
+        <div class="pv-label after">改成：横向时间线 + 原有提示</div>
+        <div class="pv-body">
+
+          <div class="pv-day">
+            <div class="pv-day-head">
+              <span class="pv-day-badge">D1</span>
+              <span class="pv-day-date">11月16日</span>
+              <span class="pv-day-weather">🌦 小毛毛雨 12~19°C</span>
+            </div>
+            <div class="pv-stops">
+              <div class="pv-stop">
+                <div class="pv-stop-slot">上午</div>
+                <div class="pv-stop-name">🚢 西湖游船（湖滨码头）</div>
+                <div class="pv-stop-dur">约 2 小时</div>
+              </div>
+              <div class="pv-arrow">→</div>
+              <div class="pv-stop">
+                <div class="pv-stop-slot">下午</div>
+                <div class="pv-stop-name">🌉 白堤慢走</div>
+                <div class="pv-stop-dur">约 1.5 小时</div>
+              </div>
+              <div class="pv-arrow">→</div>
+              <div class="pv-stop">
+                <div class="pv-stop-slot">晚上</div>
+                <div class="pv-stop-name">🏮 河坊街·南宋御街</div>
+                <div class="pv-stop-dur">晚餐 + 逛</div>
+              </div>
+            </div>
+            <div class="pv-text" style="margin-top:10px;font-size:12.5px;color:var(--text-muted)">
+              今日提示：游船可能因雨停航，出发前在官方渠道确认
+            </div>
+          </div>
+
+          <div class="pv-day">
+            <div class="pv-day-head">
+              <span class="pv-day-badge">D2</span>
+              <span class="pv-day-date">11月17日</span>
+              <span class="pv-day-weather">🌧 阵雨 12~17°C</span>
+            </div>
+            <div class="pv-stops">
+              <div class="pv-stop">
+                <div class="pv-stop-slot">上午</div>
+                <div class="pv-stop-name">🏛 浙江省博物馆（之江馆）</div>
+                <div class="pv-stop-dur">约 3 小时</div>
+              </div>
+              <div class="pv-arrow">→</div>
+              <div class="pv-stop">
+                <div class="pv-stop-slot">下午</div>
+                <div class="pv-stop-name">☕ 自由休息 / 回酒店</div>
+                <div class="pv-stop-dur">弹性</div>
+              </div>
+              <div class="pv-arrow">→</div>
+              <div class="pv-stop">
+                <div class="pv-stop-slot">晚上</div>
+                <div class="pv-stop-name">—</div>
+                <div class="pv-stop-dur">—</div>
+              </div>
+            </div>
+            <div class="pv-text" style="margin-top:10px;font-size:12.5px;color:var(--text-muted)">
+              今日提示：博物馆周一闭馆，记得提前预约
+            </div>
+          </div>
+
+          <div class="pv-seg">
+            <div class="pv-seg-title">整体建议</div>
+            <div class="pv-text">三天节奏偏松，第一天户外为主，第二天室内看展应对阵雨，第三天阴天收尾。
+带老人的话，每天中午留一小时回酒店休息，景点之间尽量打车。出发前 1~2 天再确认一次天气和景区开放。</div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ③ 景点 -->
+  <section class="pv-section" id="s-spots">
+    <h2>景点：卡片横排，四行说明都在卡里</h2>
+    <p class="pv-note">
+      原来的「建议游玩 / 适合原因 / 实用信息」<strong>一行不删</strong>，只是装进卡片，多张横着并排。
+    </p>
+    <div class="pv-compare">
+
+      <div class="pv-panel">
+        <div class="pv-label before">现在</div>
+        <div class="pv-body">
+          <div class="pv-raw">1. 西湖游船 —— 坐船看三潭印月，不用走长路
+   建议游玩：2 小时
+   适合原因：全程坐船，不用走长路，带老人省力；雨小的时候湖面很安静。
+   实用信息：现场购票，约 55 元/人；末班约 17:00，雨天可能停航。
+
+2. 浙江省博物馆（之江馆）—— 室内看展，不受天气影响
+   建议游玩：3 小时
+   适合原因：室内场馆，雨天最稳妥；馆内平坦有电梯。
+   实用信息：免费，周一闭馆，需提前在官方公众号预约。
+
+3. 河坊街·南宋御街 —— 老街逛吃
+   建议游玩：2 小时
+   适合原因：晚上热闹，平路好走，随时能进店避雨。
+   实用信息：全天开放，免费；店铺营业时间各异。</div>
+        </div>
+      </div>
+
+      <div class="pv-panel">
+        <div class="pv-label after">改成：卡片（内容全保留）</div>
+        <div class="pv-body">
+          <div class="pv-cards">
+
+            <div class="pv-card">
+              <div class="pv-card-head">
+                <span class="pv-emoji">🚢</span>
+                <h4>西湖游船</h4>
+              </div>
+              <div class="pv-tagline">坐船看三潭印月，不用走长路</div>
+              <div class="pv-kv">
+                <div><b>游玩</b>2 小时</div>
+                <div><b>适合</b>全程坐船，不用走长路，带老人省力；雨小的时候湖面很安静。</div>
+                <div><b>信息</b>现场购票，约 55 元/人；末班约 17:00，雨天可能停航。</div>
+              </div>
+            </div>
+
+            <div class="pv-card">
+              <div class="pv-card-head">
+                <span class="pv-emoji">🏛</span>
+                <h4>浙江省博物馆（之江馆）</h4>
+              </div>
+              <div class="pv-tagline">室内看展，不受天气影响</div>
+              <div class="pv-kv">
+                <div><b>游玩</b>3 小时</div>
+                <div><b>适合</b>室内场馆，雨天最稳妥；馆内平坦有电梯。</div>
+                <div><b>信息</b>免费，周一闭馆，需提前在官方公众号预约。</div>
+              </div>
+            </div>
+
+            <div class="pv-card">
+              <div class="pv-card-head">
+                <span class="pv-emoji">🏮</span>
+                <h4>河坊街·南宋御街</h4>
+              </div>
+              <div class="pv-tagline">老街逛吃</div>
+              <div class="pv-kv">
+                <div><b>游玩</b>2 小时</div>
+                <div><b>适合</b>晚上热闹，平路好走，随时能进店避雨。</div>
+                <div><b>信息</b>全天开放，免费；店铺营业时间各异。</div>
+              </div>
+            </div>
+
+            <div class="pv-card">
+              <div class="pv-card-head">
+                <span class="pv-emoji">🌿</span>
+                <h4>西溪湿地</h4>
+              </div>
+              <div class="pv-tagline">水网湿地，坐船游最舒服</div>
+              <div class="pv-kv">
+                <div><b>游玩</b>半天</div>
+                <div><b>适合</b>阴天走走很舒服，园区开阔可坐船减少步行。</div>
+                <div><b>信息</b>免费区可逛；收费景区约 80 元，开放至 17:30。</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ④ 天气 -->
+  <section class="pv-section" id="s-weather">
+    <h2>天气：天气条 + 原来的三段文字</h2>
+    <p class="pv-note">
+      「整体趋势」「逐日要点」「出行建议」<strong>三段全部保留</strong>，上面加一条图标化的逐日天气。
+    </p>
+    <div class="pv-compare">
+
+      <div class="pv-panel">
+        <div class="pv-label before">现在</div>
+        <div class="pv-body">
+          <div class="pv-raw">【整体趋势】
+杭州这三天以阴雨为主，气温在 11~19°C 之间，不算冷但湿气重。
+
+【逐日要点】
+- 11月16日：小毛毛雨，雨不大但容易湿冷
+- 11月17日：阵雨，雨势时有时无
+- 11月18日：阴天不下雨，最适合户外
+
+【出行建议】
+三天都有雨或阴天，伞是必备品，建议带一把折叠伞……
+老人对温差敏感，建议备一件厚外套……</div>
+        </div>
+      </div>
+
+      <div class="pv-panel">
+        <div class="pv-label after">改成：天气条 + 三段文字</div>
+        <div class="pv-body">
+
+          <div class="pv-weather">
+            <div class="pv-wday"><div class="d">11/16 周一</div><div class="i">🌦</div><div class="t">12~19°C</div></div>
+            <div class="pv-wday"><div class="d">11/17 周二</div><div class="i">🌧</div><div class="t">12~17°C</div></div>
+            <div class="pv-wday"><div class="d">11/18 周三</div><div class="i">☁️</div><div class="t">11~18°C</div></div>
+          </div>
+
+          <div class="pv-seg">
+            <div class="pv-seg-title">整体趋势</div>
+            <div class="pv-text">杭州这三天以阴雨为主，气温在 11~19°C 之间，不算冷但湿气重。</div>
+          </div>
+
+          <div class="pv-seg">
+            <div class="pv-seg-title">逐日要点</div>
+            <div class="pv-text">- 11月16日：小毛毛雨，雨不大但容易湿冷
+- 11月17日：阵雨，雨势时有时无
+- 11月18日：阴天不下雨，最适合户外</div>
+          </div>
+
+          <div class="pv-seg">
+            <div class="pv-seg-title">出行建议</div>
+            <div class="pv-text">三天都有雨或阴天，伞是必备品，建议带一把折叠伞，鞋子选防滑防水的。
+老人对温差敏感，建议备一件厚外套或薄羽绒，早晚加穿。
+户外活动优先放在 18 日，16 日可短时逛西湖，17 日尽量以室内为主。</div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ⑤ 建议清单 -->
+  <section class="pv-section" id="s-prep">
+    <h2>游玩建议：能勾的先勾，其余照旧</h2>
+    <p class="pv-note">
+      只有<strong>「该准备什么」这类清单性质的内容</strong>做成可勾选的；节奏、避坑、预算这些照旧是文字。
+    </p>
+    <div class="pv-compare">
+
+      <div class="pv-panel">
+        <div class="pv-label before">现在</div>
+        <div class="pv-body">
+          <div class="pv-raw">· 节奏：三天偏松，第一天户外为主……
+· 预约：浙江省博物馆要提前在官方公众号预约……
+· 交通卡：市内主要靠地铁，支付宝领乘车码即可……
+· 带老人：石板路湿滑，走慢一点……
+· 避坑：河坊街主街人多，茶叶丝绸价格虚高……
+· 备选：17 日雨大就改室内……
+· 以上信息可能变动，出发前请以景区官方渠道为准。</div>
+        </div>
+      </div>
+
+      <div class="pv-panel">
+        <div class="pv-label after">改成：清单 + 文字建议</div>
+        <div class="pv-body">
+
+          <div class="pv-seg" style="margin-top:0">
+            <div class="pv-seg-title">出发前清单</div>
+            <div class="pv-checks">
+              <div class="pv-check"><span class="box">☑</span><span>身份证（景区要刷）</span></div>
+              <div class="pv-check"><span class="box">☑</span><span>折叠伞 / 雨衣</span></div>
+              <div class="pv-check"><span class="box">☑</span><span>防滑的鞋</span></div>
+              <div class="pv-check"><span class="box">☑</span><span>厚外套（早晚温差大）</span></div>
+              <div class="pv-check"><span class="box">☐</span><span>浙江省博物馆预约</span></div>
+              <div class="pv-check"><span class="box">☐</span><span>支付宝领地铁乘车码</span></div>
+            </div>
+          </div>
+
+          <div class="pv-seg">
+            <div class="pv-seg-title">完整建议</div>
+            <div class="pv-text">· 节奏：三天偏松，第一天户外为主，第二天室内看展，第三天阴天收尾。
+· 预约：浙江省博物馆要提前在官方公众号预约，周一闭馆。
+· 交通卡：市内主要靠地铁，支付宝领乘车码即可，不用专门买卡。
+· 带老人：石板路湿滑，走慢一点，每天中午留休息时间。
+· 避坑：河坊街主街人多，茶叶丝绸价格虚高，想买特产去正规商场。
+· 备选：17 日雨大就改室内，把博物馆和茶室用起来。
+· 以上信息可能变动，出发前请以景区官方渠道为准。</div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</div>
+
+<script>
+document.getElementById("tabs").addEventListener("click", (e) => {
+  const btn = e.target.closest(".pv-tab");
+  if (!btn) return;
+  document.querySelectorAll(".pv-tab").forEach(b => b.classList.toggle("active", b === btn));
+  document.querySelectorAll(".pv-section").forEach(s =>
+    s.classList.toggle("active", s.id === "s-" + btn.dataset.s));
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
+</script>
+</body>
+</html>

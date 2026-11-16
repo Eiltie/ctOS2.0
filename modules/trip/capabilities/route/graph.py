@@ -21,6 +21,7 @@ from modules.trip.capabilities.route.prompts import (
 )
 from modules.trip.capabilities.route.tools import (
     choice_to_card,
+    choice_to_row,
     choose_recommended,
     collect_route_choices,
     format_choice_label,
@@ -138,6 +139,7 @@ def make_choice_payload(state: RouteState) -> dict:
             "label": format_choice_label(choice),
             "note": choice.get("detail", ""),
             "card": card,
+            "row": choice_to_row(choice),        # 画表格用的一行
             "recommended": index == recommended,
         })
 

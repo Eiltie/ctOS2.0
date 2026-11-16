@@ -203,6 +203,57 @@ async function tripRunInTurn(turn, url, body){
 
 /* ===== 候选路线 ===== */
 
+// 方案对比表：只放能横向对齐的数（用时/距离/费用/步行/换乘）。
+// 红绿灯、路况、线路这些放在卡片和对比文字里，这里不重复。
+function buildCompareTable(event){
+  const rows = (event.options || []).filter((o) => o.row);
+  if (rows.length < 2) return null;   // 只有一条没什么好比
+
+  const wrap = document.createElement("div");
+  wrap.className = "route-table-wrap";
+
+  const table = document.createElement("table");
+  table.className = "route-table";
+
+  const thead = document.createElement("thead");
+  const hr = document.createElement("tr");
+  ["方式", "用时", "距离", "费用", "步行", "换乘"].forEach((label) => {
+    const th = document.createElement("th");
+    th.textContent = label;
+    hr.appendChild(th);
+  });
+  thead.appendChild(hr);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  rows.forEach((option) => {
+    const best = option.id === event.recommended_id;
+    const tr = document.createElement("tr");
+    if (best) tr.className = "is-best";
+
+    const row = option.row;
+    const first = document.createElement("td");
+    // 推荐那条前面加个星，和卡片上的"系统推荐"对应
+    first.textContent = (best ? "★ " : "") + (row.name || option.name || "");
+    if (best) first.className = "is-pick";
+    tr.appendChild(first);
+
+    ["minutes", "distance", "cost", "walk", "transfer"].forEach((key) => {
+      const td = document.createElement("td");
+      td.className = "num";
+      td.textContent = row[key] || "—";
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+
+  wrap.appendChild(table);
+  return wrap;
+}
+
+
 function showRouteChoices(turn, flow, event){
   const panel = document.createElement("div");
   panel.className = "route-ask route-cards-ask";
@@ -223,6 +274,11 @@ function showRouteChoices(turn, flow, event){
   }
 
   panel.appendChild(head);
+
+  // 先摆一张对比表：几个数横着对齐，一眼能比。
+  // 卡片和完整文字照旧在下面，表格只是"索引"，不替代内容。
+  const table = buildCompareTable(event);
+  if (table) panel.appendChild(table);
 
   const optionsBox = document.createElement("div");
   optionsBox.className = "route-card-grid";

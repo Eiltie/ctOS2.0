@@ -3295,3 +3295,383 @@ html[data-theme="street"] .sidebar-footer .feedback-entry .fe-ic { color: var(--
         grid-template-columns: 1fr;
     }
 }
+
+
+/* ===== 出行方案卡片（路线候选） ===== */
+/* 候选路线横向排成网格，每张卡：序号 + 推荐标 + 标题 + 指标 + 说明 + 按钮 */
+
+.route-cards-ask {
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: 0;
+    gap: 12px;
+}
+
+.route-cards-ask .rc-head {
+    padding: 0 2px;
+}
+
+.route-cards-ask .route-ask-question {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.route-cards-ask .route-ask-recommend {
+    margin-top: 2px;
+    font-size: 12.5px;
+}
+
+.route-card-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.route-card {
+    display: flex;
+    flex-direction: column;
+    padding: 16px 16px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: var(--panel);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, .04);
+    transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+.route-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px -14px rgba(16, 24, 40, .28);
+}
+
+.route-card.is-best {
+    border: 2px solid var(--cyan);
+    box-shadow: 0 8px 26px -16px rgba(79, 70, 229, .5);
+}
+
+.rc-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 20px;
+}
+
+.rc-no {
+    color: var(--text-muted);
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: 11.5px;
+    letter-spacing: .08em;
+}
+
+.rc-badge {
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--cyan-dim);
+    color: var(--cyan);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.rc-title {
+    margin: 8px 0 2px;
+    color: var(--text-main);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+}
+
+.rc-desc {
+    color: var(--text-muted);
+    font-size: 12.5px;
+}
+
+.rc-metric {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin: 14px 0 2px;
+}
+
+.rc-big {
+    color: var(--text-main);
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -.02em;
+}
+
+.rc-unit {
+    color: var(--text-muted);
+    font-size: 12.5px;
+}
+
+.rc-money {
+    margin-left: 4px;
+    color: var(--cyan);
+    font-size: 13.5px;
+    font-weight: 600;
+}
+
+.rc-facts {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border-color);
+    color: var(--text-muted);
+    font-size: 12.5px;
+    line-height: 1.75;
+}
+
+.rc-btn {
+    margin-top: 14px;
+    padding: 9px 0;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--panel);
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s ease;
+}
+
+.rc-btn:hover {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    background: var(--cyan-dim);
+}
+
+.route-card.is-best .rc-btn {
+    border-color: var(--cyan);
+    background: var(--cyan);
+    color: var(--accent-ink);
+}
+
+.route-card.is-best .rc-btn:hover {
+    filter: brightness(1.06);
+}
+
+@media (max-width: 900px) {
+    .route-card-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .rc-big {
+        font-size: 24px;
+    }
+}
+
+
+/* ===== 行程卡片（按天） ===== */
+
+.trip-days {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.trip-day {
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--panel);
+    overflow: hidden;
+}
+
+.trip-day-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--bg-main);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.trip-day-no {
+    padding: 1px 8px;
+    border-radius: 6px;
+    background: var(--cyan);
+    color: var(--accent-ink);
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.trip-day-date {
+    color: var(--text-main);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.trip-day-weather {
+    margin-left: auto;
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.trip-day-rows {
+    padding: 4px 14px 10px;
+}
+
+.trip-day-row {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--border-color);
+}
+
+.trip-day-row:last-child {
+    border-bottom: none;
+}
+
+.trip-day-slot {
+    flex: 0 0 38px;
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.trip-day-place {
+    flex: 1;
+    color: var(--text-main);
+    font-size: 13px;
+    line-height: 1.65;
+}
+
+.trip-day-dur {
+    flex: 0 0 auto;
+    color: var(--text-muted);
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: 11.5px;
+}
+
+.trip-day-note {
+    margin: 0 14px 12px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--cyan-dim);
+    color: var(--text-main);
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+
+/* ===== 景点卡片（按编号） ===== */
+
+.trip-spots {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.trip-spot {
+    display: flex;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--panel);
+}
+
+.trip-spot-no {
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: var(--cyan-dim);
+    color: var(--cyan);
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.trip-spot-body {
+    min-width: 0;
+}
+
+.trip-spot-name {
+    color: var(--text-main);
+    font-size: 13.5px;
+    font-weight: 700;
+}
+
+.trip-spot-tagline {
+    margin-top: 2px;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.trip-spot-detail {
+    margin-top: 4px;
+    color: var(--text-muted);
+    font-size: 11.5px;
+    line-height: 1.65;
+}
+
+@media (max-width: 900px) {
+    .trip-spots {
+        grid-template-columns: 1fr;
+    }
+
+    .trip-day-weather {
+        font-size: 11px;
+    }
+}
+
+/* ===== 路线方案对比表 ===== */
+/* 表格只放"能横向对齐的数"，作用是让人一眼比出差异。
+   卡片、对比文字、推荐理由照旧在下面，表格不替代它们。 */
+
+.route-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    margin-bottom: 14px;
+}
+
+.route-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.route-table th,
+.route-table td {
+    padding: 9px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+
+.route-table th {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: .3px;
+}
+
+.route-table tbody tr:last-child td { border-bottom: none; }
+
+.route-table td { color: var(--text-main); }
+
+/* 数字列用等宽数字，上下对齐好看 */
+.route-table td.num {
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+}
+
+.route-table tr.is-best {
+    background: var(--cyan-dim);
+}
+
+.route-table tr.is-best td.num {
+    color: var(--cyan);
+}
+
+.route-table td.is-pick {
+    color: var(--cyan);
+    font-weight: 600;
+}
