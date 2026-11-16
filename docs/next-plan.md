@@ -108,7 +108,8 @@
 
 #### 界面定稿（2026-11-11）
 
-静态预览：`prototype/roleplay-preview.html`（用浏览器打开，或者看 `.png`）
+静态预览曾经放在 `prototype/roleplay-preview.html`，后来随 `prototype/` 一起删了。
+现在的实际界面看 `screenshot/` 里的图。
 
 **四个界面：**
 

@@ -19,18 +19,21 @@
 | --- | --- | --- |
 | 闲聊 / 对话 | `/chat` | 基于 LangGraph 的对话图，流式返回纯文本 |
 | 角色扮演 | `/chat`（带 `role_id`）+ `/roleplay/*` | 预设角色、自己写角色、AI 帮我查；会话复用闲聊的表 |
-| 智能出行·路线规划 | `/trip/chat` | 查真实多方案、人工选一条；SSE 事件流 |
-| 智能出行·旅游攻略 | `/guide/chat` | 天气 → 景点 → 人工勾选 → 行程 → 游玩建议；SSE 事件流 |
+| 智能出行 | `/trip/chat` | 一个 Agent：自己答 / 调路线 / 调攻略，SSE 事件流 |
 | 智能客服 | `/customer/chat` | RAG 三层检索问答（关键词 → 向量 → 混合），SSE 事件流 |
 
 出行和客服都不是独立 app，它们是 ctOS 的能力。
+
+智能出行内部有两项能力（`modules/trip/capabilities/` 下的路线规划和旅游攻略），
+它们是 Agent 手里的工具，不是用户能选的模式。
 
 每个业务模块各有一张 LangGraph 图，互不干扰：
 
 - 闲聊：`START → chat_node → END`，最简单的一张图
 - 角色扮演：不走图，直接拼提示词调模型流式输出（`modules/roleplay/stream.py`）
-- 路线规划：`START → collect_routes → ask_user（暂停等选方案）→ compare_routes → decide_route → write_tips → END`
-- 旅游攻略：`START → weather → spots_agent →（工具循环）→ ask_spots（暂停等勾选）→ planner → advice → END`
+- 智能出行：`START → agent → END`，一个节点做判断，再按判断去调下面两张子图
+  - 路线规划（子图）：`START → collect_routes → ask_user（暂停等选方案）→ compare_routes → decide_route → write_tips → END`
+  - 旅游攻略（子图）：`START → weather → spots_agent →（工具循环）→ ask_spots（暂停等勾选）→ planner → advice → END`
 - 客服：`START → retrieve → generate → END`，一条直线
 
 一个重要区别：**闲聊、角色扮演和出行会把我说的内容存进数据库**，左侧栏能翻到历史记录；
@@ -118,7 +121,7 @@ ctOS2.0/
 │   ├── db_view.py              # 命令行查看工具
 │   ├── clean_db.py             # 命令行清理工具
 │   └── feedback_view.py        # 命令行查看反馈
-├── modules/                    # 四个业务模块
+├── modules/                    # 四个业务模块（chat / roleplay / trip / customer）
 │   ├── chat/                   # 闲聊：graph / node / prompts / state / stream / sessions
 │   ├── roleplay/               # 角色扮演：roles / presets / prompts / stream / search / memory / openings
 │   ├── trip/                   # 智能出行
@@ -165,7 +168,7 @@ ctOS2.0/
 │       └── customer.js         # 智能客服
 ├── screenshot/                 # README 用的界面截图
 ├── docs/                       # 项目文档
-├── eval/                       # 端到端测评（34 条）
+├── eval/                       # 端到端测评（39 条）
 ├── config/                     # .env、配置模板、requirements.txt
 ├── Dockerfile                  # 镜像构建
 └── docker-compose.yml          # 应用 + 数据库两个容器
@@ -388,7 +391,7 @@ python -X utf8 -m modules.customer.stream
 python -X utf8 -m modules.customer.rag_eval
 ```
 
-端到端测评四个模块（34 条题库，需要服务已启动）：
+端到端测评四个模块（39 条题库，需要服务已启动）：
 
 ```bash
 python -X utf8 eval/run_eval.py
