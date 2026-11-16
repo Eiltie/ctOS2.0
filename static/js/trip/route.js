@@ -1,61 +1,15 @@
-/* 出行｜路线规划模式
+/* 出行｜路线规划的界面：从 A 到 B 怎么走
  *
- * 做什么：从 A 到 B 怎么走——多方案对比、人工选一条、写推荐和提醒。
- * 谁在用：base.js 的壳子按 TRIP_MODES.ROUTE 渲染；app.js 调 sendTrip()。
+ * 做什么：多方案对比、人工选一条、写推荐和提醒的等待面板。
+ * 谁在用：base.js 的 tripHandleEvent 收到事件时调用这些函数。
  *
- * 这里的三个面板是这个模式独有的：
+ * 这里放的是这两个面板：
  *   ASK_PLACE  地点没认准，让用户从候选里挑一个
  *   ASK        候选路线出来了，让用户选一条
+ *
+ * 注意：这里已经没有"模式"的概念了。用户不选，Agent 判断；
+ *       这些函数只是在事件到达时把对应的面板画出来。
  */
-
-tripRegisterMode("ROUTE", {
-  key: "ROUTE",
-  label: "路线规划",
-  steps: ["route_need", "route_compare", "route_decision", "route_tips"],
-  stepLabels: ["确认需求", "查询候选", "推荐方案", "出发提醒"],
-  sections: [
-    { key: "route_need",     label: "需求确认" },
-    { key: "route_compare",  label: "候选路线对比" },
-    { key: "route_decision", label: "推荐方案" },
-    { key: "route_tips",     label: "出发提醒" }
-  ],
-  examples: [
-    { q: "明天早上8点从学校到西湖，怎么走最快", meta: "路线决策 · 时间优先" },
-    { q: "从杭州东站到灵隐寺，带老人，少走路",   meta: "路线决策 · 少步行" },
-    { q: "想去杭州玩3天",                      meta: "这句会转给攻略" }
-  ],
-  quick: [
-    "从杭州东站到灵隐寺怎么走",
-    "从浙江大学紫金港校区到西湖断桥怎么走",
-    "去西湖，打车和地铁分别多久多少钱",
-    "9 点要到西湖开会，几点出门合适"
-  ],
-  placeholder: "从哪到哪？比如：从杭州东站到灵隐寺，带老人",
-  endpoint: "/trip/chat",
-
-  // 这个模式独有的等待面板
-  onEvent(ev, ctx){
-    const { turn, flow } = ctx;
-
-    if (ev.kind === "ASK"){
-      ctx.touched = true;
-      ctx.awaitingChoice = true;
-      clearWaitingPanels(turn);
-      showRouteChoices(turn, flow, ev);
-      flow.status("查到了候选路线，在下面点一个方案，我再继续写推荐");
-      return;
-    }
-
-    if (ev.kind === "ASK_PLACE"){
-      ctx.touched = true;
-      ctx.awaitingChoice = true;
-      clearWaitingPanels(turn);
-      if (ev.chat_id) rememberChatId(ev.chat_id, turn);
-      showPlaceChoices(turn, flow, ev);
-      flow.status("地点没认准，点一个候选就行");
-    }
-  }
-});
 
 
 /* ===== 地点歧义 ===== */
@@ -161,7 +115,7 @@ async function resumeInTurn(turn, text){
   const ctx = { turn, flow, touched: false, chatTurn: false, awaitingChoice: false, stepError: -1 };
 
   const result = await tripStream(
-    tripModeConfig().endpoint,
+    TRIP_ENDPOINT,
     { query: text, history: tripHistory, chat_id: openChatId },
     (ev) => tripHandleEvent(ev, ctx),
   );
@@ -365,7 +319,7 @@ async function chooseRoute(threadId, choiceId, turn, flow, panel){
 
   setTripSendState("stop");
 
-  const compareIndex = (tripModeConfig().steps || []).indexOf("route_compare");
+  const compareIndex = TRIP_VIEWS.ROUTE.steps.indexOf("route_compare");
   if (compareIndex >= 0) tripStepSet(compareIndex, "busy");
   flow.status("按你选的方案，正在整理对比和推荐…");
 

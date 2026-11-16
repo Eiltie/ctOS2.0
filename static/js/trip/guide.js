@@ -1,11 +1,10 @@
-/* 出行｜旅游攻略模式
+/* 出行｜旅游攻略的界面：去某地玩几天
  *
- * 做什么：去某地玩几天——天气、景点清单、逐日行程、游玩建议。
- * 谁在用：base.js 的壳子按 TRIP_MODES.TRAVEL 渲染。
+ * 做什么：开场页的景点卡片墙，以及勾景点那个等待面板。
+ * 谁在用：base.js 的 tripRenderHeroExtras 和 tripHandleEvent 调用。
  *
- * 和路线模式的区别：
- *   只有一个暂停点（勾景点）。勾完一路跑到"游玩建议"，不再问要不要查真实路线。
- *   攻略不碰地图：需要精确路线时，让用户去路线规划。
+ * 注意：这里已经没有"模式"的概念了。用户不选，Agent 判断；
+ *       攻略只有一个暂停点（勾景点），勾完一路跑到「游玩建议」。
  */
 
 /* 开场页的景点卡片。
@@ -35,11 +34,6 @@ function renderGuideCards(){
   const wall = $("trip-cardwall");
   if (!wall) return;
 
-  if (tripMode !== "TRAVEL"){
-    wall.innerHTML = "";
-    return;
-  }
-
   wall.innerHTML =
     `<div class="trip-cardwall-title">或者从下面挑一个</div>` +
     `<div class="trip-card-grid">` +
@@ -61,7 +55,11 @@ function renderGuideCards(){
       if (e.target.classList.contains("gci-go")){
         const c = GUIDE_CARDS[Number(card.dataset.i)];
         if (!c) return;
-        tripRunInMode("TRAVEL", `想去${c.city}玩 3 天，重点想去${c.name}`);
+        const input = $("trip-input-hero");
+        if (!input) return;
+        input.value = `想去${c.city}玩 3 天，重点想去${c.name}`;
+        tripShowHero();
+        sendTrip();
         return;
       }
 
@@ -82,46 +80,6 @@ function renderGuideCards(){
 }
 
 
-tripRegisterMode("TRAVEL", {
-  key: "TRAVEL",
-  label: "旅游攻略",
-  steps: ["weather", "spots", "itinerary", "advice"],
-  stepLabels: ["查询天气", "推荐景点", "安排行程", "游玩建议"],
-  sections: [
-    { key: "weather",    label: "天气" },
-    { key: "spots",      label: "景点推荐" },
-    { key: "itinerary",  label: "行程安排" },
-    { key: "advice",     label: "游玩建议" },
-    // 拆分前的老记录第四段是"详细路线"。新记录没有这一列，不会显示
-    { key: "route_plan", label: "详细路线（旧版）" }
-  ],
-  examples: [
-    { q: "下周去杭州玩3天，带老人",      meta: "旅游攻略 · 3 天" },
-    { q: "成都4天，带小孩",             meta: "旅游攻略 · 亲子" },
-    { q: "从杭州东站到灵隐寺怎么走",     meta: "这句会转给路线" }
-  ],
-  quick: [
-    "下周去杭州玩3天，带老人",
-    "成都4天带小孩，想去科技馆",
-    "杭州3天，预算1000，带老人",
-    "从杭州东站到灵隐寺怎么走"
-  ],
-  placeholder: "想去哪玩？比如：下周去杭州玩 3 天，带老人",
-  endpoint: "/guide/chat",
-  renderHeroExtras: renderGuideCards,
-
-  // 这个模式独有的等待面板：景点清单勾选
-  onEvent(ev, ctx){
-    if (ev.kind !== "ASK_SPOTS") return;
-
-    const { turn, flow } = ctx;
-    ctx.touched = true;
-    ctx.awaitingChoice = true;
-    clearWaitingPanels(turn);
-    showSpotChoices(turn, flow, ev);
-    flow.status("景点清单出来了，勾掉不想要的，或者在下面补一个");
-  }
-});
 
 
 /* ===== 景点清单 ===== */

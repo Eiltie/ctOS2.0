@@ -1,29 +1,69 @@
-/* 出行｜公共壳子
+/* 出行｜公共壳子 + 这个模块的全部界面逻辑
  *
- * 做什么：进度条、开场/对话态切换、SSE 流、四段卡片、计时、出行记录列表。
- * 谁在用：trip/route.js 和 trip/guide.js 往 TRIP_MODES 里注册自己的配置，
- *         自己只管"这个模式长什么样、收到事件怎么处理"。
+ * 做什么：进度条、开场/对话态切换、SSE 流、四段卡片、计时、出行记录列表，
+ *         以及路线和攻略各自的等待面板（候选路线、地点候选、景点勾选）。
+ * 谁在用：trip.js（入口）调 tripInit；app.js 调 sendTrip。
  *
- * 为什么拆：
- *   原来 2200 行一个文件，拆开路线和攻略之后，两边各改各的提示词和交互，
- *   再挤在一个文件里会互相牵连。
+ * 为什么没有"模式"了：
+ *   智能出行是一个 Agent，用户只说一句话，由它决定走路线还是攻略。
+ *   所以界面不再有"当前模式"——进度条和段落都按**这一轮实际返回了什么**来画：
+ *   收到 START 里的 mode 才切换进度条，收到 STEP/DONE 的 key 才建对应段落。
  */
 
-const TRIP_MODES = {};
-const TRIP_MODE_ORDER = [];
+// 两种能力的"长相"：进度条有哪几步、每段叫什么、从哪条接口进来。
+// 这不是让用户选的东西，只是界面上的映射表。
+const TRIP_VIEWS = {
+  ROUTE: {
+    steps: ["route_need", "route_compare", "route_decision", "route_tips"],
+    stepLabels: ["确认需求", "查询候选", "推荐方案", "出发提醒"],
+    sections: [
+      { key: "route_need",     label: "需求确认" },
+      { key: "route_compare",  label: "候选路线对比" },
+      { key: "route_decision", label: "推荐方案" },
+      { key: "route_tips",     label: "出发提醒" }
+    ]
+  },
+  TRAVEL: {
+    steps: ["weather", "spots", "itinerary", "advice"],
+    stepLabels: ["查询天气", "推荐景点", "安排行程", "游玩建议"],
+    sections: [
+      { key: "weather",    label: "天气" },
+      { key: "spots",      label: "景点推荐" },
+      { key: "itinerary",  label: "行程安排" },
+      { key: "advice",     label: "游玩建议" },
+      // 拆分前的老记录第四段是"详细路线"。新记录没有这一列，不会显示
+      { key: "route_plan", label: "详细路线（旧版）" }
+    ]
+  }
+};
 
-// 各模块在文件加载时调用，注册自己的模式
-function tripRegisterMode(key, config){
-  TRIP_MODES[key] = config;
-  if (!TRIP_MODE_ORDER.includes(key)) TRIP_MODE_ORDER.push(key);
-}
+// 所有段落，两边合在一起——按 key 找标题，不用先知道是哪一边的
+const TRIP_SECTION_LABELS = Object.assign(
+  {}, TRIP_VIEWS.TRAVEL.sections.reduce((acc, s) => (acc[s.key] = s.label, acc), {}),
+  TRIP_VIEWS.ROUTE.sections.reduce((acc, s) => (acc[s.key] = s.label, acc), {}),
+);
 
-// 默认进哪个模式。路线规划是主功能
-let tripMode = "ROUTE";
+// 只有一个入口：用户说什么，交给 Agent 判断
+const TRIP_ENDPOINT = "/trip/chat";
 
-function tripModeConfig(){
-  return TRIP_MODES[tripMode] || TRIP_MODES[TRIP_MODE_ORDER[0]] || {};
-}
+// 当前这一轮走的是哪条能力。只影响进度条画什么，不影响用户操作
+let tripView = null;
+
+// 开场页的示例和预设问题
+const TRIP_EXAMPLES = [
+  { q: "从杭州东站到灵隐寺，带老人，少走路", meta: "路线 · 少步行" },
+  { q: "下周去杭州玩 3 天，带老人",        meta: "攻略 · 3 天" },
+  { q: "北京有什么好玩的",                 meta: "直接问就行" }
+];
+
+const TRIP_QUICK_QUESTIONS = [
+  "从杭州东站到灵隐寺怎么走",
+  "下周去杭州玩3天，带老人",
+  "北京有什么好玩的",
+  "去杭州要准备什么"
+];
+
+const TRIP_PLACEHOLDER = "说说你的出行需求：想去哪玩、或者从哪到哪怎么走";
 
 let tripBusy = false;
 let tripCanRetry = false;
@@ -47,12 +87,13 @@ function tripRenderShell(){
   const box = $("trip-fixed");
   if (!box) return;
 
-  const config = tripModeConfig();
-  const steps = (config.steps || []).map((key, i) =>
+  // 还没跑任何一轮时给个中性的骨架；跑起来后按 START 的 mode 重画
+  const view = tripView ? TRIP_VIEWS[tripView] : null;
+  const steps = view ? view.steps.map((key, i) =>
     `<div class="process-step" data-step="${key}" data-state="wait">` +
-    `<span class="step-num">${String(i + 1).padStart(2, "0")}</span> ${esc(config.stepLabels[i])}</div>` +
-    (i < config.steps.length - 1 ? `<span class="step-arrow"></span>` : "")
-  ).join("");
+    `<span class="step-num">${String(i + 1).padStart(2, "0")}</span> ${esc(view.stepLabels[i])}</div>` +
+    (i < view.steps.length - 1 ? `<span class="step-arrow"></span>` : "")
+  ).join("") : "";
 
   // 顶部只留进度条。开场态已经有居中的欢迎语了，不需要再放一个大标题。
   box.innerHTML =
@@ -75,9 +116,9 @@ function tripRenderShell(){
   if (typeof syncStickyHeads === "function") syncStickyHeads();
 }
 
-// 当前模式的示例卡片（顶部的三张）
+// 开场页的示例卡片（顶部那三张）
 function tripCardsHTML(){
-  return (tripModeConfig().examples || []).map((e) =>
+  return TRIP_EXAMPLES.map((e) =>
     `<div class="trip-card" data-q="${esc(e.q)}"><h4>${esc(e.q)}</h4><p>${esc(e.meta)}</p></div>`
   ).join("");
 }
@@ -92,9 +133,8 @@ function tripCardsShow(show){
 
 function tripRenderQuickPrompts(){
   const box = $("trip-quick-hero");
-  const quick = tripModeConfig().quick || [];
   if (box){
-    box.innerHTML = quick.map((question) =>
+    box.innerHTML = TRIP_QUICK_QUESTIONS.map((question) =>
       `<button class="prompt-btn trip-quick-btn" type="button">${esc(question)}</button>`
     ).join("");
   }
@@ -113,21 +153,18 @@ function tripRenderQuickPrompts(){
   });
 }
 
-// 换模式时把输入框提示语也换掉
+// 输入框提示语（两个模式共用一个）
 function tripRenderPlaceholder(){
-  const config = tripModeConfig();
-  const ph = config.placeholder || "说个目的地，或问从哪到哪怎么走...";
   ["trip-input-hero", "trip-input"].forEach((id) => {
     const input = $(id);
-    if (input) input.placeholder = ph;
+    if (input) input.placeholder = TRIP_PLACEHOLDER;
   });
 }
 
-// 各模式可以往开场页里塞自己的东西（比如攻略的景点卡片墙）
+// 开场页额外的内容（现在只有攻略的景点卡片墙）
 function tripRenderHeroExtras(){
-  const config = tripModeConfig();
-  if (typeof config.renderHeroExtras === "function") {
-    config.renderHeroExtras();
+  if (typeof renderGuideCards === "function"){
+    renderGuideCards();
     return;
   }
 
@@ -458,10 +495,10 @@ async function openTripChat(chatId){
 
   openChatId = Number(chatId);
 
-  // 历史里第一轮真正的出行是什么类型，就切到哪个模式
+  // 打开历史会话：进度条按第一轮真正办事的那种能力画
   const firstTripTurn = (record.turns || []).find((t) => t.turn_kind !== "CHAT");
-  tripSetMode(firstTripTurn && firstTripTurn.turn_kind === "ROUTE" ? "ROUTE" : "TRAVEL",
-              { silent: true });
+  tripView = firstTripTurn && firstTripTurn.turn_kind === "ROUTE" ? "ROUTE" : "TRAVEL";
+  tripRenderShell();
   tripCardsShow(false);
   tripStepsReset();
 
@@ -496,15 +533,15 @@ function renderStoredTurn(feed, turnRec){
     return;
   }
 
-  // 路线决策和旅游攻略的段落不一样，按这一轮自己的类型选
-  const config = turnRec.turn_kind === "ROUTE" ? TRIP_MODES.ROUTE : TRIP_MODES.TRAVEL;
-  if (!config) return;
+  // 路线和攻略的段落不一样，按这一轮自己的类型取一张表
+  const view = turnRec.turn_kind === "ROUTE" ? TRIP_VIEWS.ROUTE : TRIP_VIEWS.TRAVEL;
+  if (!view) return;
 
   // 历史记录也渲染成连贯的一段：按顺序把四段拼起来，每段带小标题
   const flow = document.createElement("div");
   flow.className = "trip-flow";
 
-  config.sections.forEach((sec) => {
+  view.sections.forEach((sec) => {
     const text = ai[sec.key];
     if (!text) return;
 
@@ -611,21 +648,23 @@ function createFlow(target){
   flow.className = "trip-flow";
   feed.appendChild(flow);
 
-  // 已经建好的段落，键由当前模式决定（攻略是 weather...，路线是 route_...）
+  // 已经建好的段落。按 key 找标题，不依赖"当前是哪个模式"——
+  // 同一轮里也可能既有路线的段、又有攻略的段
   const blocks = {};
 
   function ensureBlock(key){
     if (blocks[key]) return blocks[key];
 
-    const config = tripModeConfig();
-    const meta = (config.sections || []).find((s) => s.key === key) || { key, label: key };
-    const made = makeTripBlock(meta.label);
+    const label = TRIP_SECTION_LABELS[key] || key;
+    const made = makeTripBlock(label);
     flow.appendChild(made.block);
 
     // 每段文字用独立的打字机，这样多段可以各自追加，互不干扰
     const typer = createTyper(feed, made.body);
 
-    const idx = (config.steps || []).indexOf(key);
+    // 进度条只点亮"当前这一条能力"里有的那一步
+    const view = tripView ? TRIP_VIEWS[tripView] : null;
+    const idx = view ? view.steps.indexOf(key) : -1;
     if (idx >= 0) tripStepSet(idx, "busy");
 
     blocks[key] = { body: made.body, typer, idx };
@@ -1020,7 +1059,7 @@ function retryTrip(){
 }
 
 
-/* ===== 等待面板（两种模式共用） ===== */
+/* ===== 等待面板（两种能力共用） ===== */
 
 // 加一行"我在等你"的提示，让等待状态更明显
 function showWaitingHint(turn, text){
@@ -1043,7 +1082,6 @@ function clearWaitingPanels(turn){
 // 不同面板给不同的等待提示，说清楚现在在等什么
 function hintTextFor(kind){
   if (kind === "spots") return "流程已暂停，勾完点「就这样，继续排行程」 ↑";
-  if (kind === "suggest") return "换到另一个模式，接着往下走 ↑";
   return "流程已暂停，等你选一个方案 ↑";
 }
 
@@ -1065,71 +1103,20 @@ function lockRoutePanels(){
 }
 
 
-/* ===== 转场：走错模式时给一个按钮 ===== */
-
-function showSuggest(turn, flow, ev){
-  const to = ev.to === "guide" ? "TRAVEL" : "ROUTE";
-  const config = TRIP_MODES[to] || {};
-  const label = config.label || (to === "TRAVEL" ? "旅游攻略" : "路线规划");
-
-  const panel = document.createElement("div");
-  panel.className = "route-ask suggest-ask";
-
-  const question = document.createElement("div");
-  question.className = "route-ask-question";
-  question.textContent = ev.reason || `要不要换到「${label}」继续？`;
-  panel.appendChild(question);
-
-  const actions = document.createElement("div");
-  actions.className = "suggest-actions";
-
-  const go = document.createElement("button");
-  go.type = "button";
-  go.className = "suggest-go";
-  go.textContent = `去${label} →`;
-  go.onclick = () => {
-    if (tripBusy) return;
-    panel.remove();
-    tripRunInMode(to, ev.query || lastTripText || "");
-  };
-  actions.appendChild(go);
-
-  const stay = document.createElement("button");
-  stay.type = "button";
-  stay.className = "route-ask-reset";
-  stay.textContent = "不用，我继续在这儿说";
-  stay.onclick = () => {
-    panel.remove();
-    const input = $("trip-input");
-    if (input) input.focus();
-  };
-  actions.appendChild(stay);
-
-  panel.appendChild(actions);
-
-  turn.appendChild(panel);
-  showWaitingHint(turn, hintTextFor("suggest"));
-  tripScroll();
-  scrollToWaitingPanel();
-}
-
-// 切到另一个模式，把这句话带过去直接开跑
-function tripRunInMode(mode, query){
-  tripSetMode(mode, { reset: true });
-
-  const input = $("trip-input-hero");
-  if (input) input.value = query || "";
-
-  tripShowHero();
-  sendTrip();
-}
-
-
 /* ===== 一轮对话：发出去，边收边渲染 ===== */
+
+// 这一轮走的是哪条能力：重画进度条。用户看不到"模式"，只看到进度条变了
+function tripApplyView(mode){
+  if (!mode || !TRIP_VIEWS[mode]) return;
+  if (mode === tripView) return;
+
+  tripView = mode;
+  tripRenderShell();
+  tripStepsReset();
+}
 
 function tripHandleEvent(ev, ctx){
   const { turn, flow } = ctx;
-  const config = tripModeConfig();
 
   switch (ev.kind){
     case "SAY":
@@ -1139,12 +1126,14 @@ function tripHandleEvent(ev, ctx){
 
     case "START":
       ctx.touched = true;
-      if (ev.mode) tripSetMode(ev.mode);
+      // 这一轮走的是哪条能力：只决定进度条画什么，用户不需要选
+      tripApplyView(ev.mode);
       tripStepSet(0, "busy");
       break;
 
     case "STEP": {
-      const idx = (config.steps || []).indexOf(ev.key);
+      const view = tripView ? TRIP_VIEWS[tripView] : null;
+      const idx = view ? view.steps.indexOf(ev.key) : -1;
       if (idx >= 0){ ctx.touched = true; tripStepSet(idx, "busy"); }
       flow.status(ev.text);
       break;
@@ -1158,13 +1147,6 @@ function tripHandleEvent(ev, ctx){
     case "DONE":
       ctx.touched = true;
       flow.done(ev.key, ev.text);
-      break;
-
-    case "SUGGEST":
-      ctx.touched = true;
-      ctx.awaitingChoice = true;
-      clearWaitingPanels(turn);
-      showSuggest(turn, flow, ev);
       break;
 
     case "CHAT":
@@ -1182,9 +1164,35 @@ function tripHandleEvent(ev, ctx){
       appendTripError(ev.message || "出行模块出错了", turn);
       break;
 
+    // 下面是两种能力各自的等待面板。
+    // 不用再问"现在是哪个模式"：事件本身就是线索。
+    case "ASK":
+      ctx.touched = true;
+      ctx.awaitingChoice = true;
+      clearWaitingPanels(turn);
+      showRouteChoices(turn, flow, ev);
+      flow.status("查到了候选路线，在下面点一个方案，我再继续写推荐");
+      break;
+
+    case "ASK_PLACE":
+      ctx.touched = true;
+      ctx.awaitingChoice = true;
+      clearWaitingPanels(turn);
+      if (ev.chat_id) rememberChatId(ev.chat_id, turn);
+      showPlaceChoices(turn, flow, ev);
+      flow.status("地点没认准，点一个候选就行");
+      break;
+
+    case "ASK_SPOTS":
+      ctx.touched = true;
+      ctx.awaitingChoice = true;
+      clearWaitingPanels(turn);
+      showSpotChoices(turn, flow, ev);
+      flow.status("景点清单出来了，勾掉不想要的，或者在下面补一个");
+      break;
+
     default:
-      // 各模式特有的面板（路线选方案、地点歧义、攻略勾景点）
-      if (typeof config.onEvent === "function") config.onEvent(ev, ctx);
+      break;
   }
 }
 
@@ -1250,8 +1258,6 @@ async function sendTrip(){
     return;
   }
 
-  const config = tripModeConfig();
-
   tripBusy = true;
   activeTripId = null;
   input.value = "";
@@ -1291,7 +1297,7 @@ async function sendTrip(){
   const ctx = { turn, flow, touched: false, chatTurn: false, awaitingChoice: false, stepError: -1 };
 
   const result = await tripStream(
-    config.endpoint,
+    TRIP_ENDPOINT,
     { query: text, history: tripHistory, chat_id: openChatId },
     (ev) => tripHandleEvent(ev, ctx),
   );
@@ -1354,7 +1360,9 @@ async function sendTrip(){
 /* ===== 空态与初始化 ===== */
 
 function tripIntro(){
-  // 注意：这里不改模式。模式由插件条决定，开新会话不影响用户选的模式
+  // 新会话回到"还没决定走哪条能力"的状态：进度条先空着，
+  // 用户说第一句话、收到 START 之后再画
+  tripView = null;
   tripRenderShell();
   tripStepsReset();
   tripCardsShow(true);
@@ -1408,7 +1416,6 @@ function tripInit(){
   tripRenderShell();
   tripRenderPlaceholder();
   tripRenderQuickPrompts();
-  tripRenderPluginBar();
   setTripSendState("send");
 
   // 停止/出错后按钮变成"重试"，用户一打字就变回"发送"
