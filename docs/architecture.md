@@ -43,9 +43,12 @@ ctOS2.0/
 ├── modules/               ← 这里每一项都是 ctOS 的一个模块，层级一致
 │   ├── chat/              ← 闲聊（graph/node/state/prompts/stream/sessions）
 │   ├── roleplay/          ← 角色扮演（roles/presets/prompts/stream/search/memory/openings）
-│   ├── trip/              ← 智能出行
+│   ├── trip/              ← 智能出行（一个 Agent + 若干能力）
 │   │   ├── 出口：stream.py
-│   │   ├── 判断：suggest.py（这句更像路线还是攻略）
+│   │   ├── 编排：agent.py（判断 → 自己答 / 调能力）
+│   │   ├── 图：graph.py + node.py + state.py（一个节点，messages 当状态）
+│   │   ├── 提示词：prompts.py
+│   │   ├── 判断：suggest.py（纯关键词的辅助判断）
 │   │   └── capabilities/      ← 智能出行的能力（子图），只有这个模块用
 │   │       ├── route/          路线规划：need / graph / stream / tools / prompts
 │   │       └── guide/          旅游攻略：graph / stream / node / prompts / state /
@@ -168,53 +171,75 @@ POST /chat（不带 role_id）
 
 ---
 
-## 四、出行：路线规划 + 旅游攻略（两个独立模块）
+## 四、出行：一个 Agent + 若干能力
 
-### 4.0 先记住：没有自动分流了
-
-拆分前是"一个入口 + 一次模型判断"，用户不用选，后端猜。
-现在模式由用户在页面上点，两个模块各有自己的入口：
+### 4.0 先记住：用户只面对一个入口
 
 ```
-出行页顶部：  [ 路线规划 ]  [ 旅游攻略 ]      ← 默认路线规划
-                 │                │
-      POST /trip/chat      POST /guide/chat
-      modules/trip/        modules/trip/capabilities/guide/
+用户：一句出行需求
+   │
+   ▼
+智能出行 Agent（modules/trip/）      ← 判断该干嘛，然后办
+   ├─ 自己答：推荐、准备清单、天气、闲聊
+   ├─ 调能力：路线规划
+   └─ 调能力：旅游攻略
 ```
 
-两边**互不 import**，只共用 `core/` 里的东西（llm / sse / db / tools / checkpoints）。
+**路线规划和旅游攻略是它的能力（子图），不是用户能选的菜单。**
+用户不需要知道内部用了哪个，正如不需要知道 Agent 用了哪个工具。
 
-走错模式时会怎样：不偷偷切换，而是给一个转场按钮。
+> 现阶段前端还有一个"路线规划 | 旅游攻略"的模式条，那是过渡：
+> 前端仍按模式打 `/trip/chat` 或 `/guide/chat`。收入口在下一步做。
 
-| 用户在 | 说了 | 收到 |
-|---|---|---|
-| 路线规划 | "想去杭州玩3天" | 几行介绍（杭州大致分几块）+ `SUGGEST` → 一键切到攻略并原话带过去 |
-| 旅游攻略 | "从杭州东站到灵隐寺怎么走" | `SUGGEST` → 一键切到路线 |
-
-判断在 `core/tools/suggest.py`，**纯关键词、不调模型**；放在调模型之前，
-因为攻略的解析器太宽容（任何一句话都能抠出个城市），等它失败再判断基本等不到。
-
-### 4.1 路线规划（主功能）
+### 4.0.1 Agent 那一圈怎么转
 
 ```
 POST /trip/chat
    │
-   └─ trip_stream()              modules/trip/stream.py（先发 SAY「收到…」）
-        ├─ _is_weather_query()   只问天气 → 直接回一句，存 CHAT，结束
-        └─ start_route_decision() modules/trip/capabilities/route/stream.py
-             ├─ 走错门？ suggest_guide() → 介绍 + SUGGEST，结束
-             ├─ 解析需求 parse_route_need(query, history)   modules/trip/capabilities/route/need.py
-             │     history 一起喂进去，一次调用搞定"改成5天"这类补充
-             ├─ 校验     check_need()      缺起点/终点/城市 → 反问
-             ├─ 查地点   find_place()      core/tools/amap.py
-             ├─ 查天气   get_weather()     core/tools/weather.py
-             ├─ 查候选   route_graph       modules/trip/capabilities/route/graph.py
-             │     ├─ collect_routes   查驾车/公交/步行/骑行（route_decision_tools.py）
-             │     ├─ ask_user         interrupt() 暂停，等用户选方案
-             │     ├─ compare_routes   写对比
-             │     ├─ decide_route     写推荐理由
-             │     └─ write_tips       写出发提醒
-             └─ 存库    save_trip_turn(..., "ROUTE")
+   └─ trip_stream()            modules/trip/stream.py（先发 SAY「收到…」）
+        └─ run_trip_service()  modules/trip/agent.py   ← 编排
+             ├─ 先跑一次 Agent 图   modules/trip/graph.py
+             │     └─ decide_node()  modules/trip/node.py
+             │          调一次模型（modules/trip/prompts.py 的 AGENT_PROMPT）
+             │          结论三选一：answer / route / guide
+             │          自己答的那类顺手把回复写出来（判断和回答合在一次调用里）
+             │
+             ├─ answer → 存 CHAT 轮，回一条气泡
+             ├─ route  → modules/trip/capabilities/route/stream.py
+             └─ guide  → modules/trip/capabilities/guide/stream.py
+```
+
+**Agent 图只有一个节点**：`START → agent → END`，和闲聊模块那张图同构。
+"路由"现在表现为节点内部的三种结论，由 `agent.py` 分派。
+将来 Agent 要自己转圈（办完一个能力接着办另一个），再在图里加节点和条件边。
+
+**为什么编排不在图里**：子图要"边跑边吐"，用户得看到进度；
+图的节点只能返回状态，产不出事件流。所以判断交给图，执行留在生成器里。
+
+**人在回路**：子图自己的暂停照旧——用户点完还是打到子图的恢复接口
+（`/trip/route/choose`、`/guide/spots`），线程号和现场都不变，Agent 层不掺和。
+
+**天气**：只问天气时先把真实数据查出来（`answer_weather`），再交给 Agent 组织语言，
+不然模型会编气温。
+
+### 4.1 能力一：路线规划
+
+```
+（由 Agent 判断 action=route 后进来，也可以单独调）
+   │
+   └─ start_route_decision() modules/trip/capabilities/route/stream.py
+        ├─ 解析需求 parse_route_need(query, history)   capabilities/route/need.py
+        │     history 一起喂进去，一次调用搞定"改成5天"这类补充
+        ├─ 校验     check_need()      缺起点/终点/城市 → 反问
+        ├─ 查地点   find_place()      core/tools/amap.py
+        ├─ 查天气   get_weather()     core/tools/weather.py
+        ├─ 查候选   route_graph       capabilities/route/graph.py
+        │     ├─ collect_routes   查驾车/公交/步行/骑行（tools.py）
+        │     ├─ ask_user         interrupt() 暂停，等用户选方案
+        │     ├─ compare_routes   写对比
+        │     ├─ decide_route     写推荐理由
+        │     └─ write_tips       写出发提醒
+        └─ 存库    save_trip_turn(..., "ROUTE")
 ```
 
 **人工干预（HITL）**：
@@ -229,13 +254,12 @@ POST /trip/chat
 **数据落在哪**：`trip_ai_outputs` 的 `route_need`/`route_compare`/`route_decision`/`route_tips` 四列；
 `trip_sessions.turn_kind = 'ROUTE'`。
 
-### 4.2 旅游攻略（独立模块，一个暂停点）
+### 4.2 能力二：旅游攻略（一个暂停点）
 
 ```
-POST /guide/chat
+（由 Agent 判断 action=guide 后进来，也可以单独调）
    │
    └─ start_guide()              modules/trip/capabilities/guide/stream.py
-        ├─ 走错门？ suggest_route() → SUGGEST，结束
         ├─ 跑图  guide_graph      modules/trip/capabilities/guide/graph.py
         │     ├─ weather          解析需求（带 history）+ 查天气 + 写总结
         │     ├─ spots_agent      搜景点（ReAct 循环，最多 3 轮）
@@ -270,7 +294,7 @@ save_trip_turn()        databases/db_trip.py
     trip_user_inputs（用户原话）
     trip_ai_outputs（产出，哪些列存在写哪些）
 
-事件协议（两边一样）：SAY / START / STEP / TOKEN / DONE / SUGGEST
+事件协议（两边一样）：SAY / START / STEP / TOKEN / DONE / SUGGEST（过渡期还会发，收入口后删）
                     ASK / ASK_PLACE（路线）、ASK_SPOTS（攻略）
                     CHAT / SAVED / ERROR
 ```

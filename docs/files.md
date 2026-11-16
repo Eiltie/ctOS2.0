@@ -192,9 +192,20 @@ modules/<模块名>/
 
 | 文件 | 行数 | 职责 |
 | --- | --- | --- |
-| `stream.py` | 84 | 模块对外出口：天气问答短路 → 路线决策 |
-| `suggest.py` | 47 | 判断「这句更像路线还是攻略」（纯关键词），走错门时给转场 |
+| `stream.py` | 20 | 模块对外出口：回一句「收到」→ 把同步流程放进工作线程 → 转发事件 |
+| `agent.py` | 92 | **服务编排**：跑 Agent 图拿判断，按 answer / route / guide 分派 |
+| `graph.py` | 28 | Agent 图：`START → agent → END`（一个节点，和闲聊那张图同构） |
+| `node.py` | 88 | Agent 唯一的节点：调一次模型，判断 + 该答的顺手答了 |
+| `state.py` | 19 | Agent 状态：`messages`（+ 预留的 node_path / extra_context） |
+| `prompts.py` | 62 | Agent 的判断提示词：三个动作、判断要点、示例 |
+| `suggest.py` | 47 | 纯关键词的辅助判断（过渡期还在用，收入口后删） |
 | `capabilities/` | — | 这个模块的**能力**（子图），见下面两小节 |
+
+**关键细节**：
+- 判断和回答合在**一次模型调用**里：要答的那类本来就得生成文字，没必要判一次再答一次
+- 判断结论挂在 `AIMessage.additional_kwargs` 上，所以状态仍然只有 `messages`
+- 天气问题先查真实数据（`answer_weather`）再交给 Agent 组织语言，不然会编气温
+- Agent 图现在**不带检查点**：它不暂停、也不需要跨轮恢复；子图的暂停由子图自己管
 
 > **目录约定**：`modules/` 底下每一项都是 ctOS 的一个**模块**（chat / roleplay / trip / customer），
 > 层级一致。模块自己的能力和子图放在 `capabilities/` 里，因为只有这个模块用；
