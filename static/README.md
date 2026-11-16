@@ -182,6 +182,7 @@ static/
 | 场景 | 续跑接口 | 请求体 |
 | --- | --- | --- |
 | 路线：候选出来等你选方案 | `POST /trip/route/choose` | `{ thread_id, choice_id, chat_id? }` |
+| 路线：地点没认准，你挑了一个 | `POST /trip/route/place` | `{ thread_id, place }` |
 | 攻略：景点清单出来等你勾选 | `POST /guide/spots` | `{ thread_id, removed: [], added }` |
 
 两个都用同一套 SSE 事件格式返回，前端复用同一个解析器。

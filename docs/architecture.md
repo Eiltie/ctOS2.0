@@ -247,11 +247,17 @@ POST /trip/chat
 **人工干预（HITL）**：
 
 - 地点有歧义时先发 `ASK_PLACE`，让用户点一个候选。
+  **发事件之前**把"这份需求 + 线程号"存进检查点，`thread_id` 一起发给前端。
+- 用户点一个后 POST `/trip/route/place`（`{thread_id, place}`），后端用**原来那份需求**接着跑：
+  把选中的地点塞进起点/终点，直接查天气、跑图。**不重新解析、不重新判断、不改写**。
 - 候选路线出来后，图停在 `ask_user`，后端发 `ASK`，前端显示候选卡片。
 - 用户点一条后 POST `/trip/route/choose`，后端用 `Command(resume=choice_id)` 接着跑。
 - 暂停状态存在 `databases/checkpoints/route_checkpoints.sqlite`（`core/checkpoints.py` 管，全进程一个实例）。
   文件打不开时自动退回 `MemorySaver`，不影响其他模块。
 - 恢复时会校验 `tenant_id`，拿别人的暂停现场续不上。
+- **什么时候不弹地点候选**：只查到一条（没得选）、或后续候选只是同名变体
+  （查"灵隐寺"带出"富阳灵隐寺"）时直接采用第一条；只有名字前面紧挨行政后缀
+  （"长城(延庆区)"）那种真正的多处，才让用户选。
 
 **数据落在哪**：`trip_ai_outputs` 的 `route_need`/`route_compare`/`route_decision`/`route_tips` 四列；
 `trip_sessions.turn_kind = 'ROUTE'`。
