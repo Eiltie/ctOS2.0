@@ -60,9 +60,9 @@
     {
       "id": 7,
       "category": "原词",
-      "question": "embedding-3 是多少维",
+      "question": "向量化用的是哪个模型",
       "expect_keywords": [
-        "2048"
+        "qwen3-embedding"
       ],
       "should_answer": true
     },
@@ -244,10 +244,10 @@
     {
       "id": 26,
       "category": "跨章节",
-      "question": "为什么智能客服不带历史，而闲聊带",
+      "question": "为什么智能客服不写数据库，而闲聊带",
       "expect_keywords": [
-        "一问一答",
-        "不带历史"
+        "不写数据库",
+        "不落数据库"
       ],
       "should_answer": true
     },

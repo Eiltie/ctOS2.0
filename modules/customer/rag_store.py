@@ -2,6 +2,10 @@
 
 做什么：全进程只加载一次 Chroma 集合和 BM25 索引，三层检索共享这一份。
 被谁用：rag_search.py 的 get_store()。
+
+每个块除了正文还带着一行「标题路径」（文件 › 一级标题 › 二级标题）：
+  - 检索时拼进结果，模型看得到这节属于哪份文档的哪一章
+  - BM25 也给标题路径单独建一份索引，标题里的词（比如「部署」）直接可搜
 """
 
 from pathlib import Path
@@ -14,18 +18,19 @@ from rank_bm25 import BM25Okapi
 from modules.customer.rag_config import (
     CHROMA_DIR,
     COLLECTION_NAME,
-    get_zhipu_api_key,
 )
 
 # 知识库加载层：全模块只加载一次，三层检索都从这里取现成的数据
 
 
 class KnowledgeStore:
-    def __init__(self, client, collection, chunks: list[str], bm25):
+    def __init__(self, client, collection, chunks, titles, sources, bm25):
         """把检索层要用的东西装进来，并记下总块数。"""
         self.client = client
         self.collection = collection
         self.chunks = chunks
+        self.titles = titles
+        self.sources = sources
         self.bm25 = bm25
         self.total = len(chunks)
 
@@ -44,13 +49,11 @@ def load_store() -> KnowledgeStore:
     if _store is not None:
         return _store
 
-    get_zhipu_api_key()
-
     if not CHROMA_DIR.exists():
         raise RuntimeError(
             f"没找到向量数据库：{CHROMA_DIR}\n"
             f"请先运行一次入库脚本：\n"
-            f"    python ctOS2_modules/ctOS2_customer_AI/rag_ingest.py"
+            f"    python -X utf8 -m modules.customer.rag_ingest"
         )
 
     client = chromadb.PersistentClient(path=str(CHROMA_DIR))
@@ -60,24 +63,36 @@ def load_store() -> KnowledgeStore:
         raise RuntimeError(
             f"向量数据库里没有「{COLLECTION_NAME}」这个集合。\n"
             f"请先运行一次入库脚本：\n"
-            f"    python ctOS2_modules/ctOS2_customer_AI/rag_ingest.py"
+            f"    python -X utf8 -m modules.customer.rag_ingest"
         )
 
     collection = client.get_collection(COLLECTION_NAME)
 
-    chunks = collection.get(include=["documents"])["documents"]
+    got = collection.get(include=["documents", "metadatas"])
+    chunks = got["documents"]
     if not chunks:
         raise RuntimeError(
             "向量数据库是空的（一块内容都没有）。\n"
             "请先运行一次入库脚本：\n"
-            "    python ctOS2_modules/ctOS2_customer_AI/rag_ingest.py"
+            "    python -X utf8 -m modules.customer.rag_ingest"
         )
 
-    corpus = [tokenize(chunk) for chunk in chunks]
+    metadatas = got.get("metadatas") or [{} for _ in chunks]
+    # 老库（改版前入库的）没有 title 字段，退化成只用文件名，不至于报错
+    titles = [(m or {}).get("title") or "" for m in metadatas]
+    sources = [(m or {}).get("source") or "" for m in metadatas]
+
+    # BM25 索引的是「标题路径 + 正文」：标题里的词也能被关键词检索命中
+    corpus = [tokenize(_index_text(t, c)) for t, c in zip(titles, chunks)]
     bm25 = BM25Okapi(corpus)
 
-    _store = KnowledgeStore(client, collection, chunks, bm25)
+    _store = KnowledgeStore(client, collection, chunks, titles, sources, bm25)
     return _store
+
+
+def _index_text(title: str, chunk: str) -> str:
+    """BM25 建索引和打分共用的文本：标题路径 + 正文。"""
+    return f"{title}\n{chunk}" if title else chunk
 
 
 def get_store() -> KnowledgeStore:

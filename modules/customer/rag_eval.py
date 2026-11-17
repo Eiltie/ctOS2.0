@@ -67,19 +67,21 @@ def run(cases, verbose=False):
     results = []
     for case in cases:
         hits = hybrid_search(case["question"])
-        passed, matched, rank = judge(case, hits)
+        # 判定用「标题路径 + 正文」：模型看到的也是这一段
+        texts = [hit.as_context() for hit in hits]
+        passed, matched, rank = judge(case, texts)
         results.append({
             "case": case,
-            "hits": hits,
+            "hits": texts,
             "passed": passed,
             "matched": matched,
             "rank": rank,
         })
 
         if verbose:
-            mark = "PASS" if passed else "FAIL"
+            mark = "PASS" if passed else ("REFUSE" if not hits else "FAIL")
             rank_txt = f"第{rank}名" if rank else "未命中"
-            top = hits[0].splitlines()[0][:44] if hits else "(无结果)"
+            top = hits[0].title if hits else "(检索层判断：无相关内容)"
             print(f"  [{mark}] #{case['id']:<2} {case['question'][:26]:<28} {rank_txt:<8} Top1: {top}")
 
     return results
@@ -133,7 +135,7 @@ def report(results):
         print(f"\n完全未命中 {len(fails)} 题：")
         for r in fails:
             c = r["case"]
-            top = r["hits"][0].splitlines()[0][:46] if r["hits"] else "(无结果)"
+            top = r["hits"][0].splitlines()[0][:46] if r["hits"] else "(检索层判断：无相关内容)"
             print(f"  #{c['id']:<2} [{c['category']}] {c['question']}")
             print(f"        期望含: {c['expect_keywords']}")
             print(f"        实际Top1: {top}")

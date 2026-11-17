@@ -1,113 +1,164 @@
 """客服的三层检索：关键词（BM25）→ 向量（Chroma）→ 混合加权。
 
-原来拆在三个文件里（rag_keyword / rag_vector / rag_hybrid），
-其中 rag_keyword 只有 17 行、rag_hybrid 只有 31 行，都是对 rag_store 的薄封装，
-打开文件的开销比读函数还大。合并后三层放在一起，一眼能看出它们的关系。
+改造前的两个毛病（都在这一个文件里）：
+  1. 混合只看名次：两层各自按第几名给分，关键词一个词都没匹配上的块也能进榜。
+     结果就是「今天天气怎么样」也能搜出 4 条，模型只能靠提示词硬拒。
+  2. 没有相关性信号：检索层永远返回 4 条，上层分不清「有资料」和「没资料」。
 
-三层都跑是为了方便调试（终端里能看到每层命中），
-但真正交给模型写答案的只有第三层 hybrid_search()。
+现在：
+  - BM25 和余弦相似度各自归一化到 0~1，再按权重相加，分数是可比的
+  - 低于阈值的块不进结果，「查不到」变成检索层能说出来的事实
+  - 结果带 title，模型知道这节属于哪份文档的哪一章
 """
 
-import json
-import urllib.request
+from dataclasses import dataclass
 
-from modules.customer.rag_config import (
-    EMBEDDING_BASE_URL,
-    EMBEDDING_MODEL,
-    get_zhipu_api_key,
-)
+from modules.customer.embedding import embed_one
 from modules.customer.rag_store import get_store, tokenize
 
-# 每层各取前几段
-TOP_K = 3
+# 每层各取前几段候选
+TOP_K = 8
 
-# 混合后交给模型的片段数上限；两层各取 3 条，最坏 6 条
+# 混合后交给模型的片段数上限
 MAX_HITS = 4
+
+# 两层混合的权重。用 rag_eval 扫过 0.4 / 0.5 / 0.55 / 0.6 四组关键词权重：
+#   0.4：可答题@1 76.7%
+#   0.5：可答题@1 80.0%  ← 取这组
+# 再往上没有额外收益，反而把语义检索压得太狠（同义改写的题会掉）。
+VECTOR_WEIGHT = 0.5
+KEYWORD_WEIGHT = 0.5
+
+# 余弦相似度下限：低于这个值认为「语义上也没关系」，不进结果。
+# 实测 qwen3-embedding:0.6b 下，库内问题的 top1 一般在 0.55 以上，
+# 库外问题（今天天气 / 写个快排）基本在 0.30 以下，0.36 是两者的分界带。
+MIN_VECTOR_SCORE = 0.36
+
+# 混合分下限：两层都很弱的时候（关键词 0 分 + 向量刚过线）不要硬凑
+MIN_HYBRID_SCORE = 0.28
+
+
+@dataclass
+class Hit:
+    """一条检索结果：正文 + 它属于哪一节 + 混合分数。"""
+
+    text: str
+    title: str
+    score: float
+
+    def as_context(self) -> str:
+        """拼成给模型看的段落：先标题路径，再正文。"""
+        if self.title:
+            return f"【{self.title}】\n{self.text}"
+        return self.text
 
 
 # ---------------------------------------------------------------- 第二层：向量
 
 def embed_query(query: str) -> list[float]:
-    """调智谱接口把一句话转成向量，返回向量。"""
-    api_key = get_zhipu_api_key()
+    """把一句话转成向量。
 
-    payload = json.dumps({"model": EMBEDDING_MODEL, "input": [query]}).encode("utf-8")
-
-    request = urllib.request.Request(
-        EMBEDDING_BASE_URL,
-        data=payload,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-    )
-
-    with urllib.request.urlopen(request, timeout=60) as response:
-        body = json.loads(response.read().decode("utf-8"))
-
-    return body["data"][0]["embedding"]
+    真正的转换逻辑在 modules/customer/embedding.py，那里入库和检索共用同一份实现，
+    这样就不会出现「入库用了一个模型、检索用了另一个」导致检索永远不准的情况。
+    """
+    return embed_one(query)
 
 
-def vector_search(query: str) -> list[str]:
-    """按语义相似度从知识库找回最相关的几段。"""
+def vector_search(query: str, k: int = TOP_K) -> list[tuple[int, float]]:
+    """按余弦相似度从知识库找回最相关的几段，返回 [(块下标, 相似度)]。
+
+    相似度是 0~1 的余弦相似度（集合建库时用的是 cosine 距离），
+    低于 MIN_VECTOR_SCORE 的直接丢掉——这就是「查不到」信号的来源。
+    """
     collection = get_store().collection
 
     result = collection.query(
         query_embeddings=[embed_query(query)],
-        n_results=TOP_K,
-        include=["documents"],
+        n_results=k,
+        include=["documents", "distances"],
     )
 
-    # Chroma 返回「每个查询一组」的二维结构，这里只有一条查询
-    return result["documents"][0]
+    ids = result["ids"][0]
+    # cosine 距离 → 相似度：1 - 距离
+    similarities = [1.0 - d for d in result["distances"][0]]
+
+    pairs = []
+    for chunk_id, sim in zip(ids, similarities):
+        if sim < MIN_VECTOR_SCORE:
+            continue
+        pairs.append((_chunk_index(chunk_id), sim))
+    return pairs
+
+
+def _chunk_index(chunk_id: str) -> int:
+    """把入库时的 id（chunk-12）换回块下标。"""
+    return int(str(chunk_id).split("-")[-1])
 
 
 # ---------------------------------------------------------------- 第一层：关键词
 
-def keyword_search(query: str) -> list[str]:
-    """BM25 关键词检索：对专有名词（MAX_HITS、rag_ingest 这类）最准。"""
+def keyword_search(query: str, k: int = TOP_K) -> list[tuple[int, float]]:
+    """BM25 关键词检索，返回 [(块下标, 归一化分数 0~1)]。
+
+    归一化方式：除以本次最高分。这一层只关心「相对谁更强」，
+    绝对值随查询长短变化，和向量分数不可直接相加。
+    分数为 0 表示一个词都没匹配上，不算命中。
+    """
     store = get_store()
 
     scores = store.bm25.get_scores(tokenize(query))
 
-    ranked = sorted(range(store.total), key=lambda i: scores[i], reverse=True)
+    ranked = sorted(range(store.total), key=lambda i: scores[i], reverse=True)[:k]
+    if not ranked or scores[ranked[0]] <= 0:
+        return []
 
-    # 分数为 0 表示一个词都没匹配上，不算命中
-    top_indexes = [i for i in ranked[:TOP_K] if scores[i] > 0]
-
-    return [store.chunks[i] for i in top_indexes]
+    top = scores[ranked[0]]
+    return [(i, scores[i] / top) for i in ranked if scores[i] > 0]
 
 
 # ---------------------------------------------------------------- 第三层：混合
 
-def rank_score(hits: list[str]) -> dict[str, float]:
-    """给一层检索结果按名次打分，返回 {片段: 分数}。"""
-    # 按名次给分：第 1 名最高
-    scores: dict[str, float] = {}
-    for position, chunk in enumerate(hits):
-        scores[chunk] = max(0, len(hits) - position)
-    return scores
+def hybrid_search(query: str, max_hits: int = MAX_HITS) -> list[Hit]:
+    """两层检索都跑，分数加权后返回最相关的几段；一段都没有就返回空列表。
 
+    返回空列表 = 检索层明确说「知识库里没有相关内容」，
+    上层据此走拒答分支，而不是硬塞 4 条不相关的给模型。
+    """
+    store = get_store()
 
-def hybrid_search(query: str) -> list[str]:
-    """两层检索都跑，按名次加权后返回最相关的几段。"""
     keyword_hits = keyword_search(query)
     vector_hits = vector_search(query)
 
-    # 两层的分数累加到同一张表，key 是片段正文，自然完成去重
-    total_scores: dict[str, float] = {}
+    # 两层的分数累加到同一张表，key 是块下标，自然完成去重
+    total: dict[int, float] = {}
+    for idx, score in keyword_hits:
+        total[idx] = total.get(idx, 0.0) + KEYWORD_WEIGHT * score
+    for idx, score in vector_hits:
+        total[idx] = total.get(idx, 0.0) + VECTOR_WEIGHT * score
 
-    for scores in (rank_score(keyword_hits), rank_score(vector_hits)):
-        for chunk, score in scores.items():
-            total_scores[chunk] = total_scores.get(chunk, 0) + score
+    ranked = sorted(total.items(), key=lambda item: item[1], reverse=True)
 
-    ranked = sorted(total_scores.items(), key=lambda item: item[1], reverse=True)
+    hits = []
+    for idx, score in ranked:
+        if score < MIN_HYBRID_SCORE:
+            continue
+        hits.append(Hit(
+            text=store.chunks[idx],
+            title=store.titles[idx] if idx < len(store.titles) else "",
+            score=round(score, 4),
+        ))
+        if len(hits) >= max_hits:
+            break
 
-    return [chunk for chunk, _ in ranked[:MAX_HITS]]
+    return hits
 
 
 if __name__ == "__main__":
     test_query = "这个项目有哪些模块"
     print(f"提问：{test_query}\n")
-    for i, hit in enumerate(hybrid_search(test_query), start=1):
-        print(f"{i}. {hit[:60].replace(chr(10), ' ')}")
+    found = hybrid_search(test_query)
+    if not found:
+        print("（检索层判断：知识库里没有相关内容）")
+    for i, hit in enumerate(found, start=1):
+        print(f"{i}. [{hit.score:.3f}] {hit.title}")
+        print(f"   {hit.text[:60].replace(chr(10), ' ')}")

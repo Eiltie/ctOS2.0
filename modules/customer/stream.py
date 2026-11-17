@@ -54,11 +54,33 @@ async def customer_stream(query: str, history: list[dict] | None = None):
 
             else:
                 for _, update in payload.items():
-                    if update.get(ANSWER_KEY):
-                        yield sse({"kind": "DONE", "text": update[ANSWER_KEY]})
+                    if not update.get(ANSWER_KEY):
+                        continue
+
+                    answer = update[ANSWER_KEY]
+
+                    # 有些分支（寒暄 greet、拒答 refuse、检索不到时的兜底）
+                    # 是直接给整段固定话术的，没有经过模型，自然也就没有 TOKEN。
+                    # 前端打字机只在收到 TOKEN 时才启动，于是整段文字会在 DONE
+                    # 到达的瞬间「啪」一下糊出来——用户看到的是一个空白气泡闪一下。
+                    # 这里把整段话补发成 TOKEN，前端就是正常的逐字效果。
+                    if token_count == 0 and answer:
+                        for piece in _split_for_typing(answer):
+                            yield sse({"kind": "TOKEN", "text": piece})
+
+                    yield sse({"kind": "DONE", "text": answer})
 
     except Exception as e:
         yield sse({"kind": "ERROR", "message": f"这次没跑通：{e}"})
+
+
+def _split_for_typing(text: str, size: int = 2) -> list[str]:
+    """把整段固定话术切小片，模拟逐字输出。
+
+    每片两个字：太少会让事件数量暴涨（一段三百字就是一百五十个事件），
+    太多又看不出「在打字」。两个字在浏览器那边观感最接近模型流式输出。
+    """
+    return [text[i:i + size] for i in range(0, len(text), size)]
 
 
 async def _stream_in_thread(query: str, history: list[dict]):
