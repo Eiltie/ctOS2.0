@@ -155,9 +155,13 @@ function tripRenderQuickPrompts(){
 
 // 输入框提示语（两个模式共用一个）
 function tripRenderPlaceholder(){
+  // 手机上输入框窄，长文案会被右侧发送按钮挡掉，换成短版
+  const isNarrow = window.matchMedia("(max-width: 768px)").matches;
+  const text = isNarrow ? "想去哪玩？或问从哪到哪怎么走" : TRIP_PLACEHOLDER;
+
   ["trip-input-hero", "trip-input"].forEach((id) => {
     const input = $(id);
-    if (input) input.placeholder = TRIP_PLACEHOLDER;
+    if (input) input.placeholder = text;
   });
 }
 
@@ -506,6 +510,8 @@ async function openTripChat(chatId){
   tripShowChatPane();
 
   const feed = tripFeed();
+  // 整段还原历史时暂停入场动画，渲染完再放开（理由见 app.js 的 renderChat）
+  feed.classList.add("feed-rendering");
   feed.innerHTML = "";
 
   (record.turns || []).forEach((turnRec) => {
@@ -513,6 +519,7 @@ async function openTripChat(chatId){
   });
 
   tripScroll();
+  requestAnimationFrame(() => feed.classList.remove("feed-rendering"));
   renderTripHistory();
 
   tripHistory = (record.turns || []).map((t) => t.user_query).filter(Boolean);
@@ -721,11 +728,20 @@ function createFlow(target){
 // 把「Day 1｜11月16日｜阴 13~20°C」这种行当成分隔
 const TRIP_DAY_RE = /^Day\s*\d+.*$/im;
 const TRIP_SPOT_RE = /^\s*\d+[.、]\s*\S+/m;
+// 天气段里「- 11月16日：小毛毛雨，……」或「- **11月16日**：阵雨，……」
+const TRIP_WDAY_RE = /^\s*[-·]\s*\**\s*(\d{1,2}月\d{1,2}日|\d{4}-\d{2}-\d{2})\s*\**\s*[：:]\s*(.+)$/;
 
 function tripDecorateBlock(key, body, text){
   if (!body || !text) return;
 
   try{
+    if (key === "weather" && hasWeatherDays(text)){
+      body.classList.add("is-structured");
+      body.innerHTML = "";
+      body.appendChild(buildWeatherBar(text));
+      return;
+    }
+
     if (key === "itinerary" && TRIP_DAY_RE.test(text)){
       body.classList.add("is-structured");
       body.innerHTML = "";
@@ -737,6 +753,14 @@ function tripDecorateBlock(key, body, text){
       body.classList.add("is-structured");
       body.innerHTML = "";
       body.appendChild(buildSpotCards(text));
+      return;
+    }
+
+    // 游玩建议：把"要带的东西"抽成可勾选的清单，其余建议原样保留在下面
+    if (key === "advice" && hasCheckItems(text)){
+      body.classList.add("is-structured");
+      body.innerHTML = "";
+      body.appendChild(buildAdvice(text));
     }
   }catch(err){
     // 结构没解析成功就保持原来的文字，不要让内容消失
@@ -744,6 +768,202 @@ function tripDecorateBlock(key, body, text){
     body.classList.remove("is-structured");
     body.textContent = text;
   }
+}
+
+
+function hasWeatherDays(text){
+  return text.split("\n").filter((line) => TRIP_WDAY_RE.test(line)).length >= 2;
+}
+
+
+/* ===== 游玩建议：清单 + 原文 ===== */
+
+// 哪些建议算"出发前要准备的东西"。从每一条里看关键词，
+// 命中的抽成可勾选的清单项；没命中的保持原样。
+const CHECK_WORDS = ["带", "备", "穿", "预约", "领", "确认", "携", "装", "伞", "鞋", "外套"];
+
+function adviceLines(text){
+  // 建议段一条一行，开头是「· 」或「- 」
+  return text.split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.startsWith("·") || l.startsWith("-") || l.startsWith("*"))
+    .map((l) => l.replace(/^[·\-\*]\s*/, "").trim())
+    .filter(Boolean);
+}
+
+function hasCheckItems(text){
+  // 只要有一条建议、并且其中至少一条提到"带/预约/穿"这类准备动作，就值得做清单
+  const lines = adviceLines(text);
+  if (!lines.length) return false;
+  return lines.some((line) => CHECK_WORDS.some((w) => line.includes(w)));
+}
+
+function buildAdvice(text){
+  const wrap = document.createElement("div");
+  wrap.className = "trip-advice";
+
+  const all = adviceLines(text);
+  if (!all.length) throw new Error("没有可以分条的建议");
+
+  // 只有"带东西、预约、穿什么"这几类才进清单。
+  // 一条命中也照样做——总比一条都不做好，用户能勾掉已经准备好的。
+  const checks = all.filter((line) => CHECK_WORDS.some((w) => line.includes(w)));
+
+  if (checks.length === 0) throw new Error("没有能勾的建议");
+
+  // 清单：只把关键动作提出来，短一点，长句子留在下面的原文里
+  const list = document.createElement("div");
+  list.className = "trip-checks";
+
+  checks.forEach((line) => {
+    const row = document.createElement("label");
+    row.className = "trip-check";
+
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = true;
+    row.appendChild(box);
+
+    const span = document.createElement("span");
+    span.textContent = shortCheckItem(line);
+    row.appendChild(span);
+
+    list.appendChild(row);
+  });
+
+  const title = document.createElement("div");
+  title.className = "trip-seg-title";
+  title.textContent = "出发前清单";
+  wrap.appendChild(title);
+  wrap.appendChild(list);
+
+  // 完整建议原样保留，一个字不删
+  const restTitle = document.createElement("div");
+  restTitle.className = "trip-seg-title";
+  restTitle.textContent = "完整建议";
+  wrap.appendChild(restTitle);
+
+  const body = document.createElement("div");
+  body.className = "trip-advice-text";
+  body.textContent = all.map((l) => "· " + l).join("\n");
+  wrap.appendChild(body);
+
+  return wrap;
+}
+
+
+// 从一条建议里抠出一个短标签（十来个字），留给清单用
+function shortCheckItem(line){
+  // 取「：」前面那半句，没有就整句截短
+  const beforeColon = line.split(/[：:]/)[0].trim();
+  if (beforeColon.length > 4 && beforeColon.length < 24) return beforeColon;
+
+  const cut = line.search(/[，。；、]/);
+  const head = cut > 4 ? line.slice(0, cut) : line;
+  return head.length > 22 ? head.slice(0, 22) + "…" : head;
+}
+
+
+// 天气：从「逐日要点」里抽出每天的日期和天气，做成横排天气条。
+// 其余文字（整体趋势、出行建议、远期提醒）原样保留在下面，一个字不删。
+function buildWeatherBar(text){
+  const wrap = document.createElement("div");
+  wrap.className = "trip-weather";
+
+  const bar = document.createElement("div");
+  bar.className = "trip-weather-bar";
+
+  const rest = [];
+  let found = 0;
+
+  text.split("\n").forEach((line) => {
+    const m = line.match(TRIP_WDAY_RE);
+    if (!m){
+      rest.push(line);
+      return;
+    }
+
+    found += 1;
+
+    const [, dateText, sentence] = m;
+    const shortDate = dateText.replace(/^\d{4}-/, "").replace("/", "月").replace("-", "月");
+
+    // 一句话里挑一个天气词当图标，挑不到就按第一个词
+    const weatherWord = firstWeatherWord(sentence);
+
+    const day = document.createElement("div");
+    day.className = "trip-wday";
+
+    const d = document.createElement("div");
+    d.className = "trip-wday-date";
+    d.textContent = shortDate;
+    day.appendChild(d);
+
+    const icon = document.createElement("div");
+    icon.className = "trip-wday-icon";
+    icon.textContent = weatherIcon(weatherWord);
+    day.appendChild(icon);
+
+    const w = document.createElement("div");
+    w.className = "trip-wday-name";
+    w.textContent = weatherWord;
+    day.appendChild(w);
+
+    bar.appendChild(day);
+
+    // 这一行的完整内容还在下面那段文字里，不丢
+  });
+
+  if (!found) throw new Error("没有解析到逐日天气");
+
+  wrap.appendChild(bar);
+
+  // 剩下的文字（含逐日要点的完整句子）原样保留
+  const tail = rest
+    .join("\n")
+    .replace(/\*\*/g, "")          // 去掉 markdown 加粗标记，纯文本更好读
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  if (tail){
+    const body = document.createElement("div");
+    body.className = "trip-weather-text";
+    body.textContent = tail;
+    wrap.appendChild(body);
+  }
+
+  return wrap;
+}
+
+
+// 从一句话里挑出天气词，用来配图标和短标签
+function firstWeatherWord(sentence){
+  const words = ["雷阵雨", "雷雨", "大暴雨", "暴雨", "大雨", "中雨", "小雨", "阵雨",
+                 "毛毛雨", "小雪", "中雪", "大雪", "雨夹雪", "雪", "雾", "霾",
+                 "晴转多云", "多云转晴", "多云", "阴转晴", "晴", "阴"];
+  for (const word of words){
+    if (sentence.includes(word)) return word;
+  }
+  return "未知";
+}
+
+
+// 天气状况 → 图标。按关键词猜，猜不到给 ☁️
+function weatherIcon(text){
+  const rules = [
+    [["雷"], "⛈"],
+    [["大雪", "中雪", "小雪", "雪"], "❄️"],
+    [["大雨", "中雨", "暴雨"], "🌧"],
+    [["雨"], "🌦"],
+    [["雾", "霾"], "🌫"],
+    [["晴"], "☀️"],
+    [["多云"], "⛅"],
+    [["阴"], "☁️"],
+  ];
+  for (const [words, icon] of rules){
+    if (words.some((w) => text.includes(w))) return icon;
+  }
+  return "☁️";
 }
 
 
@@ -849,10 +1069,19 @@ function buildDayCards(text){
 
     card.appendChild(head);
 
+    // 横向时间线：上午 → 下午 → 晚上 横着排，中间用箭头连起来。
+    // 屏幕窄的时候横向滚动，不会把一天挤成一大块竖排。
     const rows = document.createElement("div");
     rows.className = "trip-day-rows";
 
-    day.rows.forEach((item) => {
+    day.rows.forEach((item, i) => {
+      if (i > 0){
+        const arrow = document.createElement("span");
+        arrow.className = "trip-day-arrow";
+        arrow.textContent = "→";
+        rows.appendChild(arrow);
+      }
+
       const row = document.createElement("div");
       row.className = "trip-day-row";
 
@@ -897,7 +1126,12 @@ function buildSpotCards(text){
   const wrap = document.createElement("div");
   wrap.className = "trip-spots";
 
-  const chunks = text.split(/\n(?=\s*\d+[.、]\s)/);
+  // 先切掉「【游玩提示】」这类收尾段落，它不属于任何一个景点
+  const tailMatch = text.search(/^\s*【[^】]{2,}】/m);
+  const spotPart = tailMatch >= 0 ? text.slice(0, tailMatch) : text;
+  const tailPart = tailMatch >= 0 ? text.slice(tailMatch).trim() : "";
+
+  const chunks = spotPart.split(/\n(?=\s*\d+[.、]\s)/);
 
   const items = [];
   chunks.forEach((chunk) => {
@@ -924,38 +1158,75 @@ function buildSpotCards(text){
     const card = document.createElement("div");
     card.className = "trip-spot";
 
-    const no = document.createElement("span");
-    no.className = "trip-spot-no";
-    no.textContent = item.no.padStart(2, "0");
-    card.appendChild(no);
+    const head = document.createElement("div");
+    head.className = "trip-spot-head";
 
-    const body = document.createElement("div");
-    body.className = "trip-spot-body";
+    // 用 emoji 当图标：按名字里的关键词猜一个，猜不到给个通用的。
+    // 这样做的好处是不会因为外链图片加载失败变成空白。
+    const icon = document.createElement("span");
+    icon.className = "trip-spot-icon";
+    icon.textContent = spotIcon(item.name);
+    head.appendChild(icon);
 
     const name = document.createElement("div");
     name.className = "trip-spot-name";
     name.textContent = item.name;
-    body.appendChild(name);
+    head.appendChild(name);
+
+    card.appendChild(head);
 
     if (item.tagline){
       const tagline = document.createElement("div");
       tagline.className = "trip-spot-tagline";
       tagline.textContent = item.tagline;
-      body.appendChild(tagline);
+      card.appendChild(tagline);
     }
 
     if (item.detail){
       const detail = document.createElement("div");
       detail.className = "trip-spot-detail";
       detail.textContent = item.detail;
-      body.appendChild(detail);
+      card.appendChild(detail);
     }
 
-    card.appendChild(body);
     wrap.appendChild(card);
   });
 
+  // 「【游玩提示】」那段整体放在卡片下面，内容不丢
+  if (tailPart){
+    const note = document.createElement("div");
+    note.className = "trip-spot-note";
+    note.textContent = tailPart;
+    wrap.appendChild(note);
+  }
+
   return wrap;
+}
+
+
+// 给景点配个图标。只按名字里的关键词猜，猜不到就用 📍。
+// 不用真实图片：外链可能挂、也有版权问题，emoji 不会。
+function spotIcon(name){
+  const rules = [
+    [["博物馆", "博物院", "美术馆", "展览"], "🏛"],
+    [["寺", "庙", "塔", "宫", "观"], "🛕"],
+    [["湖", "湿地", "江", "河", "海", "泉", "溪"], "🌊"],
+    [["山", "峰", "岭", "谷"], "⛰"],
+    [["园", "植物", "花"], "🌿"],
+    [["街", "巷", "古镇", "老城", "市集"], "🏮"],
+    [["科技", "科学"], "🔬"],
+    [["动物", "动物园", "熊猫"], "🐼"],
+    [["船", "游船"], "🚢"],
+    [["城墙", "长城", "古城"], "🧱"],
+    [["故居", "纪念"], "🏠"],
+    [["茶"], "🍵"],
+    [["美食", "小吃", "餐"], "🍜"],
+  ];
+
+  for (const [words, icon] of rules){
+    if (words.some((w) => name.includes(w))) return icon;
+  }
+  return "📍";
 }
 
 

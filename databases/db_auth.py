@@ -34,6 +34,50 @@ def create_user_tables():
     execute(CREATE_USERS_TABLE)
     for create_index in CREATE_USERS_INDEX:
         execute(create_index)
+    # 老库补列：CREATE TABLE IF NOT EXISTS 不会给已存在的表加字段，
+    # 所以「在线用户」需要的 last_seen_at 单独补一次（幂等）
+    try:
+        execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ")
+    except Exception as e:
+        print(f"[users] last_seen_at 补列失败（不影响使用）：{e}")
+
+
+def touch_last_seen(tenant_id: int) -> None:
+    """记录最后一次活跃时间，用于统计在线人数。
+
+    注意参数是 **tenant_id**，不是 user.id ——
+    业务接口手里只有 tenant_id，而 users 表的 tenant_id 与 id 并不是同一个值，
+    所以这里按 tenant_id 找行（一人一户，正好唯一）。
+
+    失败不影响主流程：这只是统计字段，写不进去也不该让请求报错。
+    """
+    if not tenant_id:
+        return
+    try:
+        execute(
+            "UPDATE users SET last_seen_at = CURRENT_TIMESTAMP WHERE tenant_id = %s",
+            (tenant_id,),
+        )
+    except Exception:
+        pass
+
+
+def count_online(minutes: int = 10) -> int:
+    """最近 N 分钟内有活跃的用户数。
+
+    口径说明：按 user 计，同一用户开多个标签页只算 1 人。
+    访客也是 user，所以基本上等于「最近打开的浏览器数」。
+    """
+    try:
+        row = query_one(
+            "SELECT COUNT(*) AS n FROM users "
+            "WHERE last_seen_at IS NOT NULL "
+            "  AND last_seen_at > CURRENT_TIMESTAMP - (%s || ' minutes')::interval",
+            (int(minutes),),
+        )
+        return row["n"] if row else 0
+    except Exception:
+        return 0
 
 
 def normalize_email(email: str) -> str:

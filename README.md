@@ -198,12 +198,11 @@ ctOS2.0/
 │   ├── trip/           路线规划（主功能）
 │   ├── guide/          旅游攻略
 │   └── customer/       RAG 客服（含 data/docs 知识库）
-├── static/         前端
-│   ├── js/common/      公用 JS
-│   ├── js/app.js       闲聊 + 角色扮演 + 视图切换
-│   ├── js/trip.js      出行：模式切换入口
-│   ├── js/trip/        出行：壳子 + 路线 + 攻略
-│   └── js/customer.js  客服
+├── static/         前端（两套独立主题）
+│   ├── index.html      入口：读偏好 + 按屏幕宽度分流
+│   ├── themeA/         经典版：左侧栏 + 气泡对话（手机端只用它）
+│   ├── themeB/         指挥台版：图标导轨 + 右侧控制台（仅宽屏）
+│   └── shared/         两套共用：偏好、在线人数、认证、SSE、图片
 ├── docs/           文档
 ├── eval/           端到端测评
 ├── scripts/        线上检查脚本
@@ -339,7 +338,7 @@ powershell -ExecutionPolicy Bypass -File scripts\check_online.ps1
 | 天气 | Open-Meteo（免密钥） |
 | 认证 | JWT + bcrypt |
 | 部署 | Docker + Docker Compose，Cloudflare 托管域名与 TLS |
-| 前端 | 原生 JS，无构建步骤；手机端做了基础适配（侧栏收成抽屉） |
+| 前端 | 原生 JS，无构建步骤；两套主题（经典版 / 指挥台版），各有多种配色风格；手机端固定经典版 |
 
 ---
 
@@ -370,7 +369,7 @@ powershell -ExecutionPolicy Bypass -File scripts\check_online.ps1
 - **没有单元测试套件**。`eval/run_eval.py` 是能重复跑的端到端验收工具，`rag_eval.py` 是手工跑的检索测评，
   两者都是"手动跑"的，不会在提交时自动执行
 - 没有登录限流，可以被暴力试密码
-- 前端样式表偏大（`modules.css` 3677 行、`theme.css` 1973 行），`app.js` 1690 行、`trip/base.js` 1389 行，以后可继续拆
+- 前端样式表偏大（`themeA/css/modules.css` 3843 行、`ui.css` 3237 行、`themeB/css/style.css` 2449 行），`app.js` 1745 行、`trip/base.js` 1721 行，以后可继续拆
 
 ---
 
@@ -381,7 +380,7 @@ powershell -ExecutionPolicy Bypass -File scripts\check_online.ps1
 | 代码怎么流转（请求地图） | [docs/architecture.md](docs/architecture.md) |
 | 每个文件做什么 | [docs/files.md](docs/files.md) |
 | 怎么部署（Docker / 本地） | [docs/deployment.md](docs/deployment.md) |
-| 前端怎么组织 | [static/README.md](static/README.md) |
+| 前端怎么组织 | [docs/themes.md](docs/themes.md) |
 | 怎么跑测评 | [eval/README.md](eval/README.md) |
 | 主题怎么维护 | [docs/themes.md](docs/themes.md) |
 | 线上打不开怎么排查 | [docs/tunnel-check.md](docs/tunnel-check.md) |

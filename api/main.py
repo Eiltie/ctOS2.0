@@ -692,6 +692,10 @@ async def health():
 async def index():
     """返回前端入口页 index.html。
 
+    入口页只做一件事：读「当前主题」的偏好，然后跳到 /static/themeA/ 或 /static/themeB/。
+    真正的页面在那两个目录里，所以这里改它不会影响任何主题的渲染。
+    手机端（宽度 < 900px）一律跳 themeA，见 shared/js/common/prefs.js。
+
     同样加 no-cache：HTML 一旦被 CDN 缓存，改版后用户看到的还是旧页面，
     /static 下面的新脚本也就用不上。
     """
@@ -699,6 +703,64 @@ async def index():
         STATIC_DIR / "index.html",
         headers={"Cache-Control": "no-cache, must-revalidate"},
     )
+
+
+# ===== 在线人数 =====
+#
+# 给前端「系统负载」里的「在线用户」用。
+# 只新增，不改动任何现有接口；数据库侧也只是给 users 补一个 last_seen_at 字段。
+
+import time as _time
+
+from databases.db_auth import count_online, touch_last_seen
+
+# 老库补列：last_seen_at 是「在线人数」用的。
+# 放这里而不是 create_user_tables() 里，是因为那个函数只在手动跑
+# `python -m core.db` 时才执行，服务启动并不会调用它。
+# ADD COLUMN IF NOT EXISTS 是幂等的，重复执行没有副作用。
+def _ensure_presence_column():
+    try:
+        from core.db import execute
+        execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ")
+    except Exception as e:
+        print(f"[presence] last_seen_at 补列失败（在线人数会显示 —）：{e}")
+
+
+_ensure_presence_column()
+
+# 同一个用户 30 秒内只写一次库，避免频繁 ping 把数据库打满
+_presence_last: dict[int, float] = {}
+PRESENCE_WRITE_INTERVAL = 30.0
+
+
+@app.post("/presence/ping")
+async def presence_ping(authorization: str | None = Header(default=None)):
+    """心跳：告诉后端「我还在」。
+
+    前端每 60 秒调一次。同一个用户 30 秒内的重复心跳直接返回，不写库。
+    """
+    try:
+        tenant_id = tenant_of(authorization)
+    except Exception:
+        # 没登录 / token 失效：不算在线，但也不报错，免得前端一直重试
+        return {"ok": False}
+
+    now = _time.time()
+    last = _presence_last.get(tenant_id, 0)
+    updated = False
+    if now - last >= PRESENCE_WRITE_INTERVAL:
+        touch_last_seen(tenant_id)
+        _presence_last[tenant_id] = now
+        updated = True
+
+    return {"ok": True, "updated": updated}
+
+
+@app.get("/presence/online")
+async def presence_online(minutes: int = 10):
+    """最近 N 分钟内有活跃的用户数。不需要登录：只返回一个数字。"""
+    minutes = max(1, min(int(minutes or 10), 1440))
+    return {"online": count_online(minutes), "window_minutes": minutes}
 
 
 # ===== 反馈 =====

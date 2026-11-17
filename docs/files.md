@@ -50,7 +50,7 @@
 **不需要了怎么删**（三处引用）：
 
 1. `api/main.py`：`from api.routes.trial import ...` 那一行 + `app.include_router(trial_router)` 那一行
-2. `static/js/common/auth.js`：`guestLogin()` 和 `ensureSession()` 里的访客分支
+2. `static/shared/js/common/auth.js`：`guestLogin()` 和 `ensureSession()` 里的访客分支
 3. `static/index.html`：登录弹层里的「不登录，直接以访客身份使用」按钮
 
 删完项目行为和加这个文件之前完全一样。访客账号以后要清理的话：
@@ -281,44 +281,82 @@ modules/<模块名>/
 
 ## 六、`static/` —— 前端
 
-**没有构建步骤，改完刷新浏览器就生效。** 细节见 `static/README.md`。
+**没有构建步骤，改完刷新浏览器就生效。**
+但线上走 Cloudflare，改完要跑 `node scripts/stamp-static.js` 加版本号。
+主题结构细节见 `docs/themes.md`。
 
-### 页面和样式
+```
+static/
+├── index.html      入口页：读偏好 + 判断屏幕宽度 → 跳 themeA 或 themeB
+├── themeA/         经典版（左侧栏 + 气泡对话）
+├── themeB/         指挥台版（图标导轨 + 右侧控制台），仅宽屏
+└── shared/         两套共用：prefs / presence / config / auth / sse / 图片
+```
 
-| 文件 | 行数 | 职责 |
-| --- | --- | --- |
-| `index.html` | 337 | 页面结构（登录弹层 + 主界面 + 手机端汉堡按钮 + 主题切换 + 公告 + 反馈） |
-| `css/style.css` | 145 | 模板原样式：光标光晕、呼吸滚动条、全息光幕 |
-| `css/modules.css` | 2593 | 模板之外新增的全部组件样式，末尾一整段是**手机端适配** |
-| `css/theme.css` | 1643 | 三套主题：clean / street / cyber 的变量和组件覆盖 |
+### 入口页
 
-### `js/common/` —— 跨模块公用
+| 文件 | 职责 |
+| --- | --- |
+| `index.html` | 只做分流：读 `ctos_layout` 偏好 + 判断屏幕宽度，用 `location.replace()` 跳转。**手机端强制 themeA** |
 
-| 文件 | 行数 | 职责 |
-| --- | --- | --- |
-| `config.js` | 19 | API 地址、视图顺序、状态文案 |
-| `utils.js` | 47 | `$`、`esc`、`now`、`scrollDown`、`getJson`、`bindEnter` |
-| `announcement.js` | 64 | **更新公告前端**：从 `GET /notice` 拉内容，记录本浏览器看过的版本 |
-| `auth.js` | 257 | token 存取、访客会话引导、登录弹层逻辑、带认证的 fetch |
-| `abort.js` | 21 | 请求中断控制（同一时刻只跑一个流） |
-| `sse.js` | 54 | SSE 事件解析器 |
-| `typer.js` | 128 | 打字机渲染 |
-| `selection.js` | 92 | 列表多选删除（闲聊、角色、出行共用） |
-| `sticky.js` | 21 | 吸顶高度同步 |
-| `aura.js` | 25 | 光标光晕特效 |
-| `feedback.js` | 122 | 反馈弹窗（`POST /feedback`） |
-| `theme.js` | 58 | 主题切换、localStorage 记忆、主题菜单 |
-
-### `js/` —— 三个页面标签
+### `themeA/` —— 经典版（3 种风格）
 
 | 文件 | 行数 | 职责 |
 | --- | --- | --- |
-| `app.js` | 1690 | **闲聊 + 角色扮演 + 视图切换 + 启动**。全局 `state` 也定义在这里 |
+| `index.html` | — | 页面结构（登录弹层 + 主界面 + 手机端汉堡按钮 + 主题/风格菜单 + 公告 + 反馈） |
+| `css/style.css` | 168 | 模板原样式：光标光晕、呼吸滚动条、全息光幕 |
+| `css/modules.css` | 3843 | 模板之外新增的全部组件样式 |
+| `css/theme.css` | 1973 | 三套风格的变量定义与组件覆盖 |
+| `css/ui.css` | 3237 | 视觉层：圆角、阴影、气泡、排版细化 |
+| `css/theme-ui.css` | — | 「主题 / 风格」两个菜单 |
+| `css/presence.css` | — | 侧栏底部在线人数 |
+| `css/mobile.css` | — | **手机端适配**，最后加载，≤768px 生效 |
+
+脚本见下方 `themeA/js/`。
+
+### `themeB/` —— 指挥台版（2 种风格）
+
+| 文件 | 行数 | 职责 |
+| --- | --- | --- |
+| `index.html` | — | 页面结构；窄屏会自检并送回 themeA |
+| `css/base.css` | 168 | 复用旧版布局骨架（自 themeA 复制） |
+| `css/components.css` | — | 复用旧版弹窗/组件类（自 themeA 复制） |
+| `css/style.css` | 2449 | 指挥台版自己的版式 |
+| `css/theme-light.css` | 1038 | 两套风格的配色令牌 |
+| `js/console.js` | 833 | 右侧控制台：目录、操作日志、系统负载 |
+| `js/theme-ui.js` | — | 浮动面板形式的主题/风格切换 |
+
+其余脚本与 themeA 同名同源（各一份副本）。
+
+### `shared/js/common/` —— 两套共用
+
+| 文件 | 职责 |
+| --- | --- |
+| `prefs.js` | **主题/风格偏好**：读写、`isDesktop()` 屏幕判断、手机端锁定经典版 |
+| `presence.js` | **在线人数**：心跳 `POST /presence/ping` + 拉取 `GET /presence/online` |
+| `config.js` | API 地址、视图顺序、状态文案 |
+| `utils.js` | `$`、`esc`、`now`、`scrollDown`、`getJson`、`bindEnter` |
+| `announcement.js` | 更新公告：从 `GET /notice` 拉内容，记录本浏览器看过的版本 |
+| `auth.js` | token 存取、访客会话引导、登录弹层逻辑、带认证的 fetch |
+| `abort.js` | 请求中断控制（同一时刻只跑一个流） |
+| `sse.js` | SSE 事件解析器 |
+| `typer.js` | 打字机渲染 |
+
+### `themeA/js/` —— 三个页面标签
+
+两套主题各有一份同名副本；下表以 themeA 为准。
+
+| 文件 | 行数 | 职责 |
+| --- | --- | --- |
+| `app.js` | 1745 | **闲聊 + 角色扮演 + 视图切换 + 启动**。全局 `state` 也定义在这里 |
 | `trip.js` | 7 | 出行入口占位（只剩加载顺序说明，没有逻辑） |
-| `trip/base.js` | 1450 | 出行壳子 + 全部界面逻辑：进度条、SSE、四段卡片、计时、记录列表、三种等待面板 |
-| `trip/route.js` | 365 | 路线那两个等待面板：地点歧义、候选路线 |
-| `trip/guide.js` | 244 | 攻略的景点卡片墙和勾景点面板 |
-| `customer.js` | 197 | 客服：一问一答，本地维护最近 3 轮上下文 |
+| `trip/base.js` | 1721 | 出行壳子 + 全部界面逻辑：进度条、SSE、四段卡片、计时、记录列表、三种等待面板 |
+| `trip/route.js` | 464 | 路线那两个等待面板：地点歧义、候选路线 |
+| `trip/guide.js` | — | 攻略的景点卡片墙和勾景点面板 |
+| `customer.js` | — | 客服：一问一答，本地维护最近 3 轮上下文 |
+| `common/theme-ui.js` | — | 「主题 / 风格」菜单渲染与切换 |
+| `common/presence-ui.js` | — | 侧栏底部在线人数 |
+| `common/aura.js` / `sticky.js` / `selection.js` / `feedback.js` | — | 光晕特效 / 吸顶同步 / 列表多选 / 反馈弹窗 |
 
 > 出行前端**没有"模式"了**：界面按每一轮实际返回了什么来画
 > （收到 `START` 的 `mode` 才切进度条，收到 `STEP/DONE` 的 `key` 才建段落）。
@@ -337,7 +375,7 @@ modules/<模块名>/
 | `docs/files.md` | **本文档**：每个文件做什么 |
 | `docs/deployment.md` | 部署说明：线上实例、Docker、本地运行、上线流程 |
 | `docs/next-plan.md` | 下一步规划讨论稿 + 实施进度 |
-| `docs/themes.md` | 三套主题的文件分工与加组件做法 |
+| `docs/themes.md` | 两套主题 / 五种风格的结构、手机端规则、加主题的做法 |
 | `docs/tunnel-check.md` | 线上隧道副本排查、`scripts/check_online.ps1` 使用说明 |
 | `eval/cases.json` | 端到端测评题库：34 条，覆盖闲聊/角色/客服/出行/平台 |
 | `eval/run_eval.py` | 跑测评、自动检查、生成 JSON + Markdown 报告 |
@@ -359,13 +397,15 @@ modules/<模块名>/
 | 加外部工具 | `core/tools/`（搜索 / 天气 / 地图各一个文件） |
 | 改预设角色 | `modules/roleplay/presets.py`（重启生效） |
 | 改记忆规则 | `modules/roleplay/memory.py`（每 6 轮、200 字上限） |
-| 改前端样式 | `static/css/modules.css`（颜色改 `theme.css`） |
-| 改前端逻辑 | `static/js/app.js` / `trip.js` / `customer.js` |
+| 改前端样式 | `static/themeA/css/modules.css`（颜色改 `theme.css`）；指挥台版改 `static/themeB/css/style.css` |
+| 改前端逻辑 | `static/themeA/js/app.js` / `trip.js` / `customer.js`（两套各一份） |
 | 改更新公告 | `config/notice.json` |
 | 跑端到端测评 | `eval/run_eval.py`，题库在 `eval/cases.json` |
 | 看用户反馈 | `python -X utf8 -m databases.feedback_view` |
 | 检查线上隧道 | `scripts/check_online.ps1`，排查步骤见 `docs/tunnel-check.md` |
-| 加公用前端函数 | `static/js/common/` 下新建文件，并在 `index.html` 里按顺序引入 |
+| 加公用前端函数 | `static/shared/js/common/` 下新建文件，并在两套的 `index.html` 里按顺序引入 |
+| 改主题 / 风格 | 见 `docs/themes.md` |
+| **改完前端（线上）** | **必须跑 `node scripts/stamp-static.js`**，否则 Cloudflare 的 4 小时缓存会让用户看不到改动 |
 | 改端口 | 环境变量 `PORT`（容器/线上）/ `api/main.py` 底部（本地） |
 | 改数据库连接 | `config/.env` 的 `PG_*` 变量 |
 | 上线 / 更新线上 | 见 `deployment.md` 第九节 |
@@ -376,18 +416,19 @@ modules/<模块名>/
 
 | 文件 | 行数 |
 | --- | --- |
-| `static/css/modules.css` | 3677 |
-| `static/css/theme.css` | 1973 |
-| `static/js/app.js` | 1690 |
-| `static/js/trip/base.js` | 1389 |
-| `api/main.py` | 784 |
-| `core/tools/amap.py` | 533 |
-| `eval/run_eval.py` | 467 |
-| `static/js/trip/route.js` | 413 |
-| `static/index.html` | 411 |
-| `databases/clean_db.py` | 375 |
-| `modules/trip/capabilities/route/stream.py` | 364 |
+| `static/themeA/css/modules.css` | 3843 |
+| `static/themeA/css/ui.css` | 3237 |
+| `static/themeB/css/style.css` | 2449 |
+| `static/themeA/css/theme.css` | 1973 |
+| `static/themeA/js/app.js` | 1745 |
+| `static/themeA/js/trip/base.js` | 1721 |
+| `static/themeB/css/theme-light.css` | 1038 |
+| `api/main.py` | 866 |
+| `static/themeB/js/console.js` | 833 |
+| `core/tools/amap.py` | 600 |
+| `modules/trip/capabilities/route/stream.py` | 505 |
+| `eval/run_eval.py` | 478 |
+| `static/themeA/js/trip/route.js` | 464 |
 
-**如果一个文件超过 500 行，考虑拆分。** 目前超标的只剩样式表（`modules.css`、`theme.css`）、
-两个前端大文件（`app.js`、`trip/base.js`）、`api/main.py` 和 `core/tools/amap.py`。
-后端业务模块拆分之后都在 400 行以内，不再是问题。
+**如果一个文件超过 500 行，考虑拆分。** 目前超标的集中在样式表和前端大文件；
+后端业务模块拆分之后大多在 400 行以内。

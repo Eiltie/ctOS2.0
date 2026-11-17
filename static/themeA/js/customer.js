@@ -15,12 +15,20 @@ function customerIntro(){
   const feed = $("customer-feed");
   if (!feed) return;
 
+  // 已经有过对话时不插欢迎页，否则回到顶部会看到一句孤零零的欢迎语
+  if (feed.querySelector(".cust-msg")) return;
+
+  // 外面多包一层 #customer-intro：它的存在 = 当前是空状态，
+  // 用来做一个整屏居中的欢迎页；第一句话发出去时整块移除。
   feed.innerHTML = `
-    <div class="customer-welcome">
-      <div class="radar-wrap">
-        <div style="color: var(--cyan); font-weight: bold; font-size: 18px;">R</div>
+    <div id="customer-intro">
+      <div class="customer-welcome">
+        <div class="radar-wrap">
+          <div style="color: var(--cyan); font-weight: bold; font-size: 18px;">R</div>
+        </div>
+        <h2>ctOS 智能客服</h2>
+        <p>基于项目知识库回答，支持连续追问</p>
       </div>
-      <h2>ctOS 智能客服</h2>
     </div>`;
 }
 
@@ -103,6 +111,10 @@ async function sendCustomer(){
 
   const intro = feed.querySelector(".customer-welcome");
   if (intro) intro.remove();
+  // 欢迎语外面还有一层 #customer-intro 容器（用来恢复整屏居中的空状态），一起移除；
+  // 只删里面的 .customer-welcome 的话，外层空容器会把消息挤到中间去。
+  const introWrap = feed.querySelector("#customer-intro");
+  if (introWrap) introWrap.remove();
 
   const userBubble = customerRow(feed, "user");
   userBubble.textContent = query;

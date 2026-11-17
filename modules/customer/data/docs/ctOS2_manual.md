@@ -863,12 +863,16 @@ ctOS2.0/
 
 ### 关于前端
 
-前端**没有任何构建步骤**。改 `static/css/*.css` 或 `static/js/*.js`，
+前端**没有任何构建步骤**。改 `static/themeA/` 或 `static/themeB/` 下的文件，
 保存后刷新浏览器就能生效，不需要执行任何编译或打包命令。
 
-加载顺序是 `common/*.js` → `app.js` → `trip.js` / `customer.js`，
+前端分成两套独立主题：`static/themeA/`（经典版，手机端只用它）和
+`static/themeB/`（指挥台版，仅宽屏），共用部分在 `static/shared/`。
+访问 `/` 时由 `static/index.html` 按屏幕宽度和偏好分流。
+
+每套主题内部的加载顺序是 `common/*.js` → `app.js` → `trip.js` / `customer.js`，
 后面加载的依赖前面定义的全局变量（`$`、`esc`、`md`、`API`、`state` 等），**调整加载顺序会导致报错**。
-详见 `static/README.md`。
+详见 `docs/themes.md`。
 
 后端为了提供静态资源，在 `api/main.py` 里挂载了静态目录：
 
@@ -1016,7 +1020,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 2. 在图里定义状态、节点，然后组装成一张图
 3. 在模块内写一个流式封装文件，对外只暴露一个生成器（参照 `modules/trip/stream.py` 里的 `trip_stream` / `modules/customer/stream.py` 里的 `customer_stream`）
 4. 在 `api/main.py` 里加一个路由，把生成器塞进 `StreamingResponse`；**记得像别的业务路由一样调 `tenant_of(authorization)`**，否则新接口会绕过登录和数据隔离
-5. 在前端加一个面板和请求逻辑（参照 `static/js/trip.js` / `customer.js`），并把新视图加进 `static/js/common/config.js` 的 `VIEW_ORDER`
+5. 在前端加一个面板和请求逻辑（参照 `static/themeA/js/trip.js` / `customer.js`，指挥台版对应 `static/themeB/js/`），并把新视图加进 `static/shared/js/common/config.js` 的 `VIEW_ORDER`
 6. 要存数据的话，在 `databases/` 下加一个 `db_xxx.py`（命名参照现有的 `db_chat.py` / `db_trip.py`），表里带上 `tenant_id`，并把它的建表函数加进 `core/db.py` 的 `create_all_tables()`
 7. 上线：走 `docker compose build` + `up -d`（线上环境见部署文档）
 

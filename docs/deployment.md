@@ -17,7 +17,11 @@
 
 > 手机间歇性一直加载时，先跑 `scripts/check_online.ps1`，再按 [tunnel-check.md](tunnel-check.md) 检查 Cloudflare 是否只保留了一个隧道副本。
 
-> Cloudflare 默认**不缓存** HTML/SSE，`cf-cache-status` 是 `DYNAMIC`，流式输出不受影响。
+> **HTML 和 SSE 不被缓存**：`cf-cache-status` 是 `DYNAMIC`，流式输出不受影响。
+>
+> ⚠️ **但 `.js` / `.css` 会被 Cloudflare 缓存 4 小时**（响应头被 CF 覆盖成
+> `max-age=14400`，后端设的 `no-cache` 不起作用）。所以改完前端必须跑
+> `node scripts/stamp-static.js` 给资源加版本号，否则线上用户要等 4 小时才看到改动。
 
 **线上和本地唯一的区别是域名和 TLS**：应用代码、Dockerfile、Compose 文件都完全一样，
 容器内部仍然监听 `0.0.0.0:8080`，HTTPS 由 Cloudflare 那一层负责。
@@ -274,6 +278,8 @@ Get-NetTCPConnection -LocalPort 8080 -State Listen
 ### 改了代码但没生效
 
 - 改的是 **前端**（`static/`）或 **公告**（`config/notice.json`）：已经挂载进容器，刷新页面即可
+  - 但 `.js` / `.css` 会被 Cloudflare 缓存，改完先跑 `node scripts/stamp-static.js` 加版本号，否则线上看不到改动
+  - 确认是否已生效：`curl -s https://ctos2.cn/ | findstr "?v="` 看版本号有没有变
 - 改的是 **后端**（`core/` / `api/` / `modules/`）：代码打包在镜像里，**必须重新构建**：
 
 ```powershell

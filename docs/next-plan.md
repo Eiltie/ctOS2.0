@@ -3,6 +3,10 @@
 > 这份文档是讨论过程中记下来的，不是最终方案。
 > 每次聊出新的结论就更新这里，避免上下文丢失。
 >
+> **注意**：文中提到的「三套主题」和 `static/css/`、`static/js/`
+> 是当时的目录结构。现在前端已拆成 `static/themeA/`（经典版）和
+> `static/themeB/`（指挥台版），结构见 `docs/themes.md`。
+>
 > **读法**：第一～四节是**规划与讨论**（很多是当时的想法）；
 > 第五节以后是**实施记录**（已经落地的）。想知道现在到底做成什么样，
 > 直接跳到第六节，或者看 `docs/files.md`。
@@ -368,9 +372,9 @@
 | `modules/roleplay/openings.py` | 从补充说明里取开场白；没有就让 AI 生成 |
 | `databases/db_roleplay.py` | 新增 `role_play_roles` 表和年龄、性别、事迹、背景、补充字段 |
 | `api/main.py` | 新增创建角色接口；所有按角色 id 查询的地方改成 `get_role()` |
-| `static/js/app.js` | 新表单字段、保存、开聊 |
-| `static/css/modules.css` | 表单和「自己写」入口卡片 |
-| `static/css/theme.css` | 街头 / 赛博主题下的表单样式 |
+| `static/themeA/js/app.js` | 新表单字段、保存、开聊 |
+| `static/themeA/css/modules.css` | 表单和「自己写」入口卡片 |
+| `static/themeA/css/theme.css` | 街头 / 赛博主题下的表单样式 |
 
 ### 第 3 步（下半）：AI 搜索生成角色（已完成）
 
@@ -395,8 +399,8 @@
 | --- | --- |
 | `modules/roleplay/search.py` | 搜索 + 生成角色草稿 + 解析 JSON |
 | `api/main.py` | 新增搜索接口；保存角色时区分 custom / ai_search |
-| `static/js/app.js` | AI 搜索入口、等待状态、草稿表单 |
-| `static/css/modules.css` | 两个进阶玩法入口并排，手机端单列 |
+| `static/themeA/js/app.js` | AI 搜索入口、等待状态、草稿表单 |
+| `static/themeA/css/modules.css` | 两个进阶玩法入口并排，手机端单列 |
 
 ### 前端（已完成）
 
@@ -447,9 +451,9 @@
 | 文件 | 改了什么 |
 | --- | --- |
 | `static/index.html` | 插件条、角色选择页、角色条、聊天底部加 id |
-| `static/js/app.js` | 角色选择、开始角色、角色聊天、记忆条、模式切换 |
-| `static/css/modules.css` | 插件条、角色卡片、角色条、记忆条、手机端 |
-| `static/css/theme.css` | 街头和赛博主题下的角色页样式 |
+| `static/themeA/js/app.js` | 角色选择、开始角色、角色聊天、记忆条、模式切换 |
+| `static/themeA/css/modules.css` | 插件条、角色卡片、角色条、记忆条、手机端 |
+| `static/themeA/css/theme.css` | 街头和赛博主题下的角色页样式 |
 | `api/main.py` | `/sessions` 返回 `role_id`；普通会话查角色返回 `role: null` |
 | `databases/db_roleplay.py` | 新增 `all_role_session_ids()` |
 

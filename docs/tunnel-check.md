@@ -14,7 +14,7 @@
 powershell -ExecutionPolicy Bypass -File scripts\check_online.ps1
 ```
 
-如果 `/health`、`/`、`/static/js/app.js` 有任意一项失败，基本可以确定不是手机样式问题。
+如果 `/health`、`/`、`/static/themeA/index.html` 有任意一项失败，基本可以确定不是手机样式问题。
 
 ## 最常见原因：同一个隧道挂了两台机器
 

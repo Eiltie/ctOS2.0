@@ -1,0 +1,1038 @@
+/* ============================================================
+   scheme-c-light.css — 方案 C 的亮色版「晨光控制台」
+   ------------------------------------------------------------
+   和深色版（scheme-c.css 里的 html[data-theme="console"]）是同一套版式，
+   只换配色令牌：
+
+     · 纸白/浅灰底 + 极淡网格，面板是白卡片 + 1px 描边 + 柔和投影
+     · 强调色从霓虹换来一支更耐看的：青绿 #0e9f8f、蓝 #2563eb、橙 #f08a24
+     · 主按钮改成青绿实心 + 白字，发光只留一层很淡的光晕
+     · 数值块保留「大数字 + 单位 + 小标签」结构，但底色换成浅青
+
+   这里只写和深色版不同的部分；深色版那套选择器仍在 scheme-c.css 里，
+   靠 html[data-theme="console-light"] 的变量覆盖生效。
+   ============================================================ */
+
+html[data-theme="console-light"] {
+    color-scheme: light;
+
+    /* ---------- 底层色 ---------- */
+    --l-bg: #f6f8fb;
+    --l-panel: #ffffff;
+    --l-panel-2: #f3f6fa;
+    --l-panel-3: #e9eef6;
+    --l-line: #e3e9f2;
+    --l-line-2: #d3dcea;
+
+    --l-text: #16202e;
+    --l-text-2: #4b5a6e;
+    --l-text-3: #8593a6;
+
+    --l-teal: #0e9f8f;
+    --l-teal-2: #12b8a5;
+    --l-blue: #2563eb;
+    --l-orange: #f08a24;
+    --l-violet: #7c5cff;
+    --l-lime: #65a30d;
+
+    --t-glow: rgba(14, 159, 143, 0.18);
+
+    /* ---------- 旧令牌接上（modules.css / theme.css 里到处在用） ---------- */
+    --bg-main: var(--l-bg);
+    --bg-sidebar: var(--l-panel);
+    --bg-elevated: var(--l-panel);
+    --bg-sunken: var(--l-panel-2);
+    --bg-hover: rgba(14, 159, 143, 0.06);
+    --bg-active: rgba(14, 159, 143, 0.1);
+    --border-color: var(--l-line);
+    --border-strong: var(--l-line-2);
+    --text-main: var(--l-text);
+    --text-secondary: var(--l-text-2);
+    --text-muted: var(--l-text-3);
+    --text-faint: #a7b3c2;
+    --accent: var(--l-teal);
+    --accent-ink: #ffffff;
+    --accent-soft: rgba(14, 159, 143, 0.08);
+    --accent-soft-2: rgba(14, 159, 143, 0.16);
+    --accent-line: rgba(14, 159, 143, 0.32);
+    --accent-grad: linear-gradient(135deg, #17c3ae, #0e9f8f 55%, #0b8f9e);
+    --cyan: var(--l-teal);
+    --cyan-dim: rgba(14, 159, 143, 0.08);
+    --cyan-border: rgba(14, 159, 143, 0.3);
+    --bubble-user: linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(14, 159, 143, 0.1));
+    --bubble-user-ink: #12303c;
+    --bubble-ai: var(--l-panel);
+    --ok: #0f9d6b;
+    --ok-soft: rgba(15, 157, 107, 0.12);
+    --danger: #dc2650;
+    --danger-dim: rgba(220, 38, 80, 0.07);
+    --danger-border: rgba(220, 38, 80, 0.26);
+    --panel: var(--l-panel);
+    --panel-2: var(--l-panel-2);
+    --panel-3: var(--l-panel-3);
+    --soft-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 10px 28px -18px rgba(16, 24, 40, 0.16);
+}
+
+/* ============================================================
+   全局底：浅灰 + 极淡网格 + 一点冷色光
+   ============================================================ */
+
+html[data-theme="console-light"] body {
+    background-color: var(--l-bg);
+    background-image:
+        radial-gradient(900px 480px at 90% -8%, rgba(14, 159, 143, 0.09), transparent 62%),
+        radial-gradient(760px 420px at 2% 106%, rgba(37, 99, 235, 0.07), transparent 60%),
+        linear-gradient(rgba(20, 40, 70, 0.032) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(20, 40, 70, 0.032) 1px, transparent 1px);
+    background-size: auto, auto, 44px 44px, 44px 44px;
+    color: var(--l-text);
+}
+
+html[data-theme="console-light"] body::before { display: none; }
+
+html[data-theme="console-light"] ::selection { background: rgba(14, 159, 143, 0.18); }
+
+/* ============================================================
+   左侧导轨：白底 + 青绿选中块
+   ============================================================ */
+
+html[data-theme="console-light"] .sidebar {
+    background: var(--l-panel);
+    border-right: 1px solid var(--l-line);
+    box-shadow: 1px 0 0 rgba(16, 24, 40, 0.02);
+}
+
+html[data-theme="console-light"] .sidebar-header .logo-icon {
+    color: #ffffff;
+    background: linear-gradient(135deg, #17c3ae, #0e9f8f 55%, #0b8f9e);
+    box-shadow: 0 0 0 1px rgba(14, 159, 143, 0.28), 0 8px 20px -10px rgba(14, 159, 143, 0.7);
+}
+
+html[data-theme="console-light"] .rail-nav-item { color: var(--l-text-3); }
+html[data-theme="console-light"] .rail-nav-item:hover { color: var(--l-text-2); background: var(--l-panel-2); }
+
+html[data-theme="console-light"] .rail-nav-item.on {
+    color: var(--l-teal);
+    background: rgba(14, 159, 143, 0.1);
+    box-shadow: inset 0 0 0 1px rgba(14, 159, 143, 0.28);
+}
+
+html[data-theme="console-light"] .rail-nav-item.on::before {
+    background: var(--l-teal);
+    box-shadow: none;
+}
+
+html[data-theme="console-light"] .rail-nav-fab {
+    color: #fff;
+    background: linear-gradient(135deg, #7c5cff, #f08a24 65%, #12b8a5);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7), 0 10px 24px -12px rgba(124, 92, 255, 0.8);
+}
+
+/* ============================================================
+   顶栏
+   ============================================================ */
+
+html[data-theme="console-light"] .top-nav {
+    background: rgba(255, 255, 255, 0.86);
+    border-bottom: 1px solid var(--l-line);
+    backdrop-filter: blur(16px) saturate(1.2);
+    -webkit-backdrop-filter: blur(16px) saturate(1.2);
+}
+
+html[data-theme="console-light"] .bar-brand .logo-icon {
+    color: #ffffff;
+    background: linear-gradient(135deg, #17c3ae, #0e9f8f 55%, #0b8f9e);
+    box-shadow: 0 0 0 1px rgba(14, 159, 143, 0.24), 0 6px 18px -10px rgba(14, 159, 143, 0.7);
+}
+
+html[data-theme="console-light"] .bar-brand .logo-text h1 { color: var(--l-text); }
+html[data-theme="console-light"] .bar-brand .logo-text p { color: var(--l-text-3); }
+
+html[data-theme="console-light"] .nav-tabs {
+    background: var(--l-panel-2);
+    border: 1px solid var(--l-line);
+}
+
+html[data-theme="console-light"] .nav-tab { color: var(--l-text-3) !important; }
+
+html[data-theme="console-light"] .nav-tab:hover { color: var(--l-text) !important; }
+
+html[data-theme="console-light"] .nav-tab.active {
+    color: var(--l-teal) !important;
+    background: #ffffff !important;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), inset 0 0 0 1px rgba(14, 159, 143, 0.26) !important;
+}
+
+html[data-theme="console-light"] .tag-status {
+    border: 1px solid rgba(14, 159, 143, 0.24);
+    background: rgba(14, 159, 143, 0.07);
+    color: #0b7f73;
+}
+
+html[data-theme="console-light"] .tag-status::before { background: var(--l-lime); box-shadow: none; }
+
+html[data-theme="console-light"] .bar-chip {
+    border: 1px solid var(--l-line);
+    background: var(--l-panel-2);
+    color: var(--l-text-2);
+}
+
+html[data-theme="console-light"] .bar-chip::before { background: var(--l-lime); box-shadow: none; }
+
+html[data-theme="console-light"] .user-chip {
+    border: 1px solid var(--l-line);
+    background: var(--l-panel-2);
+}
+
+html[data-theme="console-light"] .user-chip-name { color: var(--l-text); }
+html[data-theme="console-light"] .user-chip .status-dot { background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
+
+html[data-theme="console-light"] .top-right .login-entry {
+    border: 1px solid rgba(14, 159, 143, 0.4);
+    background: rgba(14, 159, 143, 0.09);
+    color: #0b7f73;
+}
+
+html[data-theme="console-light"] .top-right .login-entry:hover {
+    background: var(--l-teal);
+    border-color: var(--l-teal);
+    color: #fff;
+}
+
+html[data-theme="console-light"] .top-right .logout-btn {
+    border: 1px solid var(--danger-border);
+    background: var(--danger-dim);
+    color: var(--danger);
+}
+
+html[data-theme="console-light"] .bar-tools { border-left: 1px solid var(--l-line); }
+
+html[data-theme="console-light"] .bar-btn {
+    border: 1px solid var(--l-line);
+    background: var(--l-panel);
+    color: var(--l-text-2);
+}
+
+html[data-theme="console-light"] .bar-btn:hover {
+    border-color: rgba(14, 159, 143, 0.4);
+    background: rgba(14, 159, 143, 0.07);
+    color: var(--l-teal);
+}
+
+html[data-theme="console-light"] .bar-new {
+    border: none;
+    color: #ffffff;
+    background: linear-gradient(135deg, #17c3ae, #0e9f8f 55%, #0b8f9e);
+    box-shadow: 0 8px 20px -12px rgba(14, 159, 143, 0.9);
+}
+
+html[data-theme="console-light"] .bar-new:hover {
+    color: #ffffff;
+    background: linear-gradient(135deg, #17c3ae, #0e9f8f 55%, #0b8f9e);
+    filter: brightness(1.04);
+}
+
+html[data-theme="console-light"] .top-nav .theme-menu {
+    border: 1px solid var(--l-line);
+    background: var(--l-panel);
+    box-shadow: 0 24px 60px -30px rgba(16, 24, 40, 0.4);
+}
+
+html[data-theme="console-light"] .top-nav .theme-option:hover,
+html[data-theme="console-light"] .top-nav .theme-option.is-active {
+    background: rgba(14, 159, 143, 0.08);
+    border-color: rgba(14, 159, 143, 0.3);
+}
+
+html[data-theme="console-light"] .top-nav .theme-option b { color: var(--l-text); }
+html[data-theme="console-light"] .top-nav .theme-option small { color: var(--l-text-3); }
+
+/* ============================================================
+   主舞台 + 右侧控制台
+   ============================================================ */
+
+html[data-theme="console-light"] .stage {
+    border: 1px solid var(--l-line);
+    background: var(--l-panel);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 18px 50px -34px rgba(16, 24, 40, 0.28);
+}
+
+html[data-theme="console-light"] .stage::before {
+    background: linear-gradient(90deg, transparent, rgba(14, 159, 143, 0.55), rgba(37, 99, 235, 0.35), transparent);
+    opacity: 0.8;
+}
+
+html[data-theme="console-light"] .rail-sec {
+    border: 1px solid var(--l-line);
+    background: var(--l-panel);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
+}
+
+html[data-theme="console-light"] .rail-kicker { color: var(--l-teal); }
+html[data-theme="console-light"] .rail-name { color: var(--l-text-2); }
+
+html[data-theme="console-light"] .rail-item:hover {
+    background: var(--l-panel-2);
+    border-color: var(--l-line-2);
+}
+
+html[data-theme="console-light"] .rail-item.on {
+    background: rgba(14, 159, 143, 0.09);
+    border-color: rgba(14, 159, 143, 0.32);
+    box-shadow: none;
+}
+
+html[data-theme="console-light"] .rail-idx { color: var(--l-text-3); }
+html[data-theme="console-light"] .rail-item.on .rail-idx { color: var(--l-teal); }
+html[data-theme="console-light"] .rail-title { color: var(--l-text-2); }
+html[data-theme="console-light"] .rail-item.on .rail-title { color: var(--l-text); }
+
+html[data-theme="console-light"] .rail-kind {
+    border: 1px solid var(--l-line);
+    color: var(--l-text-3);
+    background: var(--l-panel-2);
+}
+
+html[data-theme="console-light"] .rail-item.on .rail-kind {
+    border-color: rgba(14, 159, 143, 0.32);
+    color: var(--l-teal);
+    background: #fff;
+}
+
+/* 目录行的删除按钮：亮色下用红色系 */
+html[data-theme="console-light"] .rail-del { color: var(--l-text-3); }
+
+html[data-theme="console-light"] .rail-del:hover {
+    color: #dc2650;
+    background: rgba(220, 38, 80, 0.1);
+}
+
+html[data-theme="console-light"] .rail-del:focus-visible { outline-color: var(--l-teal); }
+
+html[data-theme="console-light"] .rail-empty { color: var(--l-text-3); }
+
+/* ---------- 全部会话浮层 ---------- */
+
+html[data-theme="console-light"] .all-modal {
+    background: rgba(17, 24, 39, 0.28);
+}
+
+html[data-theme="console-light"] .all-box {
+    border: 1px solid var(--l-line);
+    background: #ffffff;
+    box-shadow: 0 40px 90px -50px rgba(16, 24, 40, 0.5);
+}
+
+html[data-theme="console-light"] .all-head h3 { color: var(--l-text); }
+html[data-theme="console-light"] .all-close { color: var(--l-text-3); }
+html[data-theme="console-light"] .all-close:hover { background: var(--l-panel-2); color: var(--l-text); }
+
+html[data-theme="console-light"] .all-search {
+    border: 1px solid var(--l-line-2);
+    background: var(--l-bg);
+    color: var(--l-text);
+}
+
+html[data-theme="console-light"] .all-search:focus {
+    border-color: rgba(14, 159, 143, 0.5);
+    box-shadow: 0 0 0 3px rgba(14, 159, 143, 0.1);
+}
+
+html[data-theme="console-light"] .all-search::placeholder { color: var(--l-text-3); }
+
+html[data-theme="console-light"] .all-group-head {
+    color: var(--l-text-3);
+    border-bottom: 1px solid var(--l-line);
+}
+
+html[data-theme="console-light"] .all-group-head i { color: var(--l-teal); }
+html[data-theme="console-light"] .all-item { color: var(--l-text-2); }
+
+html[data-theme="console-light"] .all-item:hover {
+    background: var(--l-panel-2);
+    border-color: var(--l-line-2);
+}
+
+html[data-theme="console-light"] .all-item.on {
+    background: rgba(14, 159, 143, 0.08);
+    border-color: rgba(14, 159, 143, 0.32);
+    color: var(--l-text);
+}
+
+html[data-theme="console-light"] .all-kind {
+    border: 1px solid var(--l-line);
+    color: var(--l-text-3);
+    background: var(--l-panel-2);
+}
+
+html[data-theme="console-light"] .all-item.on .all-kind {
+    border-color: rgba(14, 159, 143, 0.32);
+    color: var(--l-teal);
+    background: #fff;
+}
+
+html[data-theme="console-light"] .all-time { color: var(--l-text-3); }
+html[data-theme="console-light"] .all-empty { color: var(--l-text-3); }
+html[data-theme="console-light"] .all-foot { color: var(--l-text-3); border-top: 1px solid var(--l-line); }
+
+html[data-theme="console-light"] .rail-more {
+    border: 1px dashed var(--l-line-2);
+    color: var(--l-text-3);
+}
+
+html[data-theme="console-light"] .rail-more b { color: var(--l-text-2); }
+
+html[data-theme="console-light"] .rail-more:hover {
+    color: var(--l-teal);
+    border-color: rgba(14, 159, 143, 0.4);
+    border-style: solid;
+    background: rgba(14, 159, 143, 0.06);
+}
+
+/* 数字块：浅青底 + 青绿大数字 */
+html[data-theme="console-light"] .stat {
+    border: 1px solid rgba(14, 159, 143, 0.2);
+    background: linear-gradient(180deg, #f2fbfa, #fbfdfe);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+html[data-theme="console-light"] .stat::after { box-shadow: none; }
+
+html[data-theme="console-light"] .stat b {
+    color: #0b7f73;
+    text-shadow: none;
+}
+
+html[data-theme="console-light"] .stat i { color: var(--l-blue); }
+html[data-theme="console-light"] .stat span { color: var(--l-text-3); }
+
+html[data-theme="console-light"] .stat-online {
+    border-color: rgba(101, 163, 13, 0.32);
+    background: linear-gradient(180deg, #f6fbe9, #fdfef9);
+}
+
+html[data-theme="console-light"] .stat-online b {
+    color: #4c7c07;
+    text-shadow: none;
+}
+
+html[data-theme="console-light"] .load-spark { color: rgba(14, 159, 143, 0.75); }
+html[data-theme="console-light"] .load-foot { color: var(--l-text-3); }
+
+html[data-theme="console-light"] .load-live { color: var(--l-text-3); }
+html[data-theme="console-light"] .load-live i {
+    background: var(--l-teal);
+    box-shadow: none;
+}
+
+html[data-theme="console-light"] .rail-nav-item.rail-nav-action {
+    color: var(--l-text-2);
+}
+
+html[data-theme="console-light"] .rail-nav-item.rail-nav-action:hover {
+    color: var(--l-teal);
+    background: rgba(14, 159, 143, 0.08);
+    border-color: rgba(14, 159, 143, 0.28);
+}
+
+html[data-theme="console-light"] [data-tip]::after {
+    background: #ffffff;
+    border: 1px solid var(--l-line);
+    color: var(--l-text);
+    box-shadow: 0 8px 22px -14px rgba(16, 24, 40, 0.5);
+}
+
+/* 日志时间轴 */
+html[data-theme="console-light"] .log-item { border-left: 1px solid var(--l-line-2); }
+html[data-theme="console-light"] .log-item:last-child { border-left-color: transparent; }
+
+html[data-theme="console-light"] .log-dot {
+    background: #fff;
+    border: 1px solid rgba(14, 159, 143, 0.45);
+}
+
+html[data-theme="console-light"] .log-item:first-child .log-dot {
+    background: var(--l-teal);
+    border-color: var(--l-teal);
+    box-shadow: 0 0 0 3px rgba(14, 159, 143, 0.14);
+}
+
+html[data-theme="console-light"] .log-body { color: var(--l-text-2); }
+
+html[data-theme="console-light"] .log-body em {
+    background: rgba(37, 99, 235, 0.09);
+    color: var(--l-blue);
+}
+
+html[data-theme="console-light"] .log-time { color: var(--l-text-3); }
+
+html[data-theme="console-light"] .rail-fab {
+    color: #fff;
+    background: linear-gradient(135deg, #7c5cff, #f08a24 65%, #12b8a5);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8), 0 12px 28px -14px rgba(124, 92, 255, 0.9);
+}
+
+/* ============================================================
+   闲聊
+   ============================================================ */
+
+html[data-theme="console-light"] .chat-plugins {
+    border-bottom: 1px solid var(--l-line);
+    background: #fbfcfe;
+}
+
+html[data-theme="console-light"] .chat-plugin { color: var(--l-text-3) !important; }
+html[data-theme="console-light"] .chat-plugin:hover { color: var(--l-text) !important; background: var(--l-panel-2) !important; }
+
+html[data-theme="console-light"] .chat-plugin.active {
+    color: var(--l-teal) !important;
+    background: rgba(14, 159, 143, 0.09) !important;
+    border-color: rgba(14, 159, 143, 0.28) !important;
+}
+
+html[data-theme="console-light"] .avatar,
+html[data-theme="console-light"] .cust-msg .avatar {
+    border: 1px solid rgba(14, 159, 143, 0.28);
+    background: rgba(14, 159, 143, 0.09);
+    color: #0b7f73;
+}
+
+html[data-theme="console-light"] .avatar.user,
+html[data-theme="console-light"] .cust-msg.user .avatar {
+    border: 1px solid rgba(37, 99, 235, 0.26);
+    background: rgba(37, 99, 235, 0.09);
+    color: var(--l-blue);
+}
+
+html[data-theme="console-light"] .message-meta { color: var(--l-text-3); }
+
+html[data-theme="console-light"] .message-row.ai .bubble,
+html[data-theme="console-light"] .cust-msg.cs .cust-bubble {
+    border: 1px solid var(--l-line);
+    border-left: 2px solid rgba(14, 159, 143, 0.55);
+    border-radius: 4px 13px 13px 13px;
+    background: #ffffff;
+    color: var(--l-text);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 20px -18px rgba(16, 24, 40, 0.35);
+}
+
+html[data-theme="console-light"] .message-row.user .bubble,
+html[data-theme="console-light"] .cust-msg.user .cust-bubble {
+    border: 1px solid rgba(37, 99, 235, 0.2) !important;
+    border-radius: 13px 4px 13px 13px;
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(14, 159, 143, 0.09)) !important;
+    color: #12303c !important;
+    box-shadow: none;
+}
+
+html[data-theme="console-light"] .avatar,
+html[data-theme="console-light"] .cust-msg .avatar {
+    border: 1px solid rgba(14, 159, 143, 0.3);
+    background: rgba(14, 159, 143, 0.09);
+    color: #0b7f73;
+}
+
+html[data-theme="console-light"] .avatar.user,
+html[data-theme="console-light"] .cust-msg.user .avatar {
+    border: 1px solid rgba(37, 99, 235, 0.28);
+    background: rgba(37, 99, 235, 0.09);
+    color: var(--l-blue);
+}
+
+html[data-theme="console-light"] .cust-msg.error .cust-bubble {
+    border-color: var(--danger-border) !important;
+    border-left-color: var(--danger) !important;
+    background: var(--danger-dim) !important;
+    color: var(--danger) !important;
+}
+
+html[data-theme="console-light"] .loading-bubble { border-left-color: var(--l-teal) !important; }
+html[data-theme="console-light"] .type-cursor { background: var(--l-teal); box-shadow: none; }
+
+html[data-theme="console-light"] .chat-area.is-empty .bubble {
+    color: var(--l-text) !important;
+    background: none !important;
+    border: none !important;
+}
+
+/* ============================================================
+   输入区
+   ============================================================ */
+
+html[data-theme="console-light"] .bottom-section {
+    background: #fbfcfe;
+    border-top: 1px solid var(--l-line);
+}
+
+html[data-theme="console-light"] .prompt-btn {
+    border: 1px solid var(--l-line);
+    background: #ffffff;
+    color: var(--l-text-2);
+}
+
+html[data-theme="console-light"] .prompt-btn:hover {
+    border-color: rgba(14, 159, 143, 0.4);
+    background: rgba(14, 159, 143, 0.06);
+    color: var(--l-teal);
+}
+
+html[data-theme="console-light"] .input-wrapper,
+html[data-theme="console-light"] .hero-input {
+    border: 1px solid var(--l-line-2);
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+html[data-theme="console-light"] .input-wrapper:focus-within,
+html[data-theme="console-light"] .hero-input:focus-within {
+    border-color: rgba(14, 159, 143, 0.55) !important;
+    box-shadow: 0 0 0 3px rgba(14, 159, 143, 0.12) !important;
+}
+
+html[data-theme="console-light"] .input-wrapper input,
+html[data-theme="console-light"] .hero-input input { color: var(--l-text); }
+
+html[data-theme="console-light"] .input-wrapper input::placeholder,
+html[data-theme="console-light"] .hero-input input::placeholder { color: var(--l-text-3); }
+
+html[data-theme="console-light"] .send-btn {
+    color: #ffffff;
+    background: linear-gradient(135deg, #17c3ae, #0e9f8f 55%, #0b8f9e);
+    box-shadow: 0 6px 16px -8px rgba(14, 159, 143, 0.8);
+}
+
+html[data-theme="console-light"] .send-btn:hover {
+    color: #ffffff !important;
+    background: linear-gradient(135deg, #17c3ae, #0e9f8f 55%, #0b8f9e) !important;
+    box-shadow: 0 8px 20px -8px rgba(14, 159, 143, 0.85) !important;
+}
+
+html[data-theme="console-light"] .bottom-status { color: var(--l-text-3); }
+html[data-theme="console-light"] .bottom-status > span:first-child::before {
+    background: var(--ok);
+    box-shadow: none;
+}
+
+/* ============================================================
+   智能出行
+   ============================================================ */
+
+html[data-theme="console-light"] .hero-greeting { color: var(--l-text); }
+
+html[data-theme="console-light"] .hero-icon {
+    box-shadow: 0 0 0 1px rgba(14, 159, 143, 0.22), 0 10px 24px -14px rgba(16, 24, 40, 0.5);
+}
+
+html[data-theme="console-light"] .trip-cardwall-title { color: var(--l-text-3); }
+
+html[data-theme="console-light"] .trip-card {
+    border: 1px solid var(--l-line) !important;
+    background: #ffffff !important;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035) !important;
+}
+
+html[data-theme="console-light"] .trip-card:hover {
+    border-color: rgba(14, 159, 143, 0.4) !important;
+    background: #ffffff !important;
+    box-shadow: 0 10px 26px -18px rgba(16, 24, 40, 0.4) !important;
+}
+
+html[data-theme="console-light"] .trip-card h4 { color: var(--l-text); }
+html[data-theme="console-light"] .trip-card p { color: var(--l-text-3); }
+html[data-theme="console-light"] .trip-card.is-open { border-color: rgba(14, 159, 143, 0.42) !important; }
+
+html[data-theme="console-light"] .guide-card-intro { border-top: 1px dashed var(--l-line); }
+html[data-theme="console-light"] .gci-line { color: var(--l-text-2); }
+html[data-theme="console-light"] .gci-note { color: var(--l-text-3); }
+
+html[data-theme="console-light"] .gci-go {
+    border: 1px solid rgba(14, 159, 143, 0.32);
+    background: rgba(14, 159, 143, 0.08);
+    color: #0b7f73;
+}
+
+html[data-theme="console-light"] .trip-fixed {
+    background: #fbfcfe !important;
+    border-bottom: 1px solid var(--l-line) !important;
+}
+
+html[data-theme="console-light"] .process-step {
+    border: 1px solid var(--l-line);
+    background: #ffffff !important;
+    color: var(--l-text-3);
+}
+
+html[data-theme="console-light"] .step-num {
+    border: 1px solid var(--l-line);
+    color: var(--l-text-3);
+}
+
+html[data-theme="console-light"] .step-arrow { background: var(--l-line-2); }
+
+html[data-theme="console-light"] .trip-fixed .process-step[data-state="busy"] {
+    color: var(--l-teal) !important;
+    border-color: rgba(14, 159, 143, 0.4) !important;
+    background: rgba(14, 159, 143, 0.07) !important;
+}
+
+html[data-theme="console-light"] .trip-fixed .process-step[data-state="busy"] .step-num {
+    border-color: var(--l-teal) !important;
+    color: var(--l-teal) !important;
+    box-shadow: none !important;
+}
+
+html[data-theme="console-light"] .trip-fixed .process-step[data-state="done"] {
+    color: #0b7f73 !important;
+    border-color: rgba(14, 159, 143, 0.28) !important;
+    background: rgba(14, 159, 143, 0.06) !important;
+}
+
+html[data-theme="console-light"] .trip-fixed .process-step[data-state="done"] .step-num {
+    background: linear-gradient(135deg, #17c3ae, #0e9f8f) !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+}
+
+html[data-theme="console-light"] .trip-turn + .trip-turn { border-top: 1px dashed var(--l-line); }
+
+html[data-theme="console-light"] .trip-user-msg b {
+    border: 1px solid rgba(37, 99, 235, 0.18) !important;
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(14, 159, 143, 0.08)) !important;
+    color: #12303c !important;
+}
+
+html[data-theme="console-light"] .trip-status-line { color: var(--l-text-3); }
+
+html[data-theme="console-light"] .trip-block-title {
+    border-bottom: 1px solid var(--l-line);
+    color: var(--l-text);
+}
+
+html[data-theme="console-light"] .trip-block-title::before {
+    background: var(--l-teal);
+    box-shadow: none;
+}
+
+html[data-theme="console-light"] .trip-block-body { color: var(--l-text-2); }
+
+html[data-theme="console-light"] .trip-chat {
+    border: 1px solid var(--l-line) !important;
+    border-left: 2px solid rgba(14, 159, 143, 0.5) !important;
+    background: #ffffff !important;
+    color: var(--l-text);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03) !important;
+}
+
+html[data-theme="console-light"] .trip-err {
+    border: 1px solid var(--danger-border);
+    border-left: 2px solid var(--danger);
+    background: var(--danger-dim);
+    color: var(--danger);
+}
+
+/* 等待面板 + 路线卡 */
+html[data-theme="console-light"] .route-ask {
+    border: 1px solid rgba(14, 159, 143, 0.26) !important;
+    background: #ffffff !important;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04) !important;
+}
+
+html[data-theme="console-light"] .route-ask-question { color: var(--l-text); }
+html[data-theme="console-light"] .route-ask-recommend { color: #0b7f73; }
+html[data-theme="console-light"] .route-ask-reset { color: var(--l-text-3); }
+html[data-theme="console-light"] .route-ask-reset:hover { color: var(--l-teal); }
+
+html[data-theme="console-light"] .route-card {
+    border: 1px solid var(--l-line) !important;
+    background: #ffffff !important;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035) !important;
+}
+
+html[data-theme="console-light"] .route-card:hover {
+    border-color: rgba(14, 159, 143, 0.4) !important;
+    background: #ffffff !important;
+}
+
+html[data-theme="console-light"] .route-card.is-best {
+    border-color: rgba(14, 159, 143, 0.5) !important;
+    box-shadow: 0 0 0 3px rgba(14, 159, 143, 0.1), 0 10px 26px -20px rgba(16, 24, 40, 0.45) !important;
+}
+
+html[data-theme="console-light"] .rc-no { color: var(--l-text-3); }
+html[data-theme="console-light"] .rc-badge { background: rgba(101, 163, 13, 0.16); color: #4c7c07; }
+html[data-theme="console-light"] .rc-title { color: var(--l-text); }
+
+html[data-theme="console-light"] .rc-big {
+    color: #0b7f73;
+    text-shadow: none;
+}
+
+html[data-theme="console-light"] .rc-unit { color: var(--l-text-3); }
+html[data-theme="console-light"] .rc-money { color: var(--l-blue); }
+
+html[data-theme="console-light"] .rc-btn {
+    border: 1px solid rgba(14, 159, 143, 0.32) !important;
+    background: rgba(14, 159, 143, 0.07) !important;
+    color: #0b7f73 !important;
+}
+
+html[data-theme="console-light"] .route-card.is-best .rc-btn {
+    border: none !important;
+    background: linear-gradient(135deg, #17c3ae, #0e9f8f 55%, #0b8f9e) !important;
+    color: #ffffff !important;
+    box-shadow: 0 6px 16px -8px rgba(14, 159, 143, 0.85);
+}
+
+html[data-theme="console-light"] .route-option {
+    border: 1px solid var(--l-line) !important;
+    background: #ffffff !important;
+}
+
+html[data-theme="console-light"] .route-option:hover {
+    border-color: rgba(14, 159, 143, 0.4) !important;
+    background: rgba(14, 159, 143, 0.05) !important;
+}
+
+html[data-theme="console-light"] .route-option.is-recommended { border-color: rgba(14, 159, 143, 0.42) !important; }
+html[data-theme="console-light"] .route-option .ro-name { color: var(--l-teal); }
+html[data-theme="console-light"] .route-option .ro-label { color: var(--l-text); }
+html[data-theme="console-light"] .route-option .ro-note { color: var(--l-text-3); }
+
+/* 天气 / 行程 / 景点 */
+html[data-theme="console-light"] .trip-wday {
+    border: 1px solid var(--l-line);
+    background: #fbfcfe;
+}
+
+html[data-theme="console-light"] .trip-wday-date { color: var(--l-text-3); }
+html[data-theme="console-light"] .trip-wday-name { color: var(--l-text-2); }
+html[data-theme="console-light"] .trip-wday-temp { color: var(--l-text); }
+html[data-theme="console-light"] .trip-weather-text { color: var(--l-text-2); }
+
+html[data-theme="console-light"] .trip-day,
+html[data-theme="console-light"] .trip-spot {
+    border: 1px solid var(--l-line);
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);
+}
+
+html[data-theme="console-light"] .trip-day-head { border-bottom: 1px dashed var(--l-line); }
+html[data-theme="console-light"] .trip-day-no { background: rgba(14, 159, 143, 0.1); color: #0b7f73; }
+html[data-theme="console-light"] .trip-day-date { color: var(--l-text); }
+html[data-theme="console-light"] .trip-day-weather { color: var(--l-text-3); }
+
+html[data-theme="console-light"] .trip-day-row {
+    border: 1px solid var(--l-line);
+    background: #f8fafd;
+}
+
+html[data-theme="console-light"] .trip-day-slot { color: #0b7f73; }
+html[data-theme="console-light"] .trip-day-place { color: var(--l-text); }
+html[data-theme="console-light"] .trip-day-dur { color: var(--l-lime); }
+html[data-theme="console-light"] .trip-day-arrow { color: var(--l-text-3); }
+html[data-theme="console-light"] .trip-day-note { background: rgba(14, 159, 143, 0.06); color: var(--l-text-2); }
+
+html[data-theme="console-light"] .trip-spot-name { color: var(--l-text); }
+html[data-theme="console-light"] .trip-spot-tagline { color: var(--l-text-3); }
+html[data-theme="console-light"] .trip-spot-detail { border-top: 1px dashed var(--l-line); color: var(--l-text-2); }
+
+html[data-theme="console-light"] .trip-spot-note {
+    border: 1px dashed rgba(37, 99, 235, 0.24);
+    background: rgba(37, 99, 235, 0.04);
+    color: var(--l-text-2);
+}
+
+html[data-theme="console-light"] .trip-advice .trip-seg-title {
+    color: #0b7f73;
+    border-bottom: 1px solid var(--l-line);
+}
+
+html[data-theme="console-light"] .trip-check {
+    border: 1px solid var(--l-line);
+    background: #fbfcfe;
+    color: var(--l-text-2);
+}
+
+html[data-theme="console-light"] .trip-advice-text { color: var(--l-text-3); }
+
+/* 勾景点 / 提示 */
+html[data-theme="console-light"] .spot-row {
+    border: 1px solid var(--l-line) !important;
+    background: #ffffff !important;
+    color: var(--l-text);
+}
+
+html[data-theme="console-light"] .spot-row:hover {
+    border-color: rgba(14, 159, 143, 0.36) !important;
+    background: rgba(14, 159, 143, 0.05) !important;
+}
+
+html[data-theme="console-light"] .spot-row input[type="checkbox"] { accent-color: var(--l-teal); }
+
+html[data-theme="console-light"] .spot-add-input {
+    border: 1px solid var(--l-line-2) !important;
+    background: #ffffff !important;
+    color: var(--l-text) !important;
+}
+
+html[data-theme="console-light"] .spot-add-input:focus {
+    border-color: rgba(14, 159, 143, 0.5) !important;
+    box-shadow: 0 0 0 3px rgba(14, 159, 143, 0.1) !important;
+}
+
+html[data-theme="console-light"] .spot-confirm {
+    background: linear-gradient(135deg, #17c3ae, #0e9f8f 55%, #0b8f9e) !important;
+    color: #ffffff !important;
+    box-shadow: 0 6px 16px -9px rgba(14, 159, 143, 0.85) !important;
+}
+
+html[data-theme="console-light"] .spot-skip {
+    border: 1px solid var(--l-line-2) !important;
+    background: #ffffff !important;
+    color: var(--l-text-2) !important;
+}
+
+html[data-theme="console-light"] .route-ask-hint {
+    border: 1px solid rgba(14, 159, 143, 0.26) !important;
+    border-left: 3px solid var(--l-teal) !important;
+    background: rgba(14, 159, 143, 0.07) !important;
+    color: #0b7f73 !important;
+}
+
+html[data-theme="console-light"] .route-table-wrap { border: 1px solid var(--l-line); }
+html[data-theme="console-light"] .route-table th {
+    background: #f5f8fc;
+    color: var(--l-text-3);
+    border-bottom: 1px solid var(--l-line);
+}
+html[data-theme="console-light"] .route-table td { border-bottom: 1px solid var(--l-line); color: var(--l-text-2); }
+html[data-theme="console-light"] .route-table tr.is-best { background: rgba(14, 159, 143, 0.06); }
+html[data-theme="console-light"] .route-table tr.is-best td.num { color: #0b7f73; }
+
+html[data-theme="console-light"] .trip-scroll-btn {
+    border: 1px solid rgba(14, 159, 143, 0.34);
+    background: #ffffff;
+    color: #0b7f73;
+    box-shadow: 0 10px 26px -18px rgba(16, 24, 40, 0.4);
+}
+
+/* ============================================================
+   智能客服
+   ============================================================ */
+
+html[data-theme="console-light"] .customer-welcome .hero-greeting { color: var(--l-text); }
+html[data-theme="console-light"] .customer-welcome h2 { color: var(--l-text) !important; }
+html[data-theme="console-light"] .customer-welcome p,
+html[data-theme="console-light"] .customer-sub { color: var(--l-text-3); }
+
+html[data-theme="console-light"] #view-customer .bottom-section {
+    border-top: 1px solid var(--l-line);
+    background: #fbfcfe;
+}
+
+html[data-theme="console-light"] #view-customer .bottom-status { color: var(--l-text-3); }
+
+/* 客服图标：黑底白线，浅色底上给一圈细边把它「框住」 */
+html[data-theme="console-light"] .customer-welcome .hero-icon.customer-icon {
+    box-shadow: 0 0 0 1px var(--l-line-2), 0 12px 28px -16px rgba(16, 24, 40, 0.55);
+}
+
+html[data-theme="console-light"] .radar-wrap {
+    border: 1px solid rgba(14, 159, 143, 0.28);
+    background: rgba(14, 159, 143, 0.08);
+    box-shadow: 0 10px 24px -16px rgba(14, 159, 143, 0.8);
+}
+
+html[data-theme="console-light"] .radar-wrap > div { color: var(--l-teal) !important; }
+
+/* ============================================================
+   弹窗 / 登录
+   ============================================================ */
+
+html[data-theme="console-light"] .login-screen { background: var(--l-bg); }
+
+html[data-theme="console-light"] .login-box,
+html[data-theme="console-light"] .rp-box,
+html[data-theme="console-light"] .notice-box,
+html[data-theme="console-light"] .fb-box {
+    border: 1px solid var(--l-line) !important;
+    background: var(--l-panel) !important;
+    box-shadow: 0 30px 80px -40px rgba(16, 24, 40, 0.4) !important;
+}
+
+html[data-theme="console-light"] .login-title,
+html[data-theme="console-light"] .notice-title,
+html[data-theme="console-light"] .fb-title { color: var(--l-text); }
+
+html[data-theme="console-light"] .login-sub,
+html[data-theme="console-light"] .rp-title p,
+html[data-theme="console-light"] .fb-sub { color: var(--l-text-3); }
+
+html[data-theme="console-light"] .login-label { color: var(--l-text-2); }
+
+html[data-theme="console-light"] .login-input,
+html[data-theme="console-light"] .fb-input,
+html[data-theme="console-light"] .role-field input,
+html[data-theme="console-light"] .role-field textarea {
+    border: 1px solid var(--l-line-2) !important;
+    background: var(--l-bg) !important;
+    color: var(--l-text) !important;
+}
+
+html[data-theme="console-light"] .login-input:focus,
+html[data-theme="console-light"] .fb-input:focus {
+    border-color: rgba(14, 159, 143, 0.5) !important;
+    box-shadow: 0 0 0 3px rgba(14, 159, 143, 0.1) !important;
+}
+
+html[data-theme="console-light"] .login-btn,
+html[data-theme="console-light"] .notice-ok,
+html[data-theme="console-light"] .fb-btn.primary,
+html[data-theme="console-light"] .rcp-btn.primary {
+    color: #ffffff !important;
+    background: linear-gradient(135deg, #17c3ae, #0e9f8f 55%, #0b8f9e) !important;
+    box-shadow: 0 10px 24px -14px rgba(14, 159, 143, 0.9) !important;
+}
+
+html[data-theme="console-light"] .login-brand .logo-icon {
+    color: #ffffff;
+    background: linear-gradient(135deg, #17c3ae, #0e9f8f 55%, #0b8f9e);
+}
+
+html[data-theme="console-light"] .fb-mood {
+    border: 1px solid var(--l-line);
+    background: var(--l-bg);
+    color: var(--l-text-2);
+}
+
+html[data-theme="console-light"] .fb-mood.on {
+    border-color: rgba(14, 159, 143, 0.45);
+    background: rgba(14, 159, 143, 0.1);
+    color: #0b7f73;
+}
+
+html[data-theme="console-light"] .notice-kicker,
+html[data-theme="console-light"] .rd-kicker,
+html[data-theme="console-light"] .rcp-kicker { color: var(--l-teal); }
+
+/* ============================================================
+   手机
+   ============================================================ */
+
+@media (max-width: 900px) {
+    html[data-theme="console-light"] .sidebar {
+        border-right: none;
+        border-bottom: 1px solid var(--l-line);
+    }
+
+    html[data-theme="console-light"] .rail-nav-item.on {
+        box-shadow: inset 0 0 0 1px rgba(14, 159, 143, 0.3);
+    }
+}
+
+/* 主题菜单里的「晨光控制台」色卡 */
+.swatch-light { background: linear-gradient(135deg, #ffffff 50%, #0e9f8f 50%); }
+.swatch-console { background: linear-gradient(135deg, #060a11 50%, #2ee6d6 50%); }
+
+/* 顶栏上的亮暗切换按钮 */
+.skin-toggle { font-weight: 600; }

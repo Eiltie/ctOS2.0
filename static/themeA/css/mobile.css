@@ -1,0 +1,415 @@
+/* ============================================================
+   mobile.css — 主题 A（经典版）手机端适配
+   ------------------------------------------------------------
+   这一层排在所有样式之后加载，专门修正窄屏下的排版。
+   桌面端不受影响（全部包在 media query 里）。
+
+   手机端的主要问题与对策：
+
+     1. 顶栏一行塞不下（汉堡 + 3 个 tab + 访客 + 登录）
+        → 顶栏只留 汉堡 + 模块切换 + 一个账号图标；
+          tab 改成等分，不再被截成「智…」
+     2. 反馈浮标是 position:fixed 写死 bottom:84px，
+        输入区一变高就会盖住输入框
+        → 手机上改成贴输入区上沿，并让出右侧空间
+     3. 出行输入框的发送按钮把输入框挤出屏幕
+        → 输入框整宽，按钮压在内部右侧
+     4. 出行景点卡片一行一张太高
+        → 改成两列网格
+     5. 快捷问题换行凌乱
+        → 横向滚动成一条，不再折行
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+    /* --------------------------------------------------------
+       1. 顶栏：一行装得下
+       -------------------------------------------------------- */
+    .top-nav {
+        height: 54px;
+        padding: 0 10px 0 58px;      /* 左边给汉堡按钮留位 */
+        gap: 8px;
+        justify-content: space-between;
+    }
+
+    /* tab 组：等分剩余宽度，文字完整显示 */
+    .nav-tabs {
+        flex: 1;
+        min-width: 0;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2px;
+        padding: 3px;
+        border-radius: 11px;
+    }
+
+    .nav-tab {
+        padding: 7px 2px;
+        font-size: 12.5px;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+    }
+
+    /* 手机端不再显示模块状态标签（LANGGRAPH / TRIP AGENT / RAG）：
+       一行放不下，而且信息对手机用户没意义 */
+    .tag-status { display: none !important; }
+
+    .top-right {
+        gap: 6px;
+        flex-shrink: 0;
+        margin-left: 0;
+    }
+
+    /* 账号：只留一个小圆点 + 名字，宽度压到最小 */
+    .user-chip {
+        height: 30px;
+        max-width: 76px;
+        padding: 0 10px;
+        gap: 5px;
+    }
+
+    .user-chip-name {
+        font-size: 11.5px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .top-right .login-entry,
+    .top-right .logout-btn {
+        height: 30px;
+        padding: 0 9px;
+        font-size: 11.5px;
+        white-space: nowrap;
+    }
+
+    /* 「账号登录」在手机上收成「登录」，给 tab 让出宽度 */
+    .top-right .login-entry { font-size: 0; }
+    .top-right .login-entry::after {
+        content: "登录";
+        font-size: 11.5px;
+    }
+
+    /* 登录后「退出当前账号」太长：收成一个「退出」 */
+    .top-right .logout-btn { font-size: 0; }
+    .top-right .logout-btn::after {
+        content: "退出";
+        font-size: 11.5px;
+    }
+
+    /* 汉堡按钮 */
+    .sidebar-toggle {
+        top: calc(10px + env(safe-area-inset-top));
+        left: 10px;
+        width: 38px;
+        height: 38px;
+        border-radius: 11px;
+    }
+
+    /* --------------------------------------------------------
+       2. 反馈浮标：别压输入框
+       -------------------------------------------------------- */
+    .feedback-fab {
+        right: 12px;
+        /* 贴在输入区上方，而不是写死一个固定高度 */
+        bottom: calc(118px + env(safe-area-inset-bottom));
+        width: 40px;
+        height: 40px;
+        font-size: 17px;
+    }
+
+    /* 角色页 / 客服页输入区高度不同，各自调整 */
+    body.role-mode .feedback-fab {
+        bottom: calc(96px + env(safe-area-inset-bottom));
+    }
+
+    /* --------------------------------------------------------
+       3. 消息区
+       -------------------------------------------------------- */
+    .chat-area,
+    #customer-feed {
+        padding: 16px 14px 6px;
+        gap: 16px;
+    }
+
+    .message-row,
+    .cust-msg {
+        /* 手机上气泡可以占到 92%，但不再固定宽度 */
+        max-width: 92%;
+        gap: 8px;
+    }
+
+    .avatar,
+    .cust-msg .avatar {
+        width: 26px;
+        height: 26px;
+        margin-top: 20px;
+        border-radius: 7px;
+        font-size: 10px;
+    }
+
+    .bubble,
+    .cust-bubble {
+        padding: 10px 13px;
+        font-size: 15px;
+        line-height: 1.7;
+        border-radius: 13px;
+    }
+
+    .message-meta { font-size: 10.5px; }
+
+    /* --------------------------------------------------------
+       4. 输入区
+       -------------------------------------------------------- */
+    .bottom-section {
+        padding: 8px 14px calc(10px + env(safe-area-inset-bottom));
+        gap: 8px;
+    }
+
+    .input-wrapper,
+    .hero-input {
+        padding: 5px 5px 5px 14px;
+        border-radius: 15px;
+        gap: 6px;
+    }
+
+    /* 输入文字 16px：iOS 小于 16px 会在聚焦时自动放大页面 */
+    .input-wrapper input,
+    .hero-input input {
+        font-size: 16px;
+        padding: 10px 0;
+    }
+
+    .input-wrapper .send-btn,
+    .hero-input .send-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 11px;
+        flex-shrink: 0;
+    }
+
+    /* 快捷问题：横向滑动成一条，不换行 */
+    .quick-prompts {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        gap: 6px;
+        padding-bottom: 2px;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+    .quick-prompts::-webkit-scrollbar { display: none; }
+
+    .prompt-btn {
+        flex: 0 0 auto;
+        padding: 6px 12px;
+        font-size: 12.5px;
+        white-space: nowrap;
+    }
+
+    .bottom-status {
+        font-size: 9.5px;
+        padding: 0 2px;
+    }
+
+    /* --------------------------------------------------------
+       5. 出行页
+       -------------------------------------------------------- */
+    .trip-hero {
+        padding: 16px 14px 60px;
+        gap: 16px;
+        justify-content: flex-start;
+    }
+
+    .hero-greeting {
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        font-size: 21px;
+        letter-spacing: -0.01em;
+        text-align: center;
+    }
+
+    .hero-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 11px;
+    }
+
+    /* 出行入口输入框：整宽，按钮在内部右侧，不再挤出屏幕 */
+    .hero-input {
+        max-width: 100%;
+        width: 100%;
+    }
+
+    .hero-input input { font-size: 16px; }
+
+    /* 快捷问题居中排列 */
+    .trip-quick {
+        justify-content: center;
+        gap: 6px;
+        margin-top: -4px;
+    }
+
+    /* 景点卡片：两列，别一张占一屏 */
+    .trip-card-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .trip-card {
+        padding: 12px 12px !important;
+        border-radius: 11px !important;
+    }
+
+    .trip-card h4 { font-size: 13px; }
+    .trip-card p { font-size: 11.5px; }
+
+    .trip-cardwall-title { font-size: 9.5px; margin-bottom: 8px; }
+
+    /* 对话态 */
+    .trip-fixed { padding: 8px 14px 6px; }
+    .trip-stream { padding: 0 14px 12px; gap: 14px; }
+    .trip-turn { gap: 10px; }
+    .trip-block-body { font-size: 14px; line-height: 1.75; }
+
+    .process-step {
+        padding: 2px 8px 2px 2px;
+        font-size: 10.5px;
+    }
+    .step-num { width: 18px; height: 18px; font-size: 9px; }
+    .step-arrow { width: 8px; margin: 0 4px; }
+
+    .trip-user-msg { max-width: 92%; }
+    .trip-user-msg b { font-size: 15px; padding: 9px 13px; }
+
+    .trip-scroll-btn {
+        right: 12px;
+        bottom: 96px;
+        font-size: 11.5px;
+        padding: 6px 12px;
+    }
+
+    /* 等待面板 */
+    .route-ask { padding: 12px; gap: 9px; }
+    .route-card { flex-wrap: wrap; gap: 8px; }
+    .rc-metric { margin-left: 0 !important; }
+
+    /* --------------------------------------------------------
+       6. 智能客服
+       -------------------------------------------------------- */
+    #customer-feed { padding: 16px 14px; }
+    #customer-intro { padding: 0; }
+
+    .customer-welcome {
+        max-width: 100%;
+        gap: 10px;
+        padding-bottom: 20px;
+    }
+
+    .customer-welcome .hero-greeting {
+        flex-direction: column;
+        gap: 10px;
+        font-size: 21px;
+        text-align: center;
+    }
+
+    .customer-welcome .hero-icon,
+    .customer-welcome .hero-icon.customer-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 9px;
+    }
+
+    .customer-sub {
+        font-size: 12.5px;
+        padding: 0 8px;
+    }
+
+    #view-customer .bottom-section {
+        padding: 8px 14px calc(10px + env(safe-area-inset-bottom));
+    }
+
+    /* --------------------------------------------------------
+       7. 角色扮演
+       -------------------------------------------------------- */
+    .role-select { padding: 16px 14px 32px; }
+    .role-grid { grid-template-columns: 1fr; gap: 10px; }
+    .role-select-head h2 { font-size: 20px; }
+    .role-card { padding: 14px; }
+    .role-bar { padding: 10px 14px 0; }
+
+    /* --------------------------------------------------------
+       8. 侧栏抽屉：打开时明确盖住内容
+       -------------------------------------------------------- */
+    .sidebar {
+        width: min(84vw, 320px);
+        box-shadow: 24px 0 60px -24px rgba(16, 24, 40, 0.4);
+    }
+
+    .sidebar-mask {
+        background: rgba(16, 24, 40, 0.42);
+        backdrop-filter: blur(2px);
+    }
+
+    /* 手机端不提供「主题」切换：
+       指挥台版要宽屏才放得下，手机上恒定经典版，
+       留一个点了只有一项的菜单反而让人困惑。 */
+    .sidebar-theme { display: none !important; }
+
+    .sidebar-actions {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        padding: 0 14px 14px;
+    }
+
+    .sidebar-actions .theme-btn,
+    .sidebar-actions .sidebar-action-btn {
+        height: 40px;
+        font-size: 13px;
+    }
+
+    .sidebar-header { padding: 18px 16px 16px; }
+
+    .history-section { padding: 14px 10px 10px; }
+    .history-item { padding: 11px 10px; font-size: 13.5px; }
+
+    .sidebar-footer { padding: 12px 14px calc(12px + env(safe-area-inset-bottom)); }
+}
+
+/* 小屏（iPhone SE 等 375 及以下）再收一档 */
+@media (max-width: 380px) {
+    .nav-tab { font-size: 11.5px; padding: 7px 1px; }
+
+    /* 320 宽时「智能出行 / 智能客服」还要再挤一点才放得下 */
+    .nav-tabs { padding: 3px 2px; }
+    .nav-tab { letter-spacing: -0.02em; }
+    .top-right { gap: 4px; }
+    .top-nav { padding: 0 8px 0 54px; gap: 6px; }
+    .sidebar-toggle { width: 34px; height: 34px; left: 8px; }
+    .top-right .login-entry,
+    .top-right .logout-btn { padding: 0 7px; }
+    .top-right .login-entry::after,
+    .top-right .logout-btn::after { font-size: 11px; }
+    .user-chip { max-width: 62px; padding: 0 8px; }
+
+    .hero-greeting { font-size: 19px; }
+    .bubble, .cust-bubble { font-size: 14.5px; }
+
+    .trip-card-grid { grid-template-columns: 1fr; }
+}
+
+/* 极窄屏（320 及以下）：tab 再小一档，保证「智能出行」「智能客服」完整显示 */
+@media (max-width: 340px) {
+    .nav-tab {
+        font-size: 11px;
+        padding: 7px 0;
+        letter-spacing: -0.04em;
+    }
+    .user-chip { max-width: 56px; padding: 0 7px; }
+    .user-chip-name { font-size: 11px; }
+    .top-right .login-entry::after { font-size: 11px; }
+}

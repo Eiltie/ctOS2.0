@@ -156,16 +156,18 @@ ctOS2.0/
 │           ├── docs/           # 知识库原始文档（本文就在这里）
 │           └── chroma/         # 向量库落盘目录（由入库脚本生成，不入库）
 ├── static/                     # 前端（无构建步骤）
-│   ├── index.html              # 页面结构
-│   ├── README.md               # 前端文件说明
-│   ├── css/style.css           # 模板原样式
-│   ├── css/modules.css         # 出行卡片、客服气泡、登录页等新增样式
-│   ├── css/theme.css           # 三套主题：简洁现代 / 街头黑客 / 赛博暗色
-│   └── js/
-│       ├── common/             # 公用：配置、工具、认证、SSE 解析、打字机、多选、中断……
-│       ├── app.js              # 核心：状态、侧边栏、闲聊、角色扮演、模块切换
-│       ├── trip.js             # 智能出行（双模式、方案选择、景点勾选）
-│       └── customer.js         # 智能客服
+│   ├── index.html              # 入口页：读偏好 + 判断屏幕宽度，跳到 themeA 或 themeB
+│   ├── themeA/                 # 经典版：左侧栏 + 顶栏 tab + 气泡对话（3 种风格）
+│   │   ├── index.html
+│   │   ├── css/                # style / modules / theme / ui / mobile …
+│   │   └── js/                 # app.js、trip.js、customer.js、common/
+│   ├── themeB/                 # 指挥台版：图标导轨 + 右侧控制台（仅宽屏，2 种风格）
+│   │   ├── index.html
+│   │   ├── css/                # base / components / style / theme-light
+│   │   └── js/                 # console.js、theme-ui.js …
+│   └── shared/                 # 两套共用
+│       ├── image/              # LOGO、客服图标
+│       └── js/common/          # prefs、presence、配置、认证、SSE、打字机……
 ├── screenshot/                 # README 用的界面截图
 ├── docs/                       # 项目文档
 ├── eval/                       # 端到端测评（39 条）
@@ -352,16 +354,21 @@ python -X utf8 -m api.main
 
 | 文件 | 负责 |
 | --- | --- |
-| `static/js/common/` | 公用：配置、工具函数、认证、更新公告、反馈、SSE 解析、打字机、多选、请求中断 |
-| `static/js/app.js` | 核心状态、侧边栏、闲聊、角色扮演、模块切换 |
-| `static/js/trip.js` | 智能出行（四段卡片、出行历史、人工确认面板） |
-| `static/js/customer.js` | 智能客服（问答渲染） |
-| `static/css/style.css` | 模板原样式 |
-| `static/css/modules.css` | 出行卡片、客服气泡、登录页等新增样式 |
-| `static/css/theme.css` | 三套主题的颜色和组件覆盖 |
+| `static/index.html` | 入口页：读主题偏好 + 判断屏幕宽度，分流到 themeA / themeB |
+| `static/shared/js/common/` | 两套共用：偏好、在线人数、配置、工具、认证、公告、反馈、SSE、打字机 |
+| `static/themeA/js/app.js` | 经典版核心：状态、侧边栏、闲聊、角色扮演、模块切换 |
+| `static/themeA/js/trip.js` | 智能出行（四段卡片、出行历史、人工确认面板） |
+| `static/themeA/js/customer.js` | 智能客服（问答渲染） |
+| `static/themeA/css/style.css` | 模板原样式 |
+| `static/themeA/css/modules.css` | 出行卡片、客服气泡、登录页等新增样式 |
+| `static/themeA/css/theme.css` | 三套风格的颜色和组件覆盖 |
+| `static/themeB/js/console.js` | 指挥台版右侧控制台（目录、操作日志、系统负载） |
+
+前端分成两套独立主题：`themeA`（经典版，手机端只用它）和 `themeB`（指挥台版，仅宽屏）。
+两套之间不互相引用，只有 `shared/` 是共用的。
 
 `common/` 里的文件最先加载，然后 `app.js`，最后 `trip.js` / `customer.js`。
-后加载的依赖先加载的全局变量，**调整加载顺序会导致报错**。详见 `static/README.md`。
+后加载的依赖先加载的全局变量，**调整加载顺序会导致报错**。详见 `docs/themes.md`。
 
 ## 单独调试各模块
 

@@ -99,6 +99,11 @@ function appendNotice(feed, text){
 function renderChat(){
   const feed = $("chat-feed");
   if (!feed) return;
+
+  // 整段重绘历史时暂停入场动画：
+  // 否则几十条历史消息会同时播放 slide-up，肉眼能看出卡一下。
+  // 渲染完立刻放开，后续新追加的消息仍有入场效果。
+  feed.classList.add("feed-rendering");
   feed.innerHTML = "";
 
   const s = state.sessions.find((x) => x.id === state.activeId);
@@ -106,7 +111,11 @@ function renderChat(){
   // 没有会话，或者消息还没拉下来：显示欢迎语
   if (!s || !state.loaded.has(s.id) || !Array.isArray(s.messages)){
     appendRow(feed, "ai", WELCOME);
+    // 欢迎语居中显示（样式见 css/ui.css），一旦有了真实消息就由上面的
+    // feed.classList.remove("is-empty") 撤掉
+    feed.classList.add("is-empty");
     scrollDown(feed);
+    feed.classList.remove("feed-rendering");
     return;
   }
 
@@ -114,6 +123,13 @@ function renderChat(){
     appendRow(feed, m.role === "user" ? "user" : "ai", m.text);
   }
   scrollDown(feed);
+
+  // 已经有真实消息了：把「空状态居中」的 class 撤掉。
+  // 空会话会保留它，让欢迎语居中显示（样式见 css/ui.css 的 .chat-area.is-empty）。
+  feed.classList.remove("is-empty");
+
+  // 等这一帧画完再放开，保证后续追加的消息能正常播动画
+  requestAnimationFrame(() => feed.classList.remove("feed-rendering"));
 }
 
 
@@ -992,7 +1008,18 @@ function renderHistory(){
       </div>
     </div>`;
 
-  box.innerHTML = normalRows + normalEmpty + roleMenu + selectBarHTML();
+  const nextHTML = normalRows + normalEmpty + roleMenu + selectBarHTML();
+
+  // 内容没变就不重绘：
+  // 这个函数在很多地方被调用（每次切会话、发完消息、删除、多选），
+  // 每次都整段覆盖 innerHTML 再给几十个元素重新绑定 onclick，开销不小。
+  // 内容相同时直接跳过，点击「当前会话」这类操作就变成零成本。
+  if (box.__lastHTML === nextHTML){
+    return;
+  }
+  box.__lastHTML = nextHTML;
+
+  box.innerHTML = nextHTML;
 
   box.querySelectorAll(".history-item").forEach((item) => {
     item.onclick = () => {
@@ -1232,6 +1259,9 @@ async function sendChat(){
     return;
   }
 
+  // 空状态的欢迎语居中显示；用户发出第一句话后取消居中，消息从顶部开始排
+  feed.classList.remove("is-empty");
+
   chatBusy = true;
   input.value = "";
   lastChatText = text;
@@ -1254,6 +1284,8 @@ async function sendChat(){
   bubble.textContent = (chatMode === "role-chat" && activeRole) ? "……" : "接入大模型中...";
 
   const typer = createTyper(feed, bubble);
+  // 往上翻历史时不把用户拽回底部（只在贴底时才跟随滚动）
+  bindStickToBottom(feed, typer);
   let failed = null;
   let aborted = false;
 
@@ -1327,15 +1359,37 @@ async function sendChat(){
 
     await loadSessions();
 
-    // 用服务端的完整记录覆盖本地缓存，保证和数据库一致
+    /*
+      用服务端的完整记录覆盖本地缓存，保证和数据库一致。
+
+      性能说明：这里原来每次都全量拉一次消息并整段重绘聊天区，
+      发一条消息就要多两次往返 + 一次全量 DOM 重建（长会话时明显卡）。
+      现在只在「本地缺失这条回复」时才去拉：
+        - 正常情况：打字机已经把内容显示在页面上了，只需要把文本补进本地缓存，
+          不用再请求、也不用重绘
+        - 异常情况（中断、失败、内容对不上）：才回退到全量拉取，保证数据准确
+    */
     const cur = state.activeId;
 
     if (cur !== null){
       const s = state.sessions.find((x) => x.id === cur);
-      const rows = await getJson(`${API.sessions}/${cur}/messages`);
-      if (s && Array.isArray(rows)){
-        s.messages = rows.map((m) => ({ role: m.role, text: m.content }));
+      const local = s && Array.isArray(s.messages) ? s.messages : null;
+      const typerText = (typeof typer !== "undefined" && typer && typer.text) ? typer.text : "";
+
+      const last = local && local.length ? local[local.length - 1] : null;
+      const lastIsAssistant = last && last.role !== "user";
+      const textMatches = !typerText || !lastIsAssistant || last.text === typerText;
+
+      if (s && local && lastIsAssistant && textMatches){
+        // 本地已经是对的：什么都不做
         state.loaded.add(cur);
+      }else if (s){
+        const rows = await getJson(`${API.sessions}/${cur}/messages`);
+        if (Array.isArray(rows)){
+          s.messages = rows.map((m) => ({ role: m.role, text: m.content }));
+          state.loaded.add(cur);
+          if (state.view === "chat") renderChat();
+        }
       }
     }
 
@@ -1381,10 +1435,11 @@ function switchView(viewName){
   });
 
   // 顶栏的 tab
+  // 原来靠文字反查视图（textContent → chat / trip / customer），只要文案一个字变了
+  // 就匹配不上，选中态会停在上一个 tab 上。现在改用 onclick 里写的视图名。
   document.querySelectorAll(".nav-tab").forEach((tab) => {
-    const text = tab.textContent.trim();
-    const match = { "闲聊": "chat", "智能出行": "trip", "智能客服": "customer" }[text];
-    tab.classList.toggle("active", match === viewName);
+    const m = /switchView\(['"]([a-z]+)['"]\)/.exec(tab.getAttribute("onclick") || "");
+    tab.classList.toggle("active", !!m && m[1] === viewName);
   });
 
   // 右侧状态标签
