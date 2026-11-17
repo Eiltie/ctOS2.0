@@ -261,21 +261,25 @@ modules/<模块名>/
 
 | 文件 | 行数 | 职责 |
 | --- | --- | --- |
-| `graph.py` | 27 | 图：`START → retrieve → generate → END` |
-| `node.py` | 106 | 两个节点：三层检索、生成答案。**检索时用「上一轮问题 + 当前问题」拼查询** |
-| `state.py` | 13 | 状态：问题、历史、三层命中、答案 |
-| `prompts.py` | 17 | 唯一提示词：只许照资料答，查不到就说没找到 |
-| `stream.py` | 110 | 对外出口 `customer_stream()` |
-| `rag_config.py` | 51 | **配置**：文档目录、向量库目录、embedding 模型、智谱密钥 |
-| `rag_store.py` | 101 | 知识库加载（全进程只加载一次）、jieba 分词 |
-| `rag_search.py` | 113 | **三层检索**：关键词（BM25）、向量（Chroma）、混合加权 |
-| `rag_ingest.py` | 141 | **入库脚本**：读 `data/docs/*.md` → 切块 → 向量化 → 写 Chroma |
-| `rag_eval.py` | 231 | **检索测评**：跑 40 题题库，统计命中率 |
+| `graph.py` | 58 | 图：`START ─┬→ greet / └→ rewrite → retrieve ─┬→ generate / └→ refuse` |
+| `node.py` | 196 | 四个节点：改写+范围判断、检索、生成、寒暄/拒答 |
+| `state.py` | 15 | 状态：原问题、历史、改写后的检索句、范围判断、命中、答案 |
+| `prompts.py` | 38 | 两份提示词：改写（含范围判断）、回答；外加拒答话术 |
+| `stream.py` | 100 | 对外出口 `customer_stream()`；固定话术会补发 TOKEN |
+| `rag_config.py` | 38 | **配置**：文档目录、向量库目录、集合名、向量模型与地址 |
+| `rag_store.py` | 85 | 知识库加载（全进程只加载一次）、jieba 分词、标题路径 |
+| `rag_search.py` | 103 | **三层检索**：关键词（BM25）、向量（Chroma cosine）、加权混合 |
+| `rag_ingest.py` | 197 | **入库脚本**：读 `data/docs/*.md` → 切块（带标题路径）→ 向量化 → 写 Chroma |
+| `rag_eval.py` | 190 | **检索测评**：跑 40 题题库，统计命中率 |
+| `embedding.py` | 87 | 向量化：调本机 Ollama（入库和检索共用这一份） |
 | `data/docs/` | — | 知识库源文件（3 个 .md：`README.md`、`ctOS2_manual.md`、`ctOS2_features.md`） |
 | `data/chroma/` | — | 向量库（运行产物，不进 git） |
 | `eval/golden.json` | — | 测评题库（40 题，四类） |
 
 **改了文档要做什么**：重跑 `python -X utf8 -m modules.customer.rag_ingest`，然后重启服务。
+
+**调参前先测**：`MAX_CHUNK_CHARS`、混合权重、相关性阈值这几个数都是拿
+`rag_eval` 的 40 题扫出来的，改之前先跑一遍对比，别凭感觉调。
 
 ---
 
@@ -387,6 +391,8 @@ static/
 | `tests/conftest.py` | 给测试进程补一个 `JWT_SECRET_KEY`，不依赖 `config/.env` |
 | `tests/test_auth.py` | token 往返 / 防篡改 / 密码哈希（挡多租户串号） |
 | `tests/test_trip_rules.py` | 天气意图、偏好归一、需求检查、打分与推荐、卡片排版 |
+| `tests/test_customer_retrieval.py` | 客服：切块、改写解析、寒暄判定、拒答分派、引用格式 |
+| `tests/test_typer_frontend.py` | 打字机：跑真实 `typer.js`，防文字重复/漏字（需要 node） |
 | `scripts/check_online.ps1` | 连续访问线上关键资源，判断是否间歇性超时 |
 
 ---

@@ -330,28 +330,45 @@ POST /customer/chat
    │
    └─ customer_stream()         modules/customer/stream.py
         │
-        └─ 图：START → retrieve → generate → END
-             图结构：modules/customer/graph.py
+        └─ 图结构：modules/customer/graph.py
+           START ─┬─(寒暄)────→ greet                               → END
+                  └─(其余)────→ rewrite → retrieve ─┬─(有资料)→ generate → END
+                                                    └─(没资料)→ refuse   → END
+             │
+             ├─ rewrite_node()    modules/customer/node.py
+             │     ├─ 把「那它怎么配」改写成自包含的检索句
+             │     └─ 判断是不是在问 ctOS（in_scope）
              │
              ├─ retrieve_node()   modules/customer/node.py
-             │     ├─ keyword_search()  rag_search.py   BM25 + jieba 分词
-             │     ├─ vector_search()   rag_search.py   Chroma + 智谱向量
-             │     └─ hybrid_search()   rag_search.py   两层按名次加权，取前 4
+             │     ├─ keyword_search()  rag_search.py   BM25 + jieba，分数归一化
+             │     ├─ vector_search()   rag_search.py   Chroma（cosine）+ 本机 Ollama 向量
+             │     └─ hybrid_search()   rag_search.py   按分数加权（0.5/0.5），低于阈值丢弃
              │
-             └─ generate_node()   modules/customer/node.py
-                   └─ 提示词 ANSWER_PROMPT（prompts.py）
-                        铁律：只能照参考资料答，查不到就说没找到
+             ├─ generate_node()   modules/customer/node.py
+             │     └─ 提示词 ANSWER_PROMPT（prompts.py），资料带「文件 › 章节」标题路径
+             │
+             └─ greet_node() / refuse_node()
+                   └─ 不调模型，直接返回固定话术（流式层会补发 TOKEN 让前端逐字显示）
 
 知识库从哪来：
    data/docs/*.md  ──rag_ingest.py──→  data/chroma/（向量库）
                           │
-                          ├─ split_markdown()  按 ## 二级标题切块，600 字上限
-                          └─ embed_batch()     智谱 embedding-3，每批 64 条
+                          ├─ split_markdown_detailed()  按标题切块，每块带标题路径
+                          │     · 代码块里的 # 不算标题，也不切断代码块
+                          │     · 优先在 ### 三级标题处切，超长再按段落
+                          ├─ MAX_CHUNK_CHARS = 800（扫过 500/600/800/1000 定的）
+                          └─ 向量化：本机 Ollama qwen3-embedding，每批 64 条
 ```
 
-**数据落在哪**：**不落库**。客服没有会话历史，刷新即清空（已知限制）
+**拒答的判定**：模型说库外 **且** 检索也没找到强结果（`STRONG_HIT_SCORE = 0.68`），才拒答。
+两边都不同意才拒答，误拒优先——客服最难受的不是答得浅，是明明能答却说没找到。
 
-**配置在哪**：`rag_config.py`（文档目录、向量库目录、集合名、embedding 模型）
+**数据落在哪**：**不落库**。客服没有会话历史，`history` 由前端每次带上，刷新即清空
+
+**配置在哪**：`rag_config.py`（文档目录、向量库目录、集合名、向量模型与地址）
+
+**调参怎么验**：改 `MAX_CHUNK_CHARS` / 权重 / 阈值之前，
+先跑 `python -X utf8 -m modules.customer.rag_eval` 对比，别凭感觉调
 
 **知识库加载**：`rag_store.py` 的 `load_store()`，**全进程只加载一次**，三层检索共享
 
