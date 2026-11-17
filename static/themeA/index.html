@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <!-- 风格要在 CSS 之前生效，刷新时不会先闪一下旧配色。
          风格的读写统一交给 /static/shared/js/common/prefs.js -->
-    <script src="/static/shared/js/common/prefs.js?v=20261117b"></script>
+    <script src="/static/shared/js/common/prefs.js?v=202611171752"></script>
     <script>
         (function () {
             if (window.ctosPrefs) window.ctosPrefs.bootStyle('A');
@@ -15,21 +15,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>ctOS 2.0</title>
 
-    <link rel="icon" type="image/webp" href="/static/shared/image/CTOS.webp?v=20261117b" />
+    <link rel="icon" type="image/webp" href="/static/shared/image/CTOS.webp?v=202611171752" />
 
     <!-- 样式分四层加载，后面的可以覆盖前面的：
          1. style.css   模板原样式（骨架：布局、光效、动画关键帧）
          2. modules.css 模板之外新增的组件类（出行卡片、客服气泡、弹窗、手机适配）
          3. theme.css   三套主题的皮肤（配色、边框、阴影）
          4. ui.css      统一设计层（字体、字号、间距、圆角、组件外观）——日常改界面只动这一层 -->
-    <link rel="stylesheet" href="/static/themeA/css/style.css?v=20261117b">
-    <link rel="stylesheet" href="/static/themeA/css/modules.css?v=20261117b">
-    <link rel="stylesheet" href="/static/themeA/css/theme.css?v=20261117b">
-    <link rel="stylesheet" href="/static/themeA/css/ui.css?v=20261117b">
-    <link rel="stylesheet" href="/static/themeA/css/theme-ui.css?v=20261117b">
-    <link rel="stylesheet" href="/static/themeA/css/presence.css?v=20261117b">
+    <link rel="stylesheet" href="/static/themeA/css/style.css?v=202611171752">
+    <link rel="stylesheet" href="/static/themeA/css/modules.css?v=202611171752">
+    <link rel="stylesheet" href="/static/themeA/css/theme.css?v=202611171752">
+    <link rel="stylesheet" href="/static/themeA/css/ui.css?v=202611171752">
+    <link rel="stylesheet" href="/static/themeA/css/theme-ui.css?v=202611171752">
+    <link rel="stylesheet" href="/static/themeA/css/presence.css?v=202611171752">
     <!-- 手机端适配：必须最后加载，用来统一修正窄屏排版 -->
-    <link rel="stylesheet" href="/static/themeA/css/mobile.css?v=20261117b">
+    <link rel="stylesheet" href="/static/themeA/css/mobile.css?v=202611171752">
 </head>
 <body>
 
@@ -226,7 +226,7 @@
                  用户说什么由它判断走路线还是攻略。 -->
             <div id="trip-hero" class="trip-hero">
                 <div class="hero-greeting">
-                    <img class="hero-icon" src="/static/shared/image/CTOS.webp?v=20261117b" alt="">
+                    <img class="hero-icon" src="/static/shared/image/CTOS.webp?v=202611171752" alt="">
                     <!-- 这句会被 tripRefreshGreeting() 按当前时间替换掉，这里只是加载前占位 -->
                     <span id="trip-greeting">有什么我能帮你的吗？</span>
                 </div>
@@ -400,25 +400,25 @@
          3. trip/ 下先加载壳子和两个模式，最后才是入口 trip.js
             （base 会调 tripRenderPluginBar，那个函数在 trip.js 里）
          4. customer.js 依赖 app.js 里的 state 和 common/ 里的工具 -->
-    <script src="/static/shared/js/common/config.js?v=20261117b"></script>
-    <script src="/static/shared/js/common/utils.js?v=20261117b"></script>
-    <script src="/static/shared/js/common/announcement.js?v=20261117b"></script>
-    <script src="/static/shared/js/common/auth.js?v=20261117b"></script>
-    <script src="/static/shared/js/common/abort.js?v=20261117b"></script>
-    <script src="/static/shared/js/common/sse.js?v=20261117b"></script>
-    <script src="/static/shared/js/common/typer.js?v=20261117b"></script>
-    <script src="/static/themeA/js/common/selection.js?v=20261117b"></script>
-    <script src="/static/themeA/js/common/sticky.js?v=20261117b"></script>
-    <script src="/static/themeA/js/common/aura.js?v=20261117b"></script>
-    <script src="/static/themeA/js/common/feedback.js?v=20261117b"></script>
-    <script src="/static/shared/js/common/presence.js?v=20261117b"></script>
-<script src="/static/themeA/js/common/theme-ui.js?v=20261117b"></script>
-<script src="/static/themeA/js/common/presence-ui.js?v=20261117b"></script>
-    <script src="/static/themeA/js/app.js?v=20261117b"></script>
-    <script src="/static/themeA/js/trip/base.js?v=20261117b"></script>
-    <script src="/static/themeA/js/trip/route.js?v=20261117b"></script>
-    <script src="/static/themeA/js/trip/guide.js?v=20261117b"></script>
-    <script src="/static/themeA/js/trip.js?v=20261117b"></script>
-    <script src="/static/themeA/js/customer.js?v=20261117b"></script>
+    <script src="/static/shared/js/common/config.js?v=202611171752"></script>
+    <script src="/static/shared/js/common/utils.js?v=202611171752"></script>
+    <script src="/static/shared/js/common/announcement.js?v=202611171752"></script>
+    <script src="/static/shared/js/common/auth.js?v=202611171752"></script>
+    <script src="/static/shared/js/common/abort.js?v=202611171752"></script>
+    <script src="/static/shared/js/common/sse.js?v=202611171752"></script>
+    <script src="/static/shared/js/common/typer.js?v=202611171752"></script>
+    <script src="/static/themeA/js/common/selection.js?v=202611171752"></script>
+    <script src="/static/themeA/js/common/sticky.js?v=202611171752"></script>
+    <script src="/static/themeA/js/common/aura.js?v=202611171752"></script>
+    <script src="/static/themeA/js/common/feedback.js?v=202611171752"></script>
+    <script src="/static/shared/js/common/presence.js?v=202611171752"></script>
+<script src="/static/themeA/js/common/theme-ui.js?v=202611171752"></script>
+<script src="/static/themeA/js/common/presence-ui.js?v=202611171752"></script>
+    <script src="/static/themeA/js/app.js?v=202611171752"></script>
+    <script src="/static/themeA/js/trip/base.js?v=202611171752"></script>
+    <script src="/static/themeA/js/trip/route.js?v=202611171752"></script>
+    <script src="/static/themeA/js/trip/guide.js?v=202611171752"></script>
+    <script src="/static/themeA/js/trip.js?v=202611171752"></script>
+    <script src="/static/themeA/js/customer.js?v=202611171752"></script>
 </body>
 </html>

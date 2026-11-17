@@ -1,4 +1,4 @@
-// 打字机渲染器：把流式文本一段段「打」到气泡里。
+﻿// 打字机渲染器：把流式文本一段段「打」到气泡里。
 //
 // 为什么要打字机：后端是一块块推字过来的，如果每块直接赋值，
 // 会出现「一次糊出一大片」的跳变。这里把积压的字按帧匀着放出来。
@@ -136,7 +136,7 @@ function createTyper(container, bubbleEl){
     raf = requestAnimationFrame(tick);
   }
 
-  return {
+  const api = {
     push(piece){
       if (cutOff || !piece) return;
       const s = String(piece);
@@ -190,6 +190,50 @@ function createTyper(container, bubbleEl){
       followScroll();
       return shown;
     },
+
+    /**
+     * 用定稿补完剩余文字，而不是直接覆盖。
+     *
+     * 场景：后端有些分支一次性给整段固定话术（寒暄、拒答），
+     * 没有逐字推送的中间过程。如果这里直接用 renderFinal，
+     * 打字机刚排好的中间状态会被整段替换掉，观感就是「空白闪一下」。
+     *
+     * 做法：算出「定稿里还没收到过的部分」，只把这一截排进队列。
+     *
+     * 注意：不能拿 shown（已显示的字数）当基准去算还差多少。
+     * 打字机是按帧匀速往外放的，DONE 到达时 queue 里往往还积着
+     * 一大段没显示的字。用 shown 当基准会把「已经收到、只是还没显示」
+     * 的那些字再 push 一遍，页面上就是同一段话重复两遍。
+     * 基准必须是「已经收到过的全部文字」= shown + queue 里所有的字。
+     */
+    pushRemaining(text){
+      const target = String(text == null ? "" : text);
+
+      // 已经收到过的全部文字（显示出来的 + 还在队列里没显示的）
+      let received = shown;
+      for (let i = 0; i < queue.length; i++) received += queue[i];
+
+      // 收到过的部分必须是定稿的前缀，否则说明模型中途改口了，直接覆盖
+      if (!target.startsWith(received)){
+        return api.renderFinal(target);
+      }
+
+      const rest = target.slice(received.length);
+      if (!rest){
+        // 定稿的内容全都收到过了，只等着播完
+        finished = true;
+        schedule();
+        return target;
+      }
+
+      // finished 置 true：队列排空后 tick() 会走收尾分支（去光标、定稿渲染）
+      cutOff = false;
+      finished = true;
+      queue.push(rest);
+      backlog += rest.length;
+      schedule();
+      return target;
+    },
     get text(){ return shown; },
 
     /** 外部在用户滚动时调用：贴底就继续跟随，往上翻就停 */
@@ -197,6 +241,8 @@ function createTyper(container, bubbleEl){
 
     untouched
   };
+
+  return api;
 }
 
 /**

@@ -155,10 +155,13 @@ async function sendCustomer(){
 
         case "DONE":
           if (ev.text){
-            typer.renderFinal(ev.text);
+            // 不要直接 renderFinal：那会把打字机的中间状态整个丢掉，
+            // 拒答和寒暄这类「一次性给整段」的回答就会啪一下糊出来，
+            // 用户看到的是空白气泡闪一下。改成把还差的部分推给打字机。
+            typer.pushRemaining(ev.text);
             answerText = ev.text;
           }else if (typer.untouched()){
-            typer.renderFinal("（没有检索到可用的内容）");
+            typer.pushRemaining("（没有检索到可用的内容）");
           }
           break;
 
