@@ -66,13 +66,25 @@ services:
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
       DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL}
       DEEPSEEK_MODEL: ${DEEPSEEK_MODEL}
-      ZHIPU_API_KEY: ${ZHIPU_API_KEY}
       AMAP_KEY: ${AMAP_KEY}
+
+      # ---- 向量化：用宿主机上跑的 Ollama ----
+      #
+      # 为什么地址不是 127.0.0.1：
+      #   容器里的 127.0.0.1 指的是「容器自己」，不是你的电脑。
+      #   宿主机上的 Ollama 要用 host.docker.internal 这个域名才能访问到。
+      #   所以这里显式指定，覆盖 .env 里给本机用的那个地址。
+      OLLAMA_HOST: http://host.docker.internal:11434
+      OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL:-qwen3-embedding:0.6b}
 
       # ---- 认证 ----
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
 
       TZ: Asia/Shanghai
+    # Linux 上要显式加上这一行，容器才能用 host.docker.internal 找到宿主机。
+    # Docker Desktop（Windows / macOS）默认就支持，加上也没有副作用。
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       # 前端文件直接挂进来：改完刷新页面就生效，不用重建镜像
       - ./static:/app/static

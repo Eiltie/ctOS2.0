@@ -2,8 +2,8 @@
 
 原来这些常量混在 get_llm.py 里，那个文件名叫「拿模型」却装着「文档在哪」，
 找配置的时候根本想不到要翻它。单独拆出来后：
-  - 想知道文档放哪、向量库放哪  → 看这里
-  - 想知道怎么拿模型客户端      → 看 core/llm.py
+  - 想知道文档放哪、向量库放哪、用哪个向量模型  → 看这里
+  - 想知道怎么拿模型客户端                      → 看 core/llm.py
 """
 
 import os
@@ -31,21 +31,37 @@ CHROMA_DIR = MODULE_DIR / "data" / "chroma"
 # 向量库集合名
 COLLECTION_NAME = "ctos2_docs"
 
-# 智谱向量模型
-EMBEDDING_MODEL = "embedding-3"
 
-EMBEDDING_BASE_URL = "https://open.bigmodel.cn/api/paas/v4/embeddings"
+# ---------------------------------------------------------------- 向量化：本机 Ollama
+#
+# 向量检索用的模型跑在本机（Ollama）上，不走云端接口。
+# 好处：不用密钥、不联网、不花钱，入库也快。
+#
+# 两个环境变量可以在 config/.env 里覆盖下面两个默认值：
+#   OLLAMA_HOST         服务的地址，默认本机 11434 端口
+#   OLLAMA_EMBED_MODEL  模型名，默认 qwen3-embedding:0.6b
+
+# 模型名。必须是 embedding 模型，不是对话模型。
+# 本机装了哪些：命令行运行 ollama list 看
+EMBEDDING_MODEL = os.getenv("OLLAMA_EMBED_MODEL") or "qwen3-embedding:0.6b"
+
+# Ollama 服务的地址
+EMBEDDING_HOST = os.getenv("OLLAMA_HOST") or "http://127.0.0.1:11434"
 
 
-def get_zhipu_api_key() -> str:
-    """取智谱密钥；缺了直接报错，避免后面冒出看不懂的 401。"""
-    api_key = os.getenv("ZHIPU_API_KEY")
-    if not api_key:
-        raise RuntimeError("config/.env 里没有 ZHIPU_API_KEY，向量检索无法工作")
-    return api_key
+def embedding_api_url() -> str:
+    """拼出 Ollama 的向量接口地址。
+
+    Ollama 的向量接口是 /api/embed，请求体长这样：
+        {"model": "模型名", "input": ["第一条", "第二条"]}
+    返回里的 embeddings 是一个列表，顺序和传入顺序一致。
+    """
+    return EMBEDDING_HOST.rstrip("/") + "/api/embed"
 
 
 if __name__ == "__main__":
     print("DOCS_DIR   =", DOCS_DIR)
     print("CHROMA_DIR =", CHROMA_DIR)
     print("COLLECTION =", COLLECTION_NAME)
+    print("向量模型   =", EMBEDDING_MODEL)
+    print("向量服务   =", embedding_api_url())
