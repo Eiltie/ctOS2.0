@@ -204,7 +204,8 @@ ctOS2.0/
 │   ├── themeB/         指挥台版：图标导轨 + 右侧控制台（仅宽屏）
 │   └── shared/         两套共用：偏好、在线人数、认证、SSE、图片
 ├── docs/           文档
-├── eval/           端到端测评
+├── eval/           端到端测评（要真模型，手动跑）
+├── tests/          单元测试（不连库不调模型，跑 5 秒）
 ├── scripts/        线上检查脚本
 └── config/         配置
 ```
@@ -302,6 +303,42 @@ python -X utf8 -m modules.customer.rag_eval --fails    # 只看未命中
 
 ---
 
+## 测试
+
+`tests/` 是**单元测试**，和 `eval/` 分工不同：
+
+| | `tests/` | `eval/` |
+| --- | --- | --- |
+| 测什么 | 普通 if/else 的判断代码 | 接上真模型之后的整体表现 |
+| 依赖 | 不连库、不调模型、不要 API key | 要起服务 + 真模型 + 数据库 |
+| 耗时 | 约 5 秒 | 几分钟，且花钱 |
+| 结果 | 稳定，要么全绿要么指出第几条挂 | 每次可能不同，看趋势 |
+| 谁跑 | 本地手动跑；推 GitHub 自动跑 | 手动跑 |
+
+```bash
+# 装测试依赖（只需一次；已装过就跳过）
+venv\Scripts\pip.exe install -r config\requirements-dev.txt
+
+# 全部跑一遍
+venv\Scripts\python.exe -m pytest
+
+# 只跑某一个文件 / 某一条
+venv\Scripts\python.exe -m pytest tests\test_auth.py
+venv\Scripts\python.exe -m pytest -k 天气
+```
+
+**CI**：`.github/workflows/test.yml` 会在每次 `push` 到 `main`、或开 PR 时自动跑一遍，
+结果显示在 GitHub 仓库的 **Actions** 页签（绿勾 / 红叉）。CI 里只跑 `tests/`，不跑 `eval/`。
+
+> 为什么只测这些：模型答得好不好、行程合不合理，断言写不出来。`tests/` 只钉住
+> "`杭州今天天气`永远被认成天气查询""`不想走路`不会被归成综合"这类确定性规则——
+> 这些错了系统照样返回 200，只在结果里静静地错。
+
+改代码导致测试挂掉时，先判断是哪一种：如果是有意改了规则，就**连同测试一起改**；
+如果是没想改、却挂了的，那就是真 bug。
+
+---
+
 ## 测评与调试
 
 ```bash
@@ -366,8 +403,11 @@ powershell -ExecutionPolicy Bypass -File scripts\check_online.ps1
 
 **工程质量**
 
-- **没有单元测试套件**。`eval/run_eval.py` 是能重复跑的端到端验收工具，`rag_eval.py` 是手工跑的检索测评，
-  两者都是"手动跑"的，不会在提交时自动执行
+- **单元测试只覆盖"判断代码"那一层**（见下面「测试」一节）：`core/auth.py` 的 token/密码、
+  `route/need.py` 的需求检查、`route/tools.py` 的偏好归一到打分推荐、`agent.py` 的天气意图判断。
+  模型输出质量、行程合理性、角色像不像，这些测试**测不了**，仍然靠 `eval/` + 人看
+- `eval/run_eval.py` 是能重复跑的端到端验收工具，`rag_eval.py` 是手工跑的检索测评，
+  两者都要真实服务 + 真实模型，不进 CI
 - 没有登录限流，可以被暴力试密码
 - 前端样式表偏大（`themeA/css/modules.css` 3843 行、`ui.css` 3237 行、`themeB/css/style.css` 2449 行），`app.js` 1745 行、`trip/base.js` 1721 行，以后可继续拆
 
@@ -381,6 +421,7 @@ powershell -ExecutionPolicy Bypass -File scripts\check_online.ps1
 | 每个文件做什么 | [docs/files.md](docs/files.md) |
 | 怎么部署（Docker / 本地） | [docs/deployment.md](docs/deployment.md) |
 | 前端怎么组织 | [docs/themes.md](docs/themes.md) |
+| 怎么跑单元测试 | 本文「测试」一节 |
 | 怎么跑测评 | [eval/README.md](eval/README.md) |
 | 主题怎么维护 | [docs/themes.md](docs/themes.md) |
 | 线上打不开怎么排查 | [docs/tunnel-check.md](docs/tunnel-check.md) |

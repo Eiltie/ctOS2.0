@@ -1,0 +1,40 @@
+name: tests
+
+# 每次推到 main 或开 PR 就跑一遍 tests/。
+# 只跑"确定性"的单测：不连数据库、不调模型、不需要任何 API key。
+# 端到端验收（真要调模型）在 eval/，那是手动跑的，不放在这里。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # 想手动点一下也能跑
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # 跟本地保持一致，见 README「前提：Python 3.14」
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: |
+            config/requirements.txt
+            config/requirements-dev.txt
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r config/requirements-dev.txt
+
+      - name: 跑单元测试
+        run: python -m pytest -q

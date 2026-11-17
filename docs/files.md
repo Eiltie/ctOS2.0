@@ -363,7 +363,7 @@ static/
 
 ---
 
-## 七、`config/` `docs/` `eval/` `scripts/`
+## 七、`config/` `docs/` `eval/` `tests/` `scripts/`
 
 | 文件 | 职责 |
 | --- | --- |
@@ -371,6 +371,9 @@ static/
 | `config/YOUR_config.env` | 配置模板，告诉别人要填什么 |
 | `config/notice.json` | **更新公告**：id、标题、日期、正文、条目；改完刷新页面生效 |
 | `config/requirements.txt` | Python 依赖清单（langgraph / langchain 等版本已钉） |
+| `config/requirements-dev.txt` | 开发和测试依赖（= requirements.txt + pytest） |
+| `pytest.ini` | pytest 配置：只扫 `tests/`，不扫 `eval/` |
+| `.github/workflows/test.yml` | CI：push 到 main 或开 PR 时自动跑 `tests/` |
 | `docs/architecture.md` | 请求地图：用户点一下，代码经过哪些文件 |
 | `docs/files.md` | **本文档**：每个文件做什么 |
 | `docs/deployment.md` | 部署说明：线上实例、Docker、本地运行、上线流程 |
@@ -381,6 +384,9 @@ static/
 | `eval/run_eval.py` | 跑测评、自动检查、生成 JSON + Markdown 报告 |
 | `eval/results/` | 每次测评的报告，保留最新一版基线 |
 | `eval/README.md` | 怎么跑、怎么加题、怎么读结果 |
+| `tests/conftest.py` | 给测试进程补一个 `JWT_SECRET_KEY`，不依赖 `config/.env` |
+| `tests/test_auth.py` | token 往返 / 防篡改 / 密码哈希（挡多租户串号） |
+| `tests/test_trip_rules.py` | 天气意图、偏好归一、需求检查、打分与推荐、卡片排版 |
 | `scripts/check_online.ps1` | 连续访问线上关键资源，判断是否间歇性超时 |
 
 ---
@@ -401,6 +407,8 @@ static/
 | 改前端逻辑 | `static/themeA/js/app.js` / `trip.js` / `customer.js`（两套各一份） |
 | 改更新公告 | `config/notice.json` |
 | 跑端到端测评 | `eval/run_eval.py`，题库在 `eval/cases.json` |
+| 跑单元测试 | `venv\Scripts\python.exe -m pytest`（约 5 秒，不连库不调模型） |
+| 改了规则导致测试红 | 补到 `tests/test_trip_rules.py` 或 `tests/test_auth.py` 的对应断言 |
 | 看用户反馈 | `python -X utf8 -m databases.feedback_view` |
 | 检查线上隧道 | `scripts/check_online.ps1`，排查步骤见 `docs/tunnel-check.md` |
 | 加公用前端函数 | `static/shared/js/common/` 下新建文件，并在两套的 `index.html` 里按顺序引入 |
