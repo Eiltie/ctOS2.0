@@ -38,12 +38,17 @@ WORKDIR /app
 COPY config/requirements.txt /app/config/requirements.txt
 RUN pip install --no-cache-dir -r /app/config/requirements.txt
 
-# 再拷代码
-COPY core/ /app/core/
+# 再拷代码（八层结构里除了 tests/ 和 docs/，其余都要进镜像）
+COPY common/ /app/common/
 COPY databases/ /app/databases/
 COPY modules/ /app/modules/
 COPY api/ /app/api/
+COPY cli/ /app/cli/
 COPY static/ /app/static/
+
+# 客服知识库的源语料在 docs/corpus/，入库脚本要读它。
+# 只拷这一个子目录，不把给人读的文档和规划稿也塞进镜像。
+COPY docs/corpus/ /app/docs/corpus/
 
 # 非 root 用户
 RUN useradd -m -u 1000 ctos && chown -R ctos:ctos /app

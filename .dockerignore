@@ -44,10 +44,17 @@ modules/customer/data/chroma/
 modules/customer/eval/runs/
 
 # 文档和截图（不需要进镜像）
+# 但 docs/corpus/ 是客服知识库的源语料，入库脚本要读，必须放行
 docs/
+!docs/corpus/
 screenshot/
 README.md
-*.md
+
+# 注意：*.md 不能一刀切排除，否则 docs/corpus/ 里的知识库文件就进不了镜像。
+# 现在只排除上面这些明确不要的。
+
+# 测试（不进运行镜像）
+tests/
 
 # 编辑器
 .vscode/
