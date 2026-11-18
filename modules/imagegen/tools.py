@@ -21,7 +21,7 @@ from pathlib import Path
 import httpx
 from dotenv import load_dotenv
 
-# 复用项目里已经加载过的 .env（core.llm 加载过一次，这里再调一次没有副作用）
+# 复用项目里已经加载过的 .env（common.llm 加载过一次，这里再调一次没有副作用）
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 load_dotenv(_PROJECT_ROOT / "config" / ".env")
 

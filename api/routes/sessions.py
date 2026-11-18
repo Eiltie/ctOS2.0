@@ -6,7 +6,7 @@
 from fastapi import APIRouter, Header
 
 from api.deps import tenant_of
-from databases.db_roleplay import all_role_session_ids
+from databases.modules.db_roleplay import all_role_session_ids
 from modules.chat.sessions import all_sessions, remove_session, session_messages
 
 router = APIRouter(prefix="/sessions", tags=["会话"])

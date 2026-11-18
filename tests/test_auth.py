@@ -8,7 +8,7 @@
   .\\venv\\Scripts\\python.exe -m pytest tests\\test_auth.py -v
 """
 
-from core.auth import (
+from common.auth import (
     TOKEN_EXPIRE_DAYS,
     create_token,
     decode_token,

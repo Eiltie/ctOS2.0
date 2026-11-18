@@ -50,7 +50,7 @@
 
 传 `role_id` 走 `POST /chat`，会话和消息复用闲聊的表，只在 `role_play_sessions` 里记「这个会话是哪个角色」。
 
-- **预设角色**（写在 `modules/roleplay/presets.py`，改完重启生效）+ **自己写角色**（存 `role_play_roles` 表）
+- **预设角色**（写在 `modules/chat/roleplay/presets.py`，改完重启生效）+ **自己写角色**（存 `role_play_roles` 表）
 - **AI 帮我查**：联网搜资料生成角色草稿，确认后再保存
 - **角色记忆**：每聊 6 轮把对话压缩成 200 字以内的摘要，可查看、可清空
 - **角色档案**：聊天顶部查看完整设定
@@ -97,14 +97,14 @@ cp config/YOUR_config.env config/.env
 
 # 2. 启动
 docker compose --env-file config/.env up -d
-docker exec ctos2-app python -m core.db    # 首次要建表
+docker exec ctos2-app python -m common.db    # 首次要建表
 
 # 3. 打开浏览器
 # http://127.0.0.1:8080/
 ```
 
 > `static/` 已挂载进容器：改前端文件后刷新页面即可生效；
-> 改 Python 代码（`core/`、`api/`、`modules/`）才需要重新构建：
+> 改 Python 代码（`common/`、`api/`、`modules/`、`databases/`）才需要重新构建：
 > `docker compose --env-file config/.env up -d --build app`。
 
 详细说明见 [docs/deployment.md](docs/deployment.md)。
@@ -127,7 +127,7 @@ cp config/YOUR_config.env config/.env
 # 编辑 config/.env
 
 # 4. 建表 + 启动
-python -X utf8 -m core.db
+python -X utf8 -m common.db
 python -X utf8 -m api.main
 ```
 
@@ -181,7 +181,7 @@ ctOS2.0/
 │       ├── presence.py 在线人数
 │       ├── feedback.py 反馈
 │       └── system.py   公告 / 健康检查 / 首页
-├── core/           跨模块公用
+├── common/         公共层：跨模块共用
 │   ├── llm.py          唯一的模型客户端
 │   ├── db.py           数据库连接 + 建表总入口
 │   ├── auth.py         密码哈希 + JWT
@@ -190,24 +190,29 @@ ctOS2.0/
 │   └── tools/          外部数据工具
 │       ├── search.py   联网搜索
 │       ├── weather.py  天气（Open-Meteo）
-│       ├── amap.py     地图（高德）
-│       └── suggest.py  判断"更像路线还是攻略"（关键词）
-├── databases/      表定义和读写
-│   ├── db_tenant.py    tenants
-│   ├── db_auth.py      users
-│   ├── db_chat.py      sessions / messages
-│   ├── db_trip.py      出行的 4 张表（路线和攻略共用）
-│   ├── db_roleplay.py  角色扮演的 3 张表
-│   ├── db_feedback.py  feedback
-│   ├── db_view.py      命令行查看工具
-│   ├── clean_db.py     命令行清理工具
-│   └── feedback_view.py 命令行查看反馈
-├── modules/        四个业务模块
+│       └── amap.py     地图（高德）
+├── databases/      数据库层
+│   ├── common/         公共
+│   │   ├── db.py       连接 + 通用操作 + 建表总入口
+│   │   └── db_tenant.py tenants
+│   ├── modules/        各模块的表
+│   │   ├── db_auth.py      users
+│   │   ├── db_chat.py      sessions / messages / message_images
+│   │   ├── db_trip.py      出行的 4 张表（路线和攻略共用）
+│   │   ├── db_roleplay.py  角色扮演的 3 张表
+│   │   └── db_feedback.py  feedback
+│   └── tools/          运维 CLI
+│       ├── view.py         查看数据
+│       ├── clean.py        清理数据
+│       └── feedback_view.py 查看反馈
+├── modules/        模块层
 │   ├── chat/           闲聊
-│   ├── roleplay/       角色扮演
-│   ├── trip/           路线规划（主功能）
-│   ├── guide/          旅游攻略
-│   └── customer/       RAG 客服（含 data/docs 知识库）
+│   │   └── roleplay/   角色扮演（闲聊的子集）
+│   ├── trip/           智能出行
+│   │   ├── route/      路线规划
+│   │   └── guide/      旅游攻略
+│   ├── customer/       客服（含 data/docs 知识库）
+│   └── imagegen/       生图（在建，尚未接入路由）
 ├── static/         前端（两套独立主题）
 │   ├── index.html      入口：读偏好 + 按屏幕宽度分流
 │   ├── themeA/         经典版：左侧栏 + 气泡对话（手机端只用它）
@@ -248,22 +253,22 @@ ctOS2.0/
 **改了 Python 代码后**，跑一次建表命令可以补上新增的表和字段（`CREATE ... IF NOT EXISTS` / `ALTER ... IF NOT EXISTS`，不动已有数据）：
 
 ```bash
-python -X utf8 -m core.db
+python -X utf8 -m common.db
 ```
 
 ### 查看数据
 
 ```bash
 # 命令行
-python -X utf8 -m databases.db_view            # 用户 + 会话列表
-python -X utf8 -m databases.db_view stats      # 统计
-python -X utf8 -m databases.db_view trips      # 出行列表
-python -X utf8 -m databases.db_view show 5     # 某个会话的对话
-python -X utf8 -m databases.db_view search 端口 # 在所有消息里搜关键词
+python -X utf8 -m databases.tools.view            # 用户 + 会话列表
+python -X utf8 -m databases.tools.view stats      # 统计
+python -X utf8 -m databases.tools.view trips      # 出行列表
+python -X utf8 -m databases.tools.view show 5     # 某个会话的对话
+python -X utf8 -m databases.tools.view search 端口 # 在所有消息里搜关键词
 
 # 用户的反馈（不对外开接口，只走命令行）
-python -X utf8 -m databases.feedback_view        # 最近 20 条
-python -X utf8 -m databases.feedback_view stats  # 统计
+python -X utf8 -m databases.tools.feedback_view        # 最近 20 条
+python -X utf8 -m databases.tools.feedback_view stats  # 统计
 
 # 或者用 psql / VS Code 插件连
 # host=127.0.0.1  port=5432  db=ctos2  user=ctos_app
@@ -273,9 +278,9 @@ python -X utf8 -m databases.feedback_view stats  # 统计
 ### 清理数据
 
 ```bash
-python -X utf8 -m databases.clean_db            # 本机 5432
-python -X utf8 -m databases.clean_db --docker   # Docker 5433（8080 页面用的库）
-docker exec -it ctos2-app python -m databases.clean_db   # 在容器里清理
+python -X utf8 -m databases.tools.clean            # 本机 5432
+python -X utf8 -m databases.tools.clean --docker   # Docker 5433（8080 页面用的库）
+docker exec -it ctos2-app python -m databases.tools.clean   # 在容器里清理
 ```
 
 菜单里可以选：查看现状、清理访客账号、清理某个账号的聊天/出行、删除某个账号、
@@ -359,7 +364,7 @@ python -X utf8 eval/run_eval.py
 python -X utf8 eval/run_eval.py --only trip-route,trip-guide,trip-route-time
 
 # 旅游攻略，终端里对话（路线要暂停选方案，得在网页里用）
-python -X utf8 -m modules.trip.capabilities.guide.cli
+python -X utf8 -m modules.trip.guide.cli
 
 # 检查线上是否可访问
 powershell -ExecutionPolicy Bypass -File scripts\check_online.ps1
@@ -395,7 +400,7 @@ powershell -ExecutionPolicy Bypass -File scripts\check_online.ps1
 
 - 多租户目前只有表结构，**还没有团队协作**（一人一户）
 - 智能客服不写数据库，刷新页面上下文就没了
-- 访客账号不会自动清理，会慢慢堆积（用 `clean_db.py` 或 `DELETE FROM users WHERE email LIKE '%@ctos-trial.local'`）
+- 访客账号不会自动清理，会慢慢堆积（用 `databases.tools.clean` 或 `DELETE FROM users WHERE email LIKE '%@ctos-trial.local'`）
 
 **外部依赖**
 
@@ -413,7 +418,7 @@ powershell -ExecutionPolicy Bypass -File scripts\check_online.ps1
 
 **工程质量**
 
-- **单元测试只覆盖"判断代码"那一层**（见下面「测试」一节）：`core/auth.py` 的 token/密码、
+- **单元测试只覆盖"判断代码"那一层**（见下面「测试」一节）：`common/auth.py` 的 token/密码、
   `route/need.py` 的需求检查、`route/tools.py` 的偏好归一到打分推荐、`agent.py` 的天气意图判断。
   模型输出质量、行程合理性、角色像不像，这些测试**测不了**，仍然靠 `eval/` + 人看
 - `eval/run_eval.py` 是能重复跑的端到端验收工具，`rag_eval.py` 是手工跑的检索测评，

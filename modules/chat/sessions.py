@@ -8,8 +8,8 @@ tenant_id 说明：
 
 from langchain_core.messages import AIMessage, HumanMessage
 
-from core.db import DEFAULT_TENANT_ID
-from databases.db_chat import (
+from common.db import DEFAULT_TENANT_ID
+from databases.modules.db_chat import (
     add_message,
     add_message_image,
     claim_image,

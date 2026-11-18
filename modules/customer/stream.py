@@ -11,7 +11,7 @@ import threading
 from langchain_core.messages import AIMessageChunk
 
 from modules.customer.graph import INITIAL_STATE, build_graph
-from core.sse import sse
+from common.sse import sse
 
 # 客服模块的对外出口：ctOS_chat_api 只 import 这里的 customer_stream
 customer_graph = build_graph()

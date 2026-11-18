@@ -13,8 +13,8 @@
 import pytest
 
 from modules.trip.agent import is_weather_query
-from modules.trip.capabilities.route.need import check_need
-from modules.trip.capabilities.route.tools import (
+from modules.trip.route.need import check_need
+from modules.trip.route.tools import (
     _candidate_score,
     choice_to_card,
     choose_recommended,

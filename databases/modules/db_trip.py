@@ -1,0 +1,350 @@
+"""出行模块的表和增删改查。
+
+表结构：trip_chats 存会话，下面挂 trip_sessions（每一轮）、
+        trip_user_inputs（用户原话）、trip_ai_outputs（AI 四段产出）。
+
+PostgreSQL 版本，与 SQLite 版的差异同 db_chat.py：
+  - IDENTITY 主键、TIMESTAMPTZ 时间、%s 占位符、RETURNING id
+  - 所有表带 tenant_id，所有查询带上它
+"""
+
+from common.db import (
+    DEFAULT_TENANT_ID,
+    execute,
+    execute_returning_id,
+    query,
+    query_one,
+    transaction,
+)
+
+ALLOWED_TURN_KINDS = ("TRAVEL", "CHAT", "ROUTE")
+
+# 老库可能还没加路线 / 攻略建议这些列。第一次存之前查一下，查过就记住，避免每次存都查
+_route_columns_ready = None
+_advice_column_ready = None
+
+
+def _column_exists(column_name):
+    """trip_ai_outputs 里有没有这一列。"""
+    try:
+        row = query_one(
+            "SELECT COUNT(*) AS n FROM information_schema.columns "
+            "WHERE table_name = 'trip_ai_outputs' AND column_name = %s",
+            (column_name,),
+        )
+    except Exception as e:
+        print(f"[数据库] 检查 {column_name} 字段失败：{e}")
+        return False
+
+    return bool(row and row["n"] > 0)
+
+
+def route_columns_ready():
+    """trip_ai_outputs 有没有 route_need 这些列。"""
+    global _route_columns_ready
+
+    # 只有确认存在才缓存；没有或连不上就下次再查，方便补完表不用重启
+    if _route_columns_ready:
+        return True
+
+    if _column_exists("route_need"):
+        _route_columns_ready = True
+        return True
+
+    return False
+
+
+def advice_column_ready():
+    """trip_ai_outputs 有没有 advice 列（攻略的第四段）。"""
+    global _advice_column_ready
+
+    if _advice_column_ready:
+        return True
+
+    if _column_exists("advice"):
+        _advice_column_ready = True
+        return True
+
+    return False
+
+CREATE_TRIP_CHATS_TABLE = """
+CREATE TABLE IF NOT EXISTS trip_chats (
+    id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id   INTEGER     NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    title       TEXT        NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
+CREATE_TRIP_SESSIONS_TABLE = """
+CREATE TABLE IF NOT EXISTS trip_sessions (
+    id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id   INTEGER     NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    chat_id     INTEGER     REFERENCES trip_chats(id) ON DELETE CASCADE,
+    title       TEXT        NOT NULL,
+    turn_kind   TEXT        NOT NULL DEFAULT 'TRAVEL',
+    destination TEXT        NOT NULL DEFAULT '',
+    days        INTEGER     NOT NULL DEFAULT 0,
+    start_date  TEXT        NOT NULL DEFAULT '',
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
+CREATE_TRIP_USER_INPUTS_TABLE = """
+CREATE TABLE IF NOT EXISTS trip_user_inputs (
+    id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id   INTEGER     NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    trip_id     INTEGER     NOT NULL REFERENCES trip_sessions(id) ON DELETE CASCADE,
+    content     TEXT        NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
+CREATE_TRIP_AI_OUTPUTS_TABLE = """
+CREATE TABLE IF NOT EXISTS trip_ai_outputs (
+    id             INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id      INTEGER     NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    trip_id        INTEGER     NOT NULL REFERENCES trip_sessions(id) ON DELETE CASCADE,
+    weather        TEXT        NOT NULL DEFAULT '',
+    spots          TEXT        NOT NULL DEFAULT '',
+    itinerary      TEXT        NOT NULL DEFAULT '',
+    advice         TEXT        NOT NULL DEFAULT '',
+    route_plan     TEXT        NOT NULL DEFAULT '',
+    route_need     TEXT        NOT NULL DEFAULT '',
+    route_compare  TEXT        NOT NULL DEFAULT '',
+    route_decision TEXT        NOT NULL DEFAULT '',
+    route_tips     TEXT        NOT NULL DEFAULT '',
+    chat_reply     TEXT        NOT NULL DEFAULT '',
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
+# 老库升级用：表已经存在时，CREATE TABLE 不会补新列，只能一列一列加
+ADD_TRIP_ROUTE_COLUMNS = (
+    "ALTER TABLE trip_ai_outputs ADD COLUMN IF NOT EXISTS route_need TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE trip_ai_outputs ADD COLUMN IF NOT EXISTS route_compare TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE trip_ai_outputs ADD COLUMN IF NOT EXISTS route_decision TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE trip_ai_outputs ADD COLUMN IF NOT EXISTS route_tips TEXT NOT NULL DEFAULT ''",
+)
+
+# 攻略的第四段从"详细路线"改成"游玩建议"，单独一列；老的 route_plan 保留只读
+ADD_TRIP_ADVICE_COLUMN = (
+    "ALTER TABLE trip_ai_outputs ADD COLUMN IF NOT EXISTS advice TEXT NOT NULL DEFAULT ''",
+)
+
+CREATE_TRIP_INDEXES = (
+    "CREATE INDEX IF NOT EXISTS ix_trip_chats_tenant ON trip_chats (tenant_id, updated_at DESC)",
+    "CREATE INDEX IF NOT EXISTS ix_trip_sessions_chat ON trip_sessions (chat_id)",
+    "CREATE INDEX IF NOT EXISTS ix_trip_user_inputs_trip ON trip_user_inputs (trip_id)",
+    "CREATE INDEX IF NOT EXISTS ix_trip_ai_outputs_trip ON trip_ai_outputs (trip_id)",
+)
+
+
+def create_trip_tables():
+    """建出行的四张表和索引，已存在就跳过；老库顺便补上路线和攻略建议的新列。"""
+    execute(CREATE_TRIP_CHATS_TABLE)
+    execute(CREATE_TRIP_SESSIONS_TABLE)
+    execute(CREATE_TRIP_USER_INPUTS_TABLE)
+    execute(CREATE_TRIP_AI_OUTPUTS_TABLE)
+    for add_column in ADD_TRIP_ROUTE_COLUMNS:
+        execute(add_column)
+    for add_column in ADD_TRIP_ADVICE_COLUMN:
+        execute(add_column)
+    for create_index in CREATE_TRIP_INDEXES:
+        execute(create_index)
+
+
+def _ensure_chat(cur, chat_id, title, tenant_id):
+    """确保 chat_id 存在且属于本租户；不存在就新建，返回可用的 chat_id。"""
+    if chat_id is not None:
+        cur.execute(
+            "SELECT 1 FROM trip_chats WHERE id = %s AND tenant_id = %s",
+            (chat_id, tenant_id),
+        )
+        if cur.fetchone():
+            return chat_id
+
+    # 没有，或者传的 id 不属于本租户：新建一个
+    cur.execute(
+        "INSERT INTO trip_chats (tenant_id, title) VALUES (%s, %s) RETURNING id",
+        (tenant_id, title),
+    )
+    return cur.fetchone()["id"]
+
+
+def save_trip_turn(user_query, ai_output, turn_kind="TRAVEL", chat_id=None,
+                   tenant_id=DEFAULT_TENANT_ID):
+    """把一轮出行对话整体存进会话，返回所属会话 id。"""
+    if turn_kind not in ALLOWED_TURN_KINDS:
+        raise ValueError(f"turn_kind 只能是 {ALLOWED_TURN_KINDS}，收到的是 {turn_kind!r}")
+
+    ai_output = ai_output or {}
+
+    destination = (ai_output.get("destination") or "").strip()
+    title = (ai_output.get("title") or destination or user_query or "")[:14]
+
+    # 还没升级表的时候，路线轮次先不存，至少别让旧模块的保存也一起坏掉
+    if turn_kind == "ROUTE" and not route_columns_ready():
+        print("[数据库] 还没有路线字段，先运行 python -X utf8 -m common.db；这次路线结果不存历史。")
+        return chat_id
+
+    # 一轮对话要写进 trip_ai_outputs 的列。哪些列存在就写哪些，
+    # 这样老库不用等补列也能继续存，不用维护好几种 INSERT
+    columns = {
+        "weather": ai_output.get("weather") or "",
+        "spots": ai_output.get("spots") or "",
+        "itinerary": ai_output.get("itinerary") or "",
+        "route_plan": ai_output.get("route_plan") or "",
+        "chat_reply": ai_output.get("chat_reply") or "",
+    }
+
+    if advice_column_ready():
+        columns["advice"] = ai_output.get("advice") or ""
+
+    if route_columns_ready():
+        columns["route_need"] = ai_output.get("route_need") or ""
+        columns["route_compare"] = ai_output.get("route_compare") or ""
+        columns["route_decision"] = ai_output.get("route_decision") or ""
+        columns["route_tips"] = ai_output.get("route_tips") or ""
+
+    # 一次事务：中途报错整体回滚，不会留下没有子表数据的轮次
+    with transaction() as cur:
+        chat_id = _ensure_chat(cur, chat_id, title, tenant_id)
+
+        cur.execute(
+            "INSERT INTO trip_sessions "
+            "(tenant_id, chat_id, title, turn_kind, destination, days, start_date) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            (tenant_id, chat_id, title, turn_kind, destination,
+             int(ai_output.get("days") or 0), ai_output.get("start_date") or ""),
+        )
+        trip_id = cur.fetchone()["id"]
+
+        # 两张子表都靠这个 trip_id 挂到本轮
+        cur.execute(
+            "INSERT INTO trip_user_inputs (tenant_id, trip_id, content) VALUES (%s, %s, %s)",
+            (tenant_id, trip_id, user_query or ""),
+        )
+
+        # 列名来自上面写死的字典，不是外部输入，拼进 SQL 是安全的
+        names = list(columns)
+        placeholders = ", ".join(["%s"] * (len(names) + 2))
+        cur.execute(
+            f"INSERT INTO trip_ai_outputs (tenant_id, trip_id, {', '.join(names)}) "
+            f"VALUES ({placeholders})",
+            (tenant_id, trip_id, *columns.values()),
+        )
+
+        # 刷新排序用的时间戳，标题保持第一次的
+        cur.execute(
+            "UPDATE trip_chats SET updated_at = CURRENT_TIMESTAMP "
+            "WHERE id = %s AND tenant_id = %s",
+            (chat_id, tenant_id),
+        )
+
+    return chat_id
+
+
+def list_trips(limit=50, tenant_id=DEFAULT_TENANT_ID):
+    """列出最近的出行会话（一个会话一行），新的在前面。"""
+    return query(
+        "SELECT c.id, c.title, c.created_at, c.updated_at, "
+        "       (SELECT COUNT(*) FROM trip_sessions t "
+        "         WHERE t.chat_id = c.id AND t.tenant_id = c.tenant_id) AS turn_count, "
+        "       COALESCE((SELECT t.turn_kind FROM trip_sessions t "
+        "                  WHERE t.chat_id = c.id AND t.tenant_id = c.tenant_id "
+        "                  ORDER BY t.id DESC LIMIT 1), '') AS last_kind "
+        "FROM trip_chats c "
+        "WHERE c.tenant_id = %s "
+        "ORDER BY c.updated_at DESC, c.id DESC LIMIT %s",
+        (tenant_id, limit),
+    )
+
+
+def get_trip(chat_id, tenant_id=DEFAULT_TENANT_ID):
+    """取一个会话的完整对话，按时间顺序给出每一轮；不存在返回 None。"""
+    chat_row = query_one(
+        "SELECT id, title, created_at, updated_at FROM trip_chats "
+        "WHERE id = %s AND tenant_id = %s",
+        (chat_id, tenant_id),
+    )
+    if not chat_row:
+        return None
+
+    turn_rows = query(
+        "SELECT * FROM trip_sessions WHERE chat_id = %s AND tenant_id = %s ORDER BY id",
+        (chat_id, tenant_id),
+    )
+
+    turns = []
+    for row in turn_rows:
+        trip_id = row["id"]
+        user_row = query_one(
+            "SELECT content FROM trip_user_inputs "
+            "WHERE trip_id = %s AND tenant_id = %s ORDER BY id LIMIT 1",
+            (trip_id, tenant_id),
+        )
+        ai_row = query_one(
+            "SELECT * FROM trip_ai_outputs "
+            "WHERE trip_id = %s AND tenant_id = %s ORDER BY id LIMIT 1",
+            (trip_id, tenant_id),
+        )
+
+        turn = dict(row)
+        turn["user_query"] = user_row["content"] if user_row else ""
+        turn["ai_output"] = dict(ai_row) if ai_row else {}
+        turns.append(turn)
+
+    result = dict(chat_row)
+    result["turns"] = turns
+    return result
+
+
+def delete_trip(chat_id, tenant_id=DEFAULT_TENANT_ID):
+    """删除会话及其全部轮次，返回删掉的会话行数。
+
+    子表现在有 ON DELETE CASCADE，删 trip_chats 会自动清掉下游，
+    但这里仍然显式按顺序删，方便以后去掉外键也不会留孤儿。
+    """
+    with transaction() as cur:
+        cur.execute(
+            "DELETE FROM trip_user_inputs WHERE trip_id IN "
+            "(SELECT id FROM trip_sessions WHERE chat_id = %s AND tenant_id = %s)",
+            (chat_id, tenant_id),
+        )
+        cur.execute(
+            "DELETE FROM trip_ai_outputs WHERE trip_id IN "
+            "(SELECT id FROM trip_sessions WHERE chat_id = %s AND tenant_id = %s)",
+            (chat_id, tenant_id),
+        )
+        cur.execute(
+            "DELETE FROM trip_sessions WHERE chat_id = %s AND tenant_id = %s",
+            (chat_id, tenant_id),
+        )
+        cur.execute(
+            "DELETE FROM trip_chats WHERE id = %s AND tenant_id = %s",
+            (chat_id, tenant_id),
+        )
+        return cur.rowcount
+
+
+def delete_trips(chat_ids, tenant_id=DEFAULT_TENANT_ID):
+    """批量删除多个会话，返回真正删掉的个数。
+
+    一个会话删失败不影响其他会话，逐个删，最后只报成功数量。
+    """
+    deleted = 0
+    for chat_id in chat_ids:
+        try:
+            if delete_trip(chat_id, tenant_id) > 0:
+                deleted += 1
+        except Exception as e:
+            print(f"[数据库] 删除出行会话 {chat_id} 失败：{e}")
+
+    return deleted
+
+
+if __name__ == "__main__":
+    create_trip_tables()
+    print("出行表建好了")

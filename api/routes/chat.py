@@ -11,17 +11,17 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from api.deps import resolve_images, tenant_of
-from databases.db_chat import add_message_image, get_image
-from databases.db_roleplay import add_one_round, get_memory, get_role_id, is_my_session, link_role_session
+from databases.modules.db_chat import add_message_image, get_image
+from databases.modules.db_roleplay import add_one_round, get_memory, get_role_id, is_my_session, link_role_session
 from modules.chat.attachments import (
     MAX_IMAGES_PER_MESSAGE,
     BadImage,
     read_image,
     save_image,
 )
-from modules.roleplay.memory import refresh_memory
-from modules.roleplay.roles import get_role
-from modules.roleplay.stream import role_play_stream
+from modules.chat.roleplay.memory import refresh_memory
+from modules.chat.roleplay.roles import get_role
+from modules.chat.roleplay.stream import role_play_stream
 from modules.chat.sessions import (
     attach_images,
     build_user_message,

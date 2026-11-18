@@ -8,7 +8,7 @@ import time as _time
 from fastapi import APIRouter, Header
 
 from api.deps import tenant_of
-from databases.db_auth import count_online, touch_last_seen
+from databases.modules.db_auth import count_online, touch_last_seen
 
 router = APIRouter(prefix="/presence", tags=["在线人数"])
 

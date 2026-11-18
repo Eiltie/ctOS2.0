@@ -20,11 +20,11 @@
 
 from langchain_core.messages import AIMessage, HumanMessage
 
-from core.sse import sse
-from databases.db_trip import save_trip_turn
-from modules.trip.capabilities.guide.quick import answer_weather
-from modules.trip.capabilities.guide.stream import start_guide
-from modules.trip.capabilities.route.stream import start_route_decision
+from common.sse import sse
+from databases.modules.db_trip import save_trip_turn
+from modules.trip.guide.quick import answer_weather
+from modules.trip.guide.stream import start_guide
+from modules.trip.route.stream import start_route_decision
 from modules.trip.graph import agent_graph
 
 # 只是问天气时，先查真实数据再让 Agent 作答——不然模型会编气温

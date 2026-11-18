@@ -18,7 +18,7 @@ import json
 import re
 
 from modules.customer.state import AgentState
-from core.llm import get_llm
+from common.llm import get_llm
 from modules.customer.prompts import (
     ANSWER_PROMPT,
     NOT_FOUND_ANSWER,

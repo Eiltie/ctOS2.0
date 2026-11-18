@@ -7,7 +7,7 @@
 判断"这句话该干什么"是 Agent 的事（modules/trip/agent.py），这里不掺和。
 """
 
-from core.sse import sse, stream_from_thread
+from common.sse import sse, stream_from_thread
 from modules.trip.agent import run_trip_service
 
 

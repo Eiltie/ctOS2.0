@@ -15,7 +15,7 @@ from datetime import date
 from langchain_core.messages import HumanMessage
 from langgraph.types import interrupt
 
-from core.llm import get_llm
+from common.llm import get_llm
 from modules.imagegen.prompts import (
     ASK_QUESTION,
     FALLBACK_TOPICS,

@@ -62,7 +62,7 @@ def get_notice():
 @router.get("/health")
 async def health():
     """健康检查：不需要登录，给部署平台和监控用。"""
-    from core.db import check_connection
+    from common.db import check_connection
 
     try:
         info = check_connection()

@@ -9,8 +9,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from api.deps import sse_headers, tenant_of
-from core.sse import stream_from_thread
-from modules.trip.capabilities.guide.stream import resume_guide
+from common.sse import stream_from_thread
+from modules.trip.guide.stream import resume_guide
 
 router = APIRouter(prefix="/guide", tags=["旅游攻略"])
 

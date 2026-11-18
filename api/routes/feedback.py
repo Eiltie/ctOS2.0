@@ -1,7 +1,7 @@
 """反馈路由：/feedback，用户提交评价和意见。
 
 独立功能，和三个业务模块没有关系。
-不需要了，删掉这个文件 + databases/db_feedback.py + feedback_view.py 即可。
+不需要了，删掉这个文件 + databases/modules/db_feedback.py + feedback_view.py 即可。
 """
 
 import time
@@ -10,7 +10,7 @@ from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel
 
 from api.deps import tenant_of
-from databases.db_feedback import VALID_PAGES, VALID_RATINGS, add_feedback
+from databases.modules.db_feedback import VALID_PAGES, VALID_RATINGS, add_feedback
 
 router = APIRouter(tags=["反馈"])
 

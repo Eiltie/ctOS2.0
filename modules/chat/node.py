@@ -7,7 +7,7 @@
 from modules.chat.state import AgentState
 from langchain_core.messages import SystemMessage
 from modules.chat.prompts import ctOS_chat_prompts
-from core.llm import get_llm
+from common.llm import get_llm
 
 # 对话图里唯一的节点：拼系统提示词后调一次模型，返回回复
 

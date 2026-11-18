@@ -14,12 +14,12 @@
 
 为什么带检查点：
   ask 用的是 interrupt，必须能暂停后恢复。
-  和路线决策共用 core.checkpoints 的那个 saver，靠线程号前缀区分。
+  和路线决策共用 common.checkpoints 的那个 saver，靠线程号前缀区分。
 """
 
 from langgraph.graph import END, START, StateGraph
 
-from core.checkpoints import get_checkpointer
+from common.checkpoints import get_checkpointer
 from modules.imagegen.node import ask_node, generate_node, plan_node
 from modules.imagegen.state import STATUS_NEED_MORE, ImageState
 

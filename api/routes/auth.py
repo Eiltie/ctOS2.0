@@ -15,8 +15,8 @@ import re
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
-from core.auth import create_token, decode_token, hash_password, verify_password
-from databases.db_auth import (
+from common.auth import create_token, decode_token, hash_password, verify_password
+from databases.modules.db_auth import (
     create_user,
     get_user_by_email,
     get_user_by_id,

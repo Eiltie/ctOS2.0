@@ -8,7 +8,7 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
 from api.deps import clean_text, tenant_of
-from databases.db_roleplay import (
+from databases.modules.db_roleplay import (
     clear_memory,
     create_custom_role,
     delete_custom_role,
@@ -18,15 +18,15 @@ from databases.db_roleplay import (
     link_role_session,
 )
 from modules.chat.sessions import resolve_session, save_ai_reply
-from modules.roleplay.openings import make_opening, split_opening
-from modules.roleplay.presets import public_role
-from modules.roleplay.roles import (
+from modules.chat.roleplay.openings import make_opening, split_opening
+from modules.chat.roleplay.presets import public_role
+from modules.chat.roleplay.roles import (
     DEFAULT_ROLE_BOUNDARIES,
     all_roles,
     get_role,
     public_profile,
 )
-from modules.roleplay.search import search_role
+from modules.chat.roleplay.search import search_role
 
 router = APIRouter(prefix="/roleplay", tags=["角色扮演"])
 

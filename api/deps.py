@@ -15,7 +15,7 @@
 from fastapi import HTTPException
 
 from api.routes.auth import current_tenant
-from databases.db_chat import get_image
+from databases.modules.db_chat import get_image
 from modules.chat.attachments import MAX_IMAGES_PER_MESSAGE
 
 

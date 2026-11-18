@@ -12,7 +12,7 @@ import json
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-from core.llm import get_llm
+from common.llm import get_llm
 from modules.chat.sessions import text_of
 from modules.trip.prompts import AGENT_PROMPT
 from modules.trip.state import TripState

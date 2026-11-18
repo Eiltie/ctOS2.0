@@ -96,7 +96,7 @@ docker compose --env-file config/.env up -d
 ### 第一次部署时要建表
 
 ```powershell
-docker exec ctos2-app python -m core.db
+docker exec ctos2-app python -m common.db
 ```
 
 ---
@@ -140,7 +140,7 @@ docker exec ctos2-app python -m core.db
 | 出行暂停现场 | `./databases/checkpoints`（挂载） | 容器重建后，没选完的方案还能接着选 |
 | 前端文件 | `./static`（挂载） | 镜像里也 COPY 了一份，挂载后**以宿主机为准**：改完刷新页面就生效 |
 | 更新公告 | `./config/notice.json`（挂载） | 改完刷新页面就生效 |
-| 后端代码 | 镜像里 | 改 `core/` / `api/` / `modules/` 要 `docker compose build` |
+| 后端代码 | 镜像里 | 改 `common/` / `api/` / `modules/` / `databases/` 要 `docker compose build` |
 
 **挂载了 `databases/checkpoints` 很关键**：不挂的话，容器一重建，
 用户正在选的候选路线就没了（`/trip/route/choose` 会提示「这次路线决策已经失效」）。
@@ -182,7 +182,7 @@ D:\PostgreSQL\pgsql\bin\pg_ctl.exe -D D:\PostgreSQL\data -l D:\PostgreSQL\server
 
 # 2. 建表（第一次）
 cd D:\ctOS2.0
-venv\Scripts\python.exe -X utf8 -m core.db
+venv\Scripts\python.exe -X utf8 -m common.db
 
 # 3. 启动应用
 venv\Scripts\python.exe -X utf8 -m api.main
@@ -202,7 +202,7 @@ D:\PostgreSQL\pgsql\bin\pg_ctl.exe -D D:\PostgreSQL\data stop
 
 ## 五、环境变量
 
-所有配置只在 `config/.env` **一份**。代码和 Docker 都读它——Docker 通过 `--env-file config/.env` 指定，代码通过 `core/llm.py` 里的 `load_dotenv` 读取。
+所有配置只在 `config/.env` **一份**。代码和 Docker 都读它——Docker 通过 `--env-file config/.env` 指定，代码通过 `common/llm.py` 里的 `load_dotenv` 读取。
 
 | 变量 | 必填 | 说明 |
 | --- | --- | --- |
@@ -266,7 +266,7 @@ docker compose --env-file config/.env logs app
 
 ```powershell
 # 看是不是连不上数据库
-docker exec ctos2-app python -c "from core.db import check_connection; print(check_connection())"
+docker exec ctos2-app python -c "from common.db import check_connection; print(check_connection())"
 ```
 
 ### 端口被占用
@@ -281,7 +281,7 @@ Get-NetTCPConnection -LocalPort 8080 -State Listen
 - 改的是 **前端**（`static/`）或 **公告**（`config/notice.json`）：已经挂载进容器，刷新页面即可
   - 但 `.js` / `.css` 会被 Cloudflare 缓存，改完先跑 `node scripts/stamp-static.js` 加版本号，否则线上看不到改动
   - 确认是否已生效：`curl -s https://ctos2.cn/ | findstr "?v="` 看版本号有没有变
-- 改的是 **后端**（`core/` / `api/` / `modules/`）：代码打包在镜像里，**必须重新构建**：
+- 改的是 **后端**（`common/` / `api/` / `modules/` / `databases/`）：代码打包在镜像里，**必须重新构建**：
 
 ```powershell
 docker compose --env-file config/.env build
@@ -295,7 +295,7 @@ docker compose --env-file config/.env up -d
 ```powershell
 docker compose --env-file config/.env down -v      # ⚠️ 删数据卷
 docker compose --env-file config/.env up -d
-docker exec ctos2-app python -m core.db
+docker exec ctos2-app python -m common.db
 ```
 
 ---
@@ -348,12 +348,12 @@ curl https://ctos2.cn/health
 | --- | --- |
 | 服务器上的 `config/.env` 是最新的 | 密钥只在服务器上有一份，本地改了不会自动同步过去 |
 | 服务器上的 `modules/customer/data/chroma/` 存在 | 向量库是目录挂载，**不进镜像**，服务器第一次部署必须先跑一次入库脚本 |
-| 服务器上跑过 `python -m core.db` | 建表是一次性的，没建表的话注册登录会直接报错 |
+| 服务器上跑过 `python -m common.db` | 建表是一次性的，没建表的话注册登录会直接报错 |
 
 **每次升级代码后**（不只是第一次）建议补做两件事：
 
 ```bash
-docker exec ctos2-app python -m core.db                     # 补新增的表 / 字段（IF NOT EXISTS，不动数据）
+docker exec ctos2-app python -m common.db                     # 补新增的表 / 字段（IF NOT EXISTS，不动数据）
 docker exec ctos2-app python -m modules.customer.rag_ingest # 只有改了知识库文档才需要
 ```
 
@@ -370,7 +370,7 @@ cp config/YOUR_config.env config/.env    # 填好密钥
 docker compose --env-file config/.env up -d
 
 # 4. 建表（一次性）
-docker exec ctos2-app python -m core.db
+docker exec ctos2-app python -m common.db
 
 # 5. 知识库入库（一次性，结果落进挂载的 chroma 目录）
 docker exec ctos2-app python -m modules.customer.rag_ingest
@@ -391,7 +391,7 @@ docker exec ctos2-db psql -U ctos_app ctos2 -c "\dt"
 
 ```bash
 # 补上 trip_ai_outputs.advice 列（攻略第四段从"详细路线"改成"游玩建议"）
-docker exec ctos2-app python -m core.db
+docker exec ctos2-app python -m common.db
 
 # 重启应用，让客服读到新的知识库
 docker restart ctos2-app
