@@ -27,17 +27,29 @@
 ## 二、`api/` —— HTTP 接口层
 
 **只做一件事：把 HTTP 请求转成业务调用，返回响应。**
+每个模块一个路由文件，`main.py` 只负责装配。
 
 | 文件 | 行数 | 职责 |
 | --- | --- | --- |
-| `main.py` | 777 | **唯一入口**。定义所有路由（`/chat`、`/trip/*`、`/customer/*`、`/roleplay/*`、`/sessions`、`/feedback`、`/notice`、`/health`），挂载静态文件。每个业务接口都从这里取 `tenant_id` 做隔离。`NoCacheStaticFiles` 给静态文件发 `no-cache`，避免 CDN 缓存旧样式 |
-| `routes/auth.py` | 156 | 注册、登录、查当前用户。`current_tenant()` 是所有接口的数据隔离入口 |
-| `routes/trial.py` | 117 | **访客账号**：`POST /auth/trial` 自动建访客账号并登录（见下方说明） |
+| `main.py` | 60 | **只做装配**：建 app、挂静态文件、把 11 个路由 include 进来。`NoCacheStaticFiles` 给静态文件发 `no-cache`，避免 CDN 缓存旧样式 |
+| `deps.py` | 46 | **路由们共用**：`tenant_of()`（取租户，数据隔离入口）、`resolve_images()`（校验图片归属）、`sse_headers()`、`clean_text()` |
+| `routes/auth.py` | 118 | 注册、登录、查当前用户。`current_tenant()` 是所有接口的数据隔离入口 |
+| `routes/trial.py` | 90 | **访客账号**：`POST /auth/trial` 自动建访客账号并登录（见下方说明） |
+| `routes/chat.py` | 130 | `/chat`（闲聊 + 角色扮演，按 `role_id` 分流）、`/chat/attachment` 上传/取图 |
+| `routes/trip.py` | 104 | `/trip/chat` 唯一入口、`/trip/route/choose`、`/trip/route/place`、`/trip/list`、`/trip/{id}`、批量删除 |
+| `routes/guide.py` | 32 | `/guide/spots`（勾完景点继续）、`/guide/ping` |
+| `routes/roleplay.py` | 181 | `/roleplay/*`：角色列表/详情/删除/搜索/创建、开始、会话回查、记忆查看/清空 |
+| `routes/customer.py` | 28 | `/customer/chat`、`/customer/ping` |
+| `routes/sessions.py` | 26 | `/sessions`：列出、读消息、删除（闲聊和角色扮演共用） |
+| `routes/presence.py` | 31 | `/presence/ping` 心跳、`/presence/online` 在线人数 |
+| `routes/feedback.py` | 65 | `/feedback` 提交反馈（含按 IP 限流） |
+| `routes/system.py` | 63 | `/notice` 公告、`/health` 健康检查、`/` 首页入口 |
 
-**读代码的顺序**：先看 `main.py` 的路由列表，知道有哪些接口，再按需跳进去。
+**读代码的顺序**：先看 `main.py` 的 include 顺序，知道有哪些接口，再按路径第一段跳进对应的 `routes/xxx.py`。
 
-> `main.py` 已经 777 行，比 `docs/files.md` 之前记的 192 行多了四倍多。
-> 如果再长，可以考虑把「角色扮演」和「反馈」两块拆成 `api/routes/roleplay.py`、`api/routes/feedback.py`。
+> 接口路径的第一段基本就是文件名，例如 `/roleplay/*` 在 `routes/roleplay.py`。
+> 唯一例外：`/chat` 和角色扮演相关但分在两个文件——`routes/chat.py` 管对话本身（含 `role_id` 分支），
+> `routes/roleplay.py` 管角色的增删查和记忆。
 
 ### `routes/trial.py`：访客账号（可整块删除）
 
@@ -47,11 +59,12 @@
 
 它**不碰任何现有逻辑**：账号走的是 `create_user()`，所以租户隔离、会话读写全部照常工作。
 
-**不需要了怎么删**（三处引用）：
+**不需要了怎么删**（四处引用）：
 
-1. `api/main.py`：`from api.routes.trial import ...` 那一行 + `app.include_router(trial_router)` 那一行
-2. `static/shared/js/common/auth.js`：`guestLogin()` 和 `ensureSession()` 里的访客分支
-3. `static/index.html`：登录弹层里的「不登录，直接以访客身份使用」按钮
+1. `api/routes/trial.py`：整个文件
+2. `api/main.py`：`from api.routes import (...)` 里去掉 `trial`，并删掉 `app.include_router(trial.router)` 那一行
+3. `static/shared/js/common/auth.js`：`guestLogin()` 和 `ensureSession()` 里的访客分支
+4. `static/index.html`：登录弹层里的「不登录，直接以访客身份使用」按钮
 
 删完项目行为和加这个文件之前完全一样。访客账号以后要清理的话：
 `DELETE FROM users WHERE email LIKE '%@ctos-trial.local'`（或跑 `clean_db.py`）。
@@ -403,7 +416,7 @@ static/
 | --- | --- |
 | 换模型 / 调温度 | `core/llm.py` |
 | 改提示词 | 对应模块的 `prompts.py` |
-| 加一个新接口 | `api/main.py`（或新建 `api/routes/xxx.py`） |
+| 加一个新接口 | 新建 `api/routes/xxx.py`，再到 `api/main.py` 加一行 `include_router` |
 | 加一张表 | 新建 `databases/db_xxx.py`，并在 `core/db.py` 的 `create_all_tables()` 里加一行 `("databases.db_xxx", "create_xxx_tables")` |
 | 改流式事件格式 | 对应模块的 `stream.py`（打包函数在 `core/sse.py`） |
 | 加外部工具 | `core/tools/`（搜索 / 天气 / 地图各一个文件） |
@@ -437,7 +450,7 @@ static/
 | `static/themeA/js/app.js` | 1745 |
 | `static/themeA/js/trip/base.js` | 1721 |
 | `static/themeB/css/theme-light.css` | 1038 |
-| `api/main.py` | 866 |
+| `api/main.py` | 60 |
 | `static/themeB/js/console.js` | 833 |
 | `core/tools/amap.py` | 600 |
 | `modules/trip/capabilities/route/stream.py` | 505 |

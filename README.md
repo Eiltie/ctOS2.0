@@ -166,11 +166,21 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 ```
 ctOS2.0/
-├── api/            接口层（路由）
-│   ├── main.py         所有路由（含反馈、公告、角色扮演）
+├── api/            接口层（每个模块一个路由文件）
+│   ├── main.py         只做装配：建 app + 挂静态 + include_router
+│   ├── deps.py         共用：租户解析 / 图片校验 / SSE 响应头
 │   └── routes/
 │       ├── auth.py     注册 / 登录 / 当前用户
-│       └── trial.py    访客账号（可整块删）
+│       ├── trial.py    访客账号（可整块删）
+│       ├── chat.py     闲聊 + 角色扮演 + 图片附件
+│       ├── trip.py     智能出行
+│       ├── guide.py    旅游攻略
+│       ├── roleplay.py 角色扮演（角色增删查 + 记忆）
+│       ├── customer.py 智能客服
+│       ├── sessions.py 会话列表 / 读消息 / 删除
+│       ├── presence.py 在线人数
+│       ├── feedback.py 反馈
+│       └── system.py   公告 / 健康检查 / 首页
 ├── core/           跨模块公用
 │   ├── llm.py          唯一的模型客户端
 │   ├── db.py           数据库连接 + 建表总入口

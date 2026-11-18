@@ -12,11 +12,21 @@
 
 ```
 ctOS2.0/
-├── api/
-│   ├── main.py            ← 唯一入口，所有业务路由都在这里
+├── api/                   ← 接口层：每个模块一个路由文件
+│   ├── main.py            ← 只做装配：建 app、挂静态、include_router
+│   ├── deps.py            ← 共用：tenant_of() / resolve_images() / sse_headers()
 │   └── routes/
-│       ├── auth.py        ← 认证路由 /auth/*
-│       └── trial.py       ← 访客账号 POST /auth/trial（可整块删）
+│       ├── auth.py        ← /auth/*（注册登录）
+│       ├── trial.py       ← 访客账号 POST /auth/trial（可整块删）
+│       ├── chat.py        ← /chat + /chat/attachment（含角色扮演分支）
+│       ├── trip.py        ← /trip/*（出行唯一入口 + 路线选择 + 会话管理）
+│       ├── guide.py       ← /guide/spots（勾完景点继续）
+│       ├── roleplay.py    ← /roleplay/*（角色列表/新建/搜索/开始/记忆）
+│       ├── customer.py    ← /customer/*
+│       ├── sessions.py    ← /sessions（列出/读消息/删除）
+│       ├── presence.py    ← /presence/*（在线人数）
+│       ├── feedback.py    ← /feedback
+│       └── system.py      ← /notice /health /（首页）
 ├── core/                  ← 跨模块共用
 │   ├── llm.py             ← 唯一的 get_llm()
 │   ├── sse.py             ← sse() 打包 + stream_from_thread()
@@ -26,8 +36,7 @@ ctOS2.0/
 │   └── tools/             ← 外部数据工具（谁都能用，不判断、不调模型）
 │       ├── search.py      ← web_search（攻略搜景点、角色扮演 AI 帮我查）
 │       ├── weather.py     ← get_weather（Open-Meteo）
-│       ├── amap.py        ← 高德：地名查坐标、四种方式的候选路线
-│       └── suggest.py     ← 判断"这句更像路线还是攻略"（纯关键词）
+│       └── amap.py        ← 高德：地名查坐标、四种方式的候选路线
 ├── databases/             ← 各模块的表和增删改查
 │   ├── db_tenant.py       ← 全局身份表 tenants（谁都不依赖它，它也不依赖谁）
 │   ├── db_auth.py         ← 账号 users
@@ -68,8 +77,8 @@ ctOS2.0/
 浏览器 static/index.html   （本地 127.0.0.1:8080 / 线上 https://ctos2.cn）
         │
         ▼
-api/main.py          ← 唯一入口，所有路由都在这里
-   │  ↑ 每个业务请求先进 auth，从 token 取出 tenant_id
+api/main.py          ← 只做装配；每个模块的路由在 api/routes/<模块>.py
+   │  ↑ 每个业务请求先进 auth，从 token 取出 tenant_id（api/deps.py 的 tenant_of）
    │
    ├─ POST /auth/trial ──→ 访客账号（页面首次打开自动调用）
    ├─ POST /chat/attachment ──→ 上传图片，返回 image_id
@@ -78,6 +87,21 @@ api/main.py          ← 唯一入口，所有路由都在这里
    ├─ POST /trip/chat ──→ 智能出行（Agent 判断：自己答 / 路线 / 攻略）  SSE 事件流（可带 image_ids）
    └─ POST /customer/chat ─→ 客服           SSE 事件流
 ```
+
+**路由文件怎么找**：接口路径的第一段基本就是文件名。
+
+| 接口 | 文件 |
+| --- | --- |
+| `/auth/*` | `routes/auth.py`、`routes/trial.py` |
+| `/chat`、`/chat/attachment` | `routes/chat.py` |
+| `/trip/*` | `routes/trip.py` |
+| `/guide/*` | `routes/guide.py` |
+| `/roleplay/*` | `routes/roleplay.py` |
+| `/customer/*` | `routes/customer.py` |
+| `/sessions` | `routes/sessions.py` |
+| `/presence/*` | `routes/presence.py` |
+| `/feedback` | `routes/feedback.py` |
+| `/notice`、`/health`、`/` | `routes/system.py` |
 
 **识图的接入点（重要）：**
 
@@ -521,8 +545,9 @@ modules/weather/
    然后把 `create_weather_tables()` 加进 **`core/db.py`** 的 `create_all_tables()`
    里的 `module_builders` 列表（写成 `("databases.db_weather", "create_weather_tables")`）。
    注意 `tenants` 必须最先建，新表如果要外键引用它，写进 `module_builders` 就自动排在后面
-6. **在 `api/main.py` 加路由**：`from modules.weather.stream import weather_stream`，
-   并补一个 `GET /weather/ping` 存活检测
+6. **加路由**：新建 `api/routes/weather.py` 写好路由，再到 `api/main.py` 里
+   `from api.routes import weather` + `app.include_router(weather.router)`。
+   记得补一个 `GET /weather/ping` 存活检测
 7. **回到这份文档，补一节「天气链路」**
 
 **第 5、6 步最容易忘**：忘了第 5 步会「表不存在」报错，忘了第 6 步前端根本调不到。
