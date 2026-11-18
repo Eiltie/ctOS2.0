@@ -342,7 +342,7 @@ venv\Scripts\python.exe -m pytest -k 天气
 ## 测评与调试
 
 ```bash
-# 端到端测评：跑真实接口 + 自动检查 + 出报告（题库 39 条）
+# 端到端测评：跑真实接口 + 自动检查 + 出报告（题库 36 条）
 python -X utf8 eval/run_eval.py
 
 # 只跑出行那几条（12 条）
