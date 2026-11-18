@@ -62,14 +62,20 @@ def resolve_session(session_id, first_message, tenant_id=DEFAULT_TENANT_ID):
 
 
 def save_ai_reply(session_id, content, tenant_id=DEFAULT_TENANT_ID):
-    """存一条 AI 回复，失败只打印，不影响已返回的内容。"""
+    """存一条 AI 回复，返回 message_id；失败只打印，不影响已返回的内容。
+
+    为什么返回 id：
+      生图场景要把生成的图挂到这条回复上（message_images.message_id），
+      没有 id 就挂不上，回放历史时图就丢了。
+    """
     if session_id is None or not content:
-        return
+        return None
 
     try:
-        add_message(session_id, "assistant", content, tenant_id=tenant_id)
+        return add_message(session_id, "assistant", content, tenant_id=tenant_id)
     except Exception as e:
         print(f"[数据库] 写入 AI 回复失败：{e}")
+        return None
 
 
 def save_user_message(session_id, content, tenant_id=DEFAULT_TENANT_ID):

@@ -5,13 +5,14 @@
 """
 
 import asyncio
+import re
 
 from fastapi import APIRouter, File, Header, HTTPException, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from api.deps import resolve_images, tenant_of
-from databases.modules.db_chat import add_message_image, get_image
+from databases.modules.db_chat import add_message_image, claim_image, get_image
 from databases.modules.db_roleplay import add_one_round, get_memory, get_role_id, is_my_session, link_role_session
 from modules.chat.attachments import (
     MAX_IMAGES_PER_MESSAGE,
@@ -33,6 +34,43 @@ from modules.chat.sessions import (
 from modules.chat.stream import run_graph
 
 router = APIRouter(tags=["闲聊"])
+
+# 生图标记：[IMAGE:123]。modules/chat/stream.py 在流末尾追加。
+_IMAGE_MARK_RE = re.compile(r"\s*\[IMAGE:(\d+)\]\s*")
+
+
+def split_image_marks(text: str) -> tuple[str, list[int]]:
+    """把回复里的 [IMAGE:id] 标记拆出来。
+
+    返回（干净的文字, 图片 id 列表）。
+
+    为什么要拆：
+      标记是给前端看的，不能存进数据库正文——否则回放历史时
+      用户会看到一行 [IMAGE:42] 这种怪东西。
+      图本身靠 message_images 关联到消息上，回放时自然能显示。
+    """
+    ids = [int(m) for m in _IMAGE_MARK_RE.findall(text or "")]
+    cleaned = _IMAGE_MARK_RE.sub("\n", text or "").strip()
+    # 连续空行收成一个
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned, ids
+
+
+def attach_generated_images(message_id, image_ids, session_id=None, tenant_id=None):
+    """把生成的图认领到 AI 回复这条消息上。
+
+    这些图是 stream.py 先插的空记录（message_id 为空），
+    这里 UPDATE 认领，和用户上传图的处理方式一致。
+    失败只打印 —— 图挂不上不该让整轮对话失败。
+    """
+    if not message_id or not image_ids:
+        return
+
+    for image_id in image_ids:
+        try:
+            claim_image(image_id, message_id, session_id=session_id, tenant_id=tenant_id)
+        except Exception as e:
+            print(f"[生图] 认领图片失败（不影响本轮回复）：{e}")
 
 
 class ChatRequest(BaseModel):
@@ -162,14 +200,28 @@ async def chat(req: ChatRequest, authorization: str | None = Header(default=None
 
         collection = []
 
-        async for chunks in run_graph(query):
+        # 传 tenant_id / session_id：这句是在让 AI 画图时，run_graph 会生图
+        # 并在流末尾追加 [IMAGE:id] 标记
+        async for chunks in run_graph(query, tenant_id=tenant_id, session_id=session_id):
             collection.append(chunks)
             yield chunks
+
+        raw_reply = "".join(collection)
+
+        # 存库前把图片标记拆出来：
+        #   · 标记是给前端的，不该进正文（历史回放会显示成一行怪东西）
+        #   · 图本身走 message_images，挂到这条 AI 回复上，回放时能正常显示
+        reply_text, image_ids = split_image_marks(raw_reply)
 
         # 正文只存纯文字（图在 message_images 里），历史回放才不会被块数组弄崩
         message_id = save_user_message(session_id, req.messages, tenant_id=tenant_id)
         attach_images(message_id, image_records, session_id=session_id, tenant_id=tenant_id)
-        save_ai_reply(session_id, "".join(collection), tenant_id=tenant_id)
+
+        reply_id = save_ai_reply(session_id, reply_text, tenant_id=tenant_id)
+
+        # 把生成的图挂到 AI 回复上（和用户上传的图走同一套关联）
+        if image_ids and reply_id:
+            attach_generated_images(reply_id, image_ids, session_id=session_id, tenant_id=tenant_id)
 
     headers = {"X-Session-Id": str(session_id)} if session_id else {}
 

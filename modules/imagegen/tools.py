@@ -224,12 +224,30 @@ def _explain_error(response) -> str:
     return f"生图接口报错（HTTP {response.status_code}）：{text[:120]}"
 
 
-def save_generated(content: bytes) -> tuple[str, str]:
+def save_generated(content: bytes, tenant_id: int | None = None) -> tuple[str, str]:
     """把生成好的图片存到磁盘，返回（绝对路径, 相对路径）。
 
     文件名随机，不用提示词——提示词里有中文和特殊字符，不适合做文件名。
+
+    tenant_id：
+      传了  → 存到 databases/images/{tenant_id}/，和用户上传的图放一起。
+              接入对话/出行时必须传，这样 image 记录和路径天然对得上，
+              GET /chat/attachment/{id} 的租户过滤也直接生效。
+      不传  → 还存到 generated/，给命令行那种没有租户的场景用。
+
+    为什么不统一存 generated/ 然后复制一份：
+      同样内容存两份，磁盘白占；而且「两份文件怎么对应」要额外维护。
+      生成到哪本来就是调用方的决定。
     """
-    GENERATED_ROOT.mkdir(parents=True, exist_ok=True)
+    if tenant_id is None:
+        root = GENERATED_ROOT
+        rel_prefix = "generated"
+    else:
+        # 和 modules/chat/attachments.py 的 tenant_dir 保持一致
+        root = _PROJECT_ROOT / "databases" / "images" / str(int(tenant_id))
+        rel_prefix = str(int(tenant_id))
+
+    root.mkdir(parents=True, exist_ok=True)
 
     ext = "jpg"
     if content[:8] == b"\x89PNG\r\n\x1a\n":
@@ -238,12 +256,12 @@ def save_generated(content: bytes) -> tuple[str, str]:
         ext = "webp"
 
     name = f"{secrets.token_hex(10)}.{ext}"
-    path = GENERATED_ROOT / name
+    path = root / name
 
     with open(path, "wb") as f:
         f.write(content)
 
-    rel = f"generated/{name}"
+    rel = f"{rel_prefix}/{name}"
     return str(path), rel
 
 

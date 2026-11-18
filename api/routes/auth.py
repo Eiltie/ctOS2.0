@@ -11,8 +11,10 @@
 """
 
 import re
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Header, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from common.auth import create_token, decode_token, hash_password, verify_password
@@ -147,10 +149,68 @@ def login(req: LoginRequest):
 
 @router.get("/me")
 def me(authorization: str | None = Header(default=None)):
-    """查当前登录用户。前端刷新页面时用它判断 token 还有没有效。"""
+    """查当前登录用户。前端刷新页面时用它判断 token 还有没有效。
+
+    响应头 X-Token-Refresh 里可能带一个新的 token。
+    为什么要这个：
+      老版本给访客签的 token 只有 7 天。如果什么都不做，那些人在第 8 天回来时
+      token 已经失效，前端会给他们建新账号，旧记录就找不回来了。
+      这里在每次校验时检查剩余有效期，快到期就顺手换个新的（滑动续期），
+      老用户不用做任何事就能继续用原来的账号。
+    """
     user = current_user(authorization)
-    return {
-        "id": user["id"],
-        "email": user["email"],
-        "display_name": user["display_name"],
-    }
+
+    refreshed = _maybe_refresh_token(authorization)
+
+    headers = {}
+    if refreshed:
+        headers["X-Token-Refresh"] = refreshed
+
+    return JSONResponse(
+        content={
+            "id": user["id"],
+            "email": user["email"],
+            "display_name": user["display_name"],
+        },
+        headers=headers,
+    )
+
+
+# 剩余有效期少于这个天数就续期。
+# 选 7 天是因为正式账号本来就只有 7 天有效期，访客要长得多；
+# 对访客来说「剩不到 7 天」基本意味着这个人用了一阵子，该换新的了。
+REFRESH_THRESHOLD_DAYS = 7
+
+
+def _maybe_refresh_token(authorization: str | None) -> str | None:
+    """token 剩余有效期不多了就签发一个新的；不需要续期返回 None。
+
+    失败一律返回 None —— 续期是锦上添花，不能因为它让 /auth/me 报错。
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+
+    token = authorization.removeprefix("Bearer ").strip()
+
+    try:
+        # 这里要看 exp，所以不能用 current_user 的解码（它只返回用户）。
+        payload = decode_token(token)
+        if not payload:
+            return None
+
+        exp = payload.get("exp")
+        if not exp:
+            return None
+
+        remaining = datetime.fromtimestamp(float(exp), tz=timezone.utc) - datetime.now(timezone.utc)
+        if remaining > timedelta(days=REFRESH_THRESHOLD_DAYS):
+            return None
+
+        user = get_user_by_id(int(payload["sub"]))
+        if not user:
+            return None
+
+        return create_token(user["id"], user["tenant_id"], user["email"])
+    except Exception as e:
+        print(f"[续期] 跳过（不影响本次请求）：{e}")
+        return None

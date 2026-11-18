@@ -3,20 +3,177 @@
 做什么：把图包成异步生成器 run_graph()，逐块吐纯文本。
 被谁用：api/main.py 的 POST /chat。
 注意：本模块吐的是纯文本，不是 SSE；事件格式不在这里定。
+
+================================ 关于生图 ================================
+用户说「帮我画一只橘猫」这类话时，这里会：
+  1. 先用 image_intent 两层判断（关键词 + 模型确认）
+  2. 确认要画，就跑一次生图，把图存进该租户的目录
+  3. 图的 id 以 `[IMAGE:123]` 的形式追加在文字流末尾
+
+为什么用标记而不是结构化事件：
+  /chat 返回的是纯文本流（不是 SSE），加事件要改接口格式。
+  在末尾追加一行标记，前端渲染时识别一下就行，接口形态不变。
+
+为什么图要登记进 message_images：
+  前端取图走 GET /chat/attachment/{id}，那条路有租户校验、
+  和用户上传的图共用一套显示逻辑。生图也走这条路，前端就不用区分。
+==========================================================================
 """
 
+import re
+
 from modules.chat.graph import create_graph
+from modules.chat.image_intent import clean_image_reply, is_image_request
+from modules.chat.sessions import text_of
 
 # 对话图的对外出口：ctOS_chat_api 只 import 这里的 run_graph
 graph = create_graph()
 
+# 图片标记：前端据此把这一行换成一张图
+IMAGE_MARK = "[IMAGE:{image_id}]"
 
-async def run_graph(query):
-    """按消息流式跑对话图，逐块产出文本，对外唯一入口。"""
+
+async def run_graph(query, tenant_id=None, session_id=None):
+    """按消息流式跑对话图，逐块产出文本，对外唯一入口。
+
+    query：消息列表（history + 这一轮的用户消息），不是一条字符串。
+      api/routes/chat.py 传进来的是 list，所以这里要取最后一条的正文。
+
+    tenant_id / session_id：生图时要用。
+      tenant_id 决定图存到哪个租户目录、登记在哪条记录上；
+      session_id 用来把图挂到这一轮的消息上（前端回放历史时能显示）。
+
+    生图失败不影响正常回复 —— 图没画出来，文字照常给。
+    """
+    # 这一轮用户说了什么：取最后一条消息的纯文字
+    user_text = _last_user_text(query)
+
+    # 先跑完正常对话，边跑边吐字
+    collected = []
     async for chunk in graph.astream(
         {"messages": query},
         stream_mode="messages",
     ):
-        msg, meta = chunk
+        msg, _meta = chunk
         if msg.content:
+            collected.append(msg.content)
             yield msg.content
+
+    # 对话跑完了。如果这句是在让 AI 画图，再补一张
+    if not is_image_request(user_text):
+        return
+
+    reply_text = "".join(collected)
+    image_id = _generate_and_register(
+        query=user_text,
+        tenant_id=tenant_id,
+        session_id=session_id,
+        history_reply=reply_text,
+    )
+
+    if image_id is None:
+        return
+
+    # 追加图片标记。前面如果模型自己写了假图片链接，这里已经清过了
+    yield "\n\n" + IMAGE_MARK.format(image_id=image_id)
+
+
+def _last_user_text(query) -> str:
+    """从消息列表里取最后一条用户消息的纯文字。
+
+    为什么单独写一个：
+      query 可能是 list[BaseMessage]（正常调用），
+      也可能是裸字符串（直接调 run_graph 的测试/调试场景）。
+      text_of 对 list 返回空串，直接用会拿到 ''，
+      导致判断永远不通过 —— 这个 bug 就是这么来的。
+    """
+    if isinstance(query, str):
+        return query.strip()
+
+    if isinstance(query, (list, tuple)):
+        for message in reversed(query):
+            # 只要最后一条 human 的
+            if getattr(message, "type", "") != "human":
+                continue
+            return text_of(getattr(message, "content", "")).strip()
+
+    return ""
+
+
+def _generate_and_register(query, tenant_id, session_id, history_reply=""):
+    """跑一次生图，把结果登记进 message_images，返回 image_id。
+
+    任何一步失败都返回 None —— 生图是锦上添花，不能拖垮这轮对话。
+    """
+    if tenant_id is None:
+        # 没有租户就没法归档，直接不画
+        print("[生图] 缺少 tenant_id，跳过")
+        return None
+
+    try:
+        from modules.imagegen.stream import run_graph as image_graph
+
+        # 用「用户这句话 + 模型刚才的回复」一起当生图需求：
+        # 模型回复里往往补全了细节（「一只橘猫，坐在阳光下的窗台上」），
+        # 单看用户那句话信息可能不够。
+        need = clean_image_reply(history_reply)
+        prompt = f"{query}\n\n{need}" if need else query
+
+        result = image_graph(prompt, tenant_id=tenant_id)
+    except Exception as e:
+        print(f"[生图] 生成失败（不影响这轮对话）：{e}")
+        return None
+
+    if result.get("status") != "ok":
+        # need_more（要求补充信息）也走这里：
+        # 对话这边不做多轮追问，信息不够就干脆不画。
+        print(f"[生图] 未出图：{result.get('status')} {result.get('problem', '')}")
+        return None
+
+    rel_path = result.get("image_url") or ""
+    if not rel_path:
+        return None
+
+    return _register_image(rel_path, tenant_id, session_id)
+
+
+# 图片扩展名 → MIME。和 modules/chat/attachments.py 支持的一致
+_EXT_MIME = {
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "png": "image/png",
+    "gif": "image/gif",
+    "webp": "image/webp",
+}
+
+
+def _register_image(rel_path, tenant_id, session_id):
+    """把生成的图登记进 message_images，返回 image_id。"""
+    try:
+        import os
+
+        from databases.modules.db_chat import add_message_image
+        from modules.chat.attachments import resolve_path
+
+        path = resolve_path(rel_path)
+        size = os.path.getsize(path) if path and path.exists() else 0
+
+        ext = rel_path.rsplit(".", 1)[-1].lower()
+        mime = _EXT_MIME.get(ext, "image/jpeg")
+
+        return add_message_image(
+            None,
+            rel_path,
+            mime,
+            size,
+            session_id=session_id,
+            tenant_id=tenant_id,
+        )
+    except Exception as e:
+        print(f"[生图] 登记图片失败：{e}")
+        return None
+
+
+def extract_image_ids(text: str) -> list[int]:
+    """从一段文字里取出所有 [IMAGE:n] 标记的 id（测试和排查用）。"""
+    return [int(m) for m in re.findall(r"\[IMAGE:(\d+)\]", text or "")]

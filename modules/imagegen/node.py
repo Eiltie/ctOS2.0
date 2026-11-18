@@ -211,7 +211,9 @@ def generate_node(state) -> dict:
         }
 
     # 第三步：存盘
-    path, rel = save_generated(content)
+    # 传 tenant_id：接入对话/出行时存到该租户目录，
+    # 这样图片记录和路径对得上，取图接口的租户过滤直接生效。
+    path, rel = save_generated(content, tenant_id=state.get("tenant_id"))
 
     return {
         "spec": spec,

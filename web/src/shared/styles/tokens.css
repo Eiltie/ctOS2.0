@@ -1,0 +1,260 @@
+/* ============================================================================
+   设计令牌：所有颜色、字号、间距的唯一来源。
+   ----------------------------------------------------------------------------
+   规则：组件里**不要写死色值**，一律用这里的变量。
+   想换配色只改这个文件，全站跟着变。
+
+   配色思路：**以中性色为主，青色只是点缀**。
+   参考成熟产品（豆包、Claude 这类）的做法：
+     大面积永远是白和灰，彩色只出现在「当前状态」和「主操作」上。
+     彩色一多，页面就显得花；收起来才显得沉稳、专业。
+
+   所以：
+     --c-brand*    只给「发送按钮、当前选中的标签、少量强调」用
+     --c-surface-* 给气泡、卡片、列表这些大面积的地方用（都是灰阶）
+     --c-accent    极少量强调色
+   ========================================================================== */
+
+:root {
+  /* ---------- 颜色：表面（几乎全是中性灰） ---------- */
+  --c-bg: #ffffff;            /* 主内容区背景 */
+  --c-bg-soft: #f5f6f7;       /* 次级背景：搜索框、次级按钮 */
+  --c-bg-hover: #f0f1f2;      /* 悬停 */
+  --c-bg-sidebar: #fbfbfc;    /* 左侧列表背景 */
+  --c-bg-head: #fafafa;       /* 卡片表头 */
+
+  /*
+   * 气泡底色：两种灰，区分谁在说话。
+   *
+   * 之前用的是 #f4f5f6 / #eaebed，在白底上看着偏灰、像蒙了一层阴影。
+   * 现在降到「几乎白」的档位：气泡还在，但不再抢眼。
+   * 两档仍然差得开，一眼能分出哪句是自己说的。
+   */
+  --c-bubble-ai: #f8f9fa;     /* AI 气泡：极浅灰 */
+  --c-bubble-me: #f1f2f4;     /* 用户气泡：稍深一档 */
+
+  /* ---------- 颜色：文字 ---------- */
+  --c-text: #1f2328;          /* 主文字：接近黑，但不是纯黑 */
+  --c-text-2: #5b6470;        /* 次要文字 */
+  --c-text-3: #9aa2ad;        /* 辅助文字、占位符 */
+  --c-text-inverse: #ffffff;  /* 深底上的文字 */
+
+  /* ---------- 颜色：线条 ---------- */
+  --c-line: #eceef0;          /* 常规分隔线 */
+  --c-line-strong: #dfe2e6;   /* 强调边线 */
+  --c-line-hover: #d3d7dc;    /* 悬停时的边线 */
+
+  /* ---------- 颜色：品牌（青）—— 只做点缀 ----------
+     面积越小越可以用饱和的；这里保留几档，但**不要拿它铺大面积**。 */
+
+  --c-brand: #3d857b;         /* 主操作：发送按钮、选中态文字（低饱和青） */
+  --c-brand-deep: #2f6b62;    /* 悬停 */
+  --c-brand-soft: #eef4f3;    /* 极浅青：选中项背景，几乎看不出来 */
+  --c-brand-line: #b9d6d0;    /* 输入框聚焦边框 */
+  --c-brand-glow: rgba(61, 133, 123, 0.08); /* 聚焦光晕 */
+
+  /* 旧变量：为了保证已有组件不报错而保留，语义已弱化。
+     大面积请改用 --c-bubble-*，不要再用这两个。 */
+  --c-brand-surface: #eef2f1;
+  --c-brand-ink: #3d857b;
+
+  /* ---------- 颜色：咖啡（同样降为中性） ---------- */
+  --c-coffee: #3a3f45;        /* 标题/重文字：原来偏咖啡，现在中性深灰 */
+  --c-coffee-soft: #f1f2f4;   /* 浅灰底（头像等） */
+  --c-coffee-line: #e4e6e9;
+
+  /* ---------- 颜色：语义 ---------- */
+  --c-ok: #2f8f83;
+  --c-warn: #8a5a2c;
+  --c-warn-soft: #f3e5d6;
+  --c-danger: #c0392b;
+  --c-danger-soft: #fdecea;
+
+  /* ---------- 字号 ---------- */
+  --f-xs: 11px;
+  --f-sm: 12px;
+  --f-base: 13.5px;
+  --f-md: 14px;
+  --f-lg: 15px;
+  --f-xl: 18px;
+  --f-2xl: 25px;
+
+  /* ---------- 行高 ----------
+     正文行高从 1.75 提到 1.8：同样的字，读起来更松，也更「贵」。 */
+  --lh-tight: 1.4;
+  --lh-normal: 1.65;
+  --lh-relaxed: 1.8;
+
+  /* ---------- 间距（4 的倍数） ---------- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-7: 28px;
+  --s-8: 32px;
+  --s-9: 40px;
+  --s-10: 48px;
+  --s-12: 64px;
+
+  /* ---------- 圆角 ----------
+     整体比常规值大一圈：视觉上更柔，边缘不那么「切」。
+     小控件（标签、chip）用 pill 更圆润；卡片和气泡用 14~20px。 */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 20px;
+  --r-2xl: 26px;
+  --r-pill: 999px;
+
+  /* ---------- 阴影（克制使用，越少越干净） ----------
+     阴影一律用中性黑，不用暖色：暖色阴影会让页面显「脏」。 */
+  --sh-sm: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 1px rgba(16, 24, 40, 0.03);
+  --sh-md: 0 2px 6px rgba(16, 24, 40, 0.04), 0 1px 2px rgba(16, 24, 40, 0.03);
+  --sh-lg: 0 8px 24px rgba(16, 24, 40, 0.06), 0 2px 6px rgba(16, 24, 40, 0.03);
+  --sh-pop: 0 16px 40px rgba(16, 24, 40, 0.1), 0 4px 12px rgba(16, 24, 40, 0.05);
+
+  /* ---------- 布局尺寸 ---------- */
+  --w-rail: 68px;            /* 预留（当前方案不用） */
+  /* 左侧列表 276px：会话标题能多显示两三个字，减少「…」截断 */
+  --w-sidebar: 276px;
+
+  /*
+   * 对话内容的最大宽度。
+   *
+   * 这个数字试出来是这样：
+   *   740  → 大屏两侧各空 450px，明显「被挤在中间」
+   *   860  → 还是空 390px
+   *   100% → 气泡横贯整屏，像一堵墙，更难看
+   *   1050 → 两侧各空约 300px，内容足够饱满，一行又没长到读串行
+   *
+   * 为什么不上 1100 以上：
+   *   14px 字号下，1050px 一行约 70 个汉字。再宽眼睛换行容易跳错行。
+   *   这是「填满空白」和「读得舒服」的折中点。
+   */
+  --w-content: 1050px;
+  --h-topbar: 62px;          /* 顶栏高度 */
+  --h-head: 54px;            /* 内容区标题栏高度 */
+  --h-modebar: 46px;         /* 玩法条高度 */
+  --h-input: 46px;           /* 输入框最小高度 */
+
+  /* ---------- 动效 ----------
+     缓动换成更「软」的曲线：起步快、收尾慢，看起来更自然。 */
+  --t-fast: 0.16s;
+  --t-normal: 0.24s;
+  --t-slow: 0.34s;
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-soft: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* ---------- 层级 ---------- */
+  --z-sidebar: 10;
+  --z-dropdown: 50;
+  --z-modal: 100;
+  --z-toast: 200;
+}
+
+/* ============================================================================
+   全局基础样式
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  font-family:
+    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  font-size: var(--f-md);
+  line-height: var(--lh-normal);
+  color: var(--c-text);
+  background: var(--c-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* 聊天类页面不让整页滚动，滚动交给内部区域 */
+  overflow: hidden;
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+a {
+  color: var(--c-brand-deep);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* ---------- 滚动条：细一点，别抢眼 ---------- */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #ddd6cb;
+  border-radius: var(--r-pill);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #c9beb0;
+  background-clip: content-box;
+}
+
+/* ---------- 键盘可达性 ---------- */
+:focus-visible {
+  outline: 2px solid var(--c-brand);
+  outline-offset: 2px;
+}
+
+/* ---------- 文字选中 ---------- */
+::selection {
+  background: var(--c-brand-soft);
+  color: var(--c-brand-deep);
+}
+
+/* ---------- 减少动效偏好 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

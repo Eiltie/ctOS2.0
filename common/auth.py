@@ -27,6 +27,22 @@ ALGORITHM = "HS256"
 # 正式上线前应该改成短 token + refresh token。
 TOKEN_EXPIRE_DAYS = 7
 
+# 访客账号的 token 有效期：一年。
+#
+# 为什么访客要长得多：
+#   访客账号是自动创建的，没有密码 —— 一旦 token 过期，这个账号就再也登不进去了，
+#   里面的聊天记录和出行记录等于永久丢失。
+#   之前就是这样：7 天以后回来，前端发现 token 失效，直接建一个新访客，
+#   用户看到的是「我的记录全没了」。
+#
+# 为什么不是永不过期：
+#   真的永不失效的话，一个泄漏的 token 可以一直用。
+#   一年已经远超普通访客的使用周期，同时留了一个兜底。
+GUEST_TOKEN_EXPIRE_DAYS = 365
+
+# 访客账号的邮箱后缀（api/routes/trial.py 用它生成账号）
+GUEST_EMAIL_DOMAIN = "@ctos-trial.local"
+
 # bcrypt 的代价因子。12 是当前推荐值，越大越慢越安全。
 # 每加 1 计算时间翻倍，12 大约 200 毫秒，对登录体验影响很小。
 BCRYPT_ROUNDS = 12
@@ -69,15 +85,27 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 # ---------------------------------------------------------------- JWT
 
+def is_guest_email(email: str) -> bool:
+    """这个邮箱是不是访客账号（api/routes/trial.py 生成的那种）。"""
+    return (email or "").lower().endswith(GUEST_EMAIL_DOMAIN)
+
+
 def create_token(user_id: int, tenant_id: int, email: str) -> str:
-    """签发登录 token。里面只放身份标识，不放密码等敏感信息。"""
+    """签发登录 token。里面只放身份标识，不放密码等敏感信息。
+
+    访客账号的 token 有效期长得多（一年），原因见 GUEST_TOKEN_EXPIRE_DAYS 的说明：
+    访客没有密码，token 一过期账号就再也进不去了。
+    """
     now = datetime.now(timezone.utc)
+
+    days = GUEST_TOKEN_EXPIRE_DAYS if is_guest_email(email) else TOKEN_EXPIRE_DAYS
+
     payload = {
         "sub": str(user_id),        # 用户 id（JWT 规范要求 sub 是字符串）
         "tenant_id": tenant_id,     # 关键：所有数据查询都用它隔离
         "email": email,
         "iat": now,                 # 签发时间
-        "exp": now + timedelta(days=TOKEN_EXPIRE_DAYS),   # 过期时间
+        "exp": now + timedelta(days=days),   # 过期时间
     }
     return jwt.encode(payload, _secret_key(), algorithm=ALGORITHM)
 

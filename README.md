@@ -1,4 +1,4 @@
-# ctOS 2.0
+﻿# ctOS 2.0
 
 一个 FastAPI + LangGraph 的多模块 AI 应用：**闲聊对话**、**角色扮演**、**智能出行规划**、**RAG 智能客服**，四种能力跑在同一个服务、同一个端口、同一个前端页面里，数据存 PostgreSQL。
 
@@ -10,28 +10,44 @@
 
 ## 界面
 
+前端是 **Vue 3 + TypeScript + Vite**，顶栏三个标签页（对话 / 出行 / 客服），配一个深色侧栏。
+设计上尽量素：大面积留白和浅灰，颜色只用在「当前在哪」和「主操作」上。
+
 **智能出行** — 一个服务，一个输入框。你说需求，它自己判断该怎么办：
 
 - 问「北京有什么好玩的」「去杭州要准备什么」→ **直接答**，不启动整套规划
 - 说「从杭州东站到灵隐寺」→ 查真实的多条方案，**你选一条**，再写对比和推荐
 - 说「下周去杭州玩3天」→ 出完景点清单**让你勾选**，确认后排行程、写游玩建议
 
-路线规划和旅游攻略是它内部的两项能力，你不需要选——顶部的进度条会跟着这次做的事情变。
+路线规划和旅游攻略是它内部的两项能力，你不需要选——界面会跟着这次做的事情变。
 
 <p>
-  <img src="screenshot/ctOS_trip01.png" width="49%" alt="直接答：不启动整套规划">
-  <img src="screenshot/ctOS_trip02.png" width="49%" alt="规划中：停在景点勾选">
+  <img src="screenshot/ctOS_trip01.png" width="49%" alt="路线：给出多条方案，选一条">
+  <img src="screenshot/ctOS_trip02.png" width="49%" alt="攻略：出完景点清单让你勾选">
 </p>
 
-**闲聊 + 角色扮演** — 多轮记忆、会话切换、会话自动命名：
+<p align="center">
+  <img src="screenshot/ctOS_trip03.png" width="80%" alt="行程安排：三天逐日排好">
+</p>
 
-![闲聊](screenshot/ctOS_chat.png)
+**对话 + 角色扮演** — 多轮记忆、会话切换、会话自动多选删除、图片上传与识图：
+
+<p>
+  <img src="screenshot/ctOS_chat.png" width="49%" alt="对话">
+  <img src="screenshot/ctOS_role.png" width="49%" alt="角色扮演：挑一个角色开始">
+</p>
 
 **智能客服** — 基于本地文档的 RAG 问答：
 
 <p>
   <img src="screenshot/ctOS_customer01.png" width="49%" alt="客服开场页">
   <img src="screenshot/ctOS_customer02.png" width="49%" alt="客服回答">
+</p>
+
+**登录 / 注册** — 访客模式随时可以升级成正式账号：
+
+<p align="center">
+  <img src="screenshot/ctOS_login.png" width="60%" alt="登录弹层">
 </p>
 
 ---
@@ -42,11 +58,27 @@
 
 | 模块 | 路由 | 能做什么 |
 | --- | --- | --- |
-| **闲聊** | `POST /chat` | 多轮对话，有会话记忆，能翻历史 |
-| **智能出行** | `POST /trip/chat`、`POST /guide/chat` | 两个模式：路线规划（多方案对比、人工选方案）+ 旅游攻略（天气、景点、行程、游玩建议） |
+| **对话** | `POST /chat` | 多轮对话，有会话记忆，能翻历史；支持上传图片和识图 |
+| **智能出行** | `POST /trip/chat` | 一个入口，Agent 自己判断走哪条路（见下） |
 | **智能客服** | `POST /customer/chat` | 基于本地文档的 RAG 问答，支持上下文追问 |
 
-### 角色扮演（挂在闲聊里，侧栏独立菜单）
+顶栏下面是「玩法条」。对话下有两个玩法：**闲聊** 和 **角色扮演**。
+以后加新玩法只改 `web/src/shared/lib/navigation.ts` 里的 `CHAT_MODES`，顶栏不用动。
+
+### 出行的三种形态
+
+用户不用选「我要路线还是攻略」，说一句话就行，Agent 自己判断：
+
+| 用户说了什么 | 后端做什么 | 界面上看到什么 |
+| --- | --- | --- |
+| 「北京有什么好玩的」 | 直接答 | 一个气泡 |
+| 「从杭州东站到灵隐寺」 | 调路线子图 | 需求确认卡片 + **让你选方案** |
+| 「杭州玩三天」 | 调攻略子图 | 天气、景点清单 + **让你勾景点** |
+
+选完方案或勾完景点，剩下的段落会继续流式写完。
+**路线/攻略是每一轮的能力，不是整个会话的属性** —— 同一场对话里可以先后问路线、问攻略、闲聊。
+
+### 角色扮演（对话下的一个玩法）
 
 传 `role_id` 走 `POST /chat`，会话和消息复用闲聊的表，只在 `role_play_sessions` 里记「这个会话是哪个角色」。
 
@@ -55,22 +87,33 @@
 - **角色记忆**：每聊 6 轮把对话压缩成 200 字以内的摘要，可查看、可清空
 - **角色档案**：聊天顶部查看完整设定
 
-### 反馈与公告
+### 账号与反馈
 
-- `POST /feedback`：评价 + 文字反馈，同一 IP 每分钟限 3 条；不强制登录
+- 打开页面自动创建**访客空间**（独立租户）。访客 token 有效期一年，重新打开浏览器还是原来那个账号
+- 点头像可以注册/登录正式账号，跨设备保留记录；访客记录不会自动迁移
+- `POST /feedback`：评价 + 文字反馈，同一 IP 每分钟限 3 条；不强制登录。入口在账号菜单里
 - `GET /notice`：更新公告，内容来自 `config/notice.json`，改完刷新页面生效
 
 三个页面模块共用一个 FastAPI 应用、一套数据库、一套前端。各模块只负责自己的图和提示词。
 
 ---
 
-## 主题
+## 生图（隐藏能力，没有单独入口）
 
-右上角「主题」按钮可以切三套：**简洁现代**（默认）、**街头黑客**、**赛博暗色**。
-选择记在浏览器 `localStorage` 里，刷新后保留。主题只改样式，不影响 SSE、人工确认和计时。
+前端**没有**「生成图片」按钮。生图是对话和出行背后的能力：
 
-改版式/加组件时不用三套各写一遍：布局只有一份，颜色和边框在主题层补。
-具体见 [docs/themes.md](docs/themes.md)。
+**对话**：说「帮我画一只橘猫」这类话就会画。
+判断分两层——先用正则粗筛（挡掉「我很喜欢画画」这种），再让模型确认一次（挡掉误判）。
+画好的图以 `[IMAGE:id]` 追加在回复流末尾，前端解析后显示成图片 + 下载按钮。
+
+**出行**：更像「能力补充」。路线或攻略跑完后，Agent 会主动问一句
+「要不要生成一张路线示意图 / 行程海报？」，用户说要才画。
+用户自己明确说「要图片」也会直接画。
+
+图存在 `databases/images/{租户id}/`（和用户上传的图同一目录，不复制两份），
+登记进 `message_images`，前端统一走 `GET /chat/attachment/{id}` 取。
+
+细节见 [docs/frontend.md](docs/frontend.md) 第九节。
 
 ---
 
@@ -80,7 +123,7 @@
 
 打开 <https://ctos2.cn> 直接就能用，不用注册、也不用点登录：首次进入会自动创建一个
 **访客空间**（独立租户，聊天和出行记录只存在当前浏览器，换设备不同步）。
-想跨设备保留记录，再点侧栏底部的「账号登录」注册或登录真实账号即可。
+想跨设备保留记录，点右上角头像 → 「登录 / 注册」即可。
 
 自动建访客账号的实现见 `api/routes/trial.py`（独立文件，不要了可以整块删掉）。
 
@@ -106,8 +149,7 @@ docker exec ctos2-app python -m common.db    # 首次要建表
 > `static/` 已挂载进容器：改前端文件后刷新页面即可生效；
 > 改 Python 代码（`common/`、`api/`、`modules/`、`databases/`）才需要重新构建：
 > `docker compose --env-file config/.env up -d --build app`。
-
-详细说明见 [docs/deployment.md](docs/deployment.md)。
+> 改前端只要 `cd web && npm run build`，产物直接落到 `static/dist/`。
 
 ### 方式二：本地运行
 
@@ -207,25 +249,41 @@ ctOS2.0/
 │       └── feedback_view.py 查看反馈
 ├── modules/        模块层
 │   ├── chat/           闲聊
+│   │   ├── image_intent.py  生图意图判断（关键词 + 模型两层）
 │   │   └── roleplay/   角色扮演（闲聊的子集）
 │   ├── trip/           智能出行
 │   │   ├── route/      路线规划
-│   │   └── guide/      旅游攻略
+│   │   ├── guide/      旅游攻略
+│   │   ├── image_offer.py    出行生图的「主动提议」
+│   │   └── image_pending.py  记住「刚提议过，等用户回答」
 │   ├── customer/       客服（含 data/docs 知识库）
-│   └── imagegen/       生图（在建，尚未接入路由）
-├── static/         前端（两套独立主题）
-│   ├── index.html      入口：读偏好 + 按屏幕宽度分流
-│   ├── themeA/         经典版：左侧栏 + 气泡对话（手机端只用它）
-│   ├── themeB/         指挥台版：图标导轨 + 右侧控制台（仅宽屏）
-│   └── shared/         两套共用：偏好、在线人数、认证、SSE、图片
+│   └── imagegen/       生图（Seedream）
+├── web/            前端（Vue 3 + TypeScript + Vite）
+│   ├── src/
+│   │   ├── features/   按业务分：chat / customer / trip
+│   │   │   ├── chat/       对话 + 角色扮演
+│   │   │   ├── customer/   客服
+│   │   │   └── trip/       出行（events.ts 是事件处理核心）
+│   │   ├── shared/     跨模块共用
+│   │   │   ├── api/        http + SSE
+│   │   │   ├── attachments/ 图片（上传/显示/待发队列/生成的图）
+│   │   │   ├── auth/       登录状态 + 弹层
+│   │   │   ├── components/ 顶栏、玩法条、输入框
+│   │   │   ├── lib/        导航定义、打字机效果
+│   │   │   ├── styles/     tokens.css（颜色/间距/圆角的唯一来源）
+│   │   │   └── types/      api.ts（和后端接口一一对应）
+│   │   ├── AppShell.vue
+│   │   └── router.ts
+│   ├── scripts/        接口契约检查 + e2e 测试
+│   └── design-preview/ 定稿截图
+├── static/dist/    前端构建产物（`npm run build` 生成，别手改）
 ├── docs/           文档
-├── eval/           端到端测评（要真模型，手动跑）
 ├── tests/          单元测试（不连库不调模型，跑 5 秒）
-├── scripts/        线上检查脚本
+├── scripts/        运维脚本
 └── config/         配置
 ```
 
-**不知道某个文件是做什么的？看 [docs/files.md](docs/files.md)。**
+**改前端看 [docs/frontend.md](docs/frontend.md)。**
 
 ---
 
@@ -320,15 +378,17 @@ python -X utf8 -m modules.customer.rag_eval --fails    # 只看未命中
 
 ## 测试
 
-`tests/` 是**单元测试**，和 `eval/` 分工不同：
+测试分两种，目的不同：
 
-| | `tests/` | `eval/` |
+| | 单元测试 `tests/` | 端到端测试 `web/scripts/e2e/` |
 | --- | --- | --- |
-| 测什么 | 普通 if/else 的判断代码 | 接上真模型之后的整体表现 |
-| 依赖 | 不连库、不调模型、不要 API key | 要起服务 + 真模型 + 数据库 |
-| 耗时 | 约 5 秒 | 几分钟，且花钱 |
-| 结果 | 稳定，要么全绿要么指出第几条挂 | 每次可能不同，看趋势 |
-| 谁跑 | 本地手动跑；推 GitHub 自动跑 | 手动跑 |
+| 测什么 | 普通 if/else 的判断代码 | 真界面能不能用 |
+| 依赖 | 不连库、不调模型、不要 API key | 要起后端 + 数据库 + Chrome |
+| 耗时 | 约 5 秒 | 约 6 分钟 |
+| 结果 | 稳定，要么全绿要么指出第几条挂 | 稳定（不调模型的部分） |
+| 谁跑 | 本地手动跑；推 GitHub 自动跑 | 改完前端手动跑 |
+
+模型的回答质量、行程合不合理、角色像不像——这些**测不了**，靠人看。
 
 ```bash
 # 装测试依赖（只需一次；已装过就跳过）
@@ -343,7 +403,7 @@ venv\Scripts\python.exe -m pytest -k 天气
 ```
 
 **CI**：`.github/workflows/test.yml` 会在每次 `push` 到 `main`、或开 PR 时自动跑一遍，
-结果显示在 GitHub 仓库的 **Actions** 页签（绿勾 / 红叉）。CI 里只跑 `tests/`，不跑 `eval/`。
+结果显示在 GitHub 仓库的 **Actions** 页签（绿勾 / 红叉）。CI 里只跑 `tests/`，不跑 e2e（要浏览器）。
 
 > 为什么只测这些：模型答得好不好、行程合不合理，断言写不出来。`tests/` 只钉住
 > "`杭州今天天气`永远被认成天气查询""`不想走路`不会被归成综合"这类确定性规则——
@@ -352,27 +412,62 @@ venv\Scripts\python.exe -m pytest -k 天气
 改代码导致测试挂掉时，先判断是哪一种：如果是有意改了规则，就**连同测试一起改**；
 如果是没想改、却挂了的，那就是真 bug。
 
----
+### 前端的四道检查
 
-## 测评与调试
+前端改完之后跑这几条（`cd web` 之后）：
 
 ```bash
-# 端到端测评：跑真实接口 + 自动检查 + 出报告（题库 36 条）
-python -X utf8 eval/run_eval.py
+npm run typecheck      # 类型检查（vue-tsc）
+npm run lint           # ESLint，含模块边界规则
+npm run check:api      # 前后端接口契约（要起后端）
+npm run test:e2e       # 浏览器端到端测试
+```
 
-# 只跑出行那几条（12 条）
-python -X utf8 eval/run_eval.py --only trip-route,trip-guide,trip-route-time
+| 检查 | 拦什么 |
+| --- | --- |
+| `typecheck` | 类型对不上 |
+| `lint` | 出行模块 import 对话模块、shared 反向 import features |
+| `check:api` | 后端加了接口/事件但前端没跟上 |
+| `test:e2e` | 界面真能用：35 个测试，11 组，全跑约 6 分钟 |
 
-# 旅游攻略，终端里对话（路线要暂停选方案，得在网页里用）
-python -X utf8 -m modules.trip.guide.cli
+e2e 分组：`infra` `chat` `roleplay` `nav` `send` `image` `customer` `trip` `auth` `feature` `tripimg`
+
+```bash
+# 只跑某一组（快很多）
+python -X utf8 scripts/e2e/run_all.py trip
+```
+
+> `tripimg` 这组故意不真调生图接口（画一张要花钱），只验证「提议会出现、不会自动画」。
+
+细节见 [docs/frontend.md](docs/frontend.md) 第五节。
+
+---
+
+## 调试与检查
+
+```bash
+# 客服检索质量：跑 40 题题库
+python -X utf8 -m modules.customer.rag_eval
+python -X utf8 -m modules.customer.rag_eval --fails    # 只看未命中
 
 # 检查线上是否可访问
 powershell -ExecutionPolicy Bypass -File scripts\check_online.ps1
+
+# 重新生成 README 里的界面截图（会自动起浏览器）
+python -X utf8 scripts\make_screenshots.py
 ```
 
 > Windows 控制台默认 GBK，不加 `-X utf8` 中文会乱码。
 
-`eval/` 是**能重复跑的验收工具**，不是单元测试套件；怎么加题、怎么读结果见 [eval/README.md](eval/README.md)。
+想看某个模型到底怎么判断的，最直接的办法是直接调接口：
+
+```bash
+# 出行 Agent 的判断过程会以 SSE 一条条吐出来
+curl -N -X POST http://127.0.0.1:8080/trip/chat \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"query":"从杭州东站到灵隐寺怎么走","history":[]}'
+```
 
 ---
 
@@ -382,7 +477,7 @@ powershell -ExecutionPolicy Bypass -File scripts\check_online.ps1
 | --- | --- |
 | Web 框架 | FastAPI + Uvicorn |
 | Agent 编排 | LangGraph |
-| 模型 | DeepSeek（对话与推理）+ 智谱（向量化） |
+| 模型 | DeepSeek（对话与推理）+ 智谱（向量化）+ 火山方舟 Seedream（生图） |
 | 数据库 | PostgreSQL 17 |
 | 向量库 | Chroma |
 | 检索 | jieba + BM25 + 向量混合 |
@@ -390,7 +485,7 @@ powershell -ExecutionPolicy Bypass -File scripts\check_online.ps1
 | 天气 | Open-Meteo（免密钥） |
 | 认证 | JWT + bcrypt |
 | 部署 | Docker + Docker Compose，Cloudflare 托管域名与 TLS |
-| 前端 | 原生 JS，无构建步骤；两套主题（经典版 / 指挥台版），各有多种配色风格；手机端固定经典版 |
+| 前端 | Vue 3 + TypeScript + Vite；无 UI 框架，样式用 CSS 变量集中在 `tokens.css`；SSE 流式渲染 |
 
 ---
 
@@ -401,6 +496,8 @@ powershell -ExecutionPolicy Bypass -File scripts\check_online.ps1
 - 多租户目前只有表结构，**还没有团队协作**（一人一户）
 - 智能客服不写数据库，刷新页面上下文就没了
 - 访客账号不会自动清理，会慢慢堆积（用 `databases.tools.clean` 或 `DELETE FROM users WHERE email LIKE '%@ctos-trial.local'`）
+- **访客升级成正式账号时，原来的访客记录不会迁移**（后端还没有迁移接口）
+- 之前出行有个 bug 导致同一场对话的每句话都建了独立记录，代码已修，但历史脏数据还在库里
 
 **外部依赖**
 
@@ -408,6 +505,7 @@ powershell -ExecutionPolicy Bypass -File scripts\check_online.ps1
 - 出行一次规划会调用十几次模型，注意额度
 - 客服的向量检索依赖智谱接口，余额不足时不可用
 - 路线规划依赖高德 Key，没有 Key 时路线不可用（攻略不依赖高德）
+- 生图依赖火山方舟 Seedream，**每次生图都花钱**，目前没有限额
 
 **功能边界**
 
@@ -420,11 +518,12 @@ powershell -ExecutionPolicy Bypass -File scripts\check_online.ps1
 
 - **单元测试只覆盖"判断代码"那一层**（见下面「测试」一节）：`common/auth.py` 的 token/密码、
   `route/need.py` 的需求检查、`route/tools.py` 的偏好归一到打分推荐、`agent.py` 的天气意图判断。
-  模型输出质量、行程合理性、角色像不像，这些测试**测不了**，仍然靠 `eval/` + 人看
-- `eval/run_eval.py` 是能重复跑的端到端验收工具，`rag_eval.py` 是手工跑的检索测评，
+  模型输出质量、行程合理性、角色像不像，这些测试**测不了**，只能靠人看
+- `modules/customer/rag_eval.py` 是手工跑的检索测评，要真实服务 + 模型，不进 CI
   两者都要真实服务 + 真实模型，不进 CI
 - 没有登录限流，可以被暴力试密码
-- 前端样式表偏大（`themeA/css/modules.css` 3843 行、`ui.css` 3237 行、`themeB/css/style.css` 2449 行），`app.js` 1745 行、`trip/base.js` 1721 行，以后可继续拆
+- 生图没有限额，用户反复要图会一直花钱
+- 前端没有移动端适配（侧栏在窄屏上不会收成抽屉）
 
 ---
 
@@ -432,17 +531,13 @@ powershell -ExecutionPolicy Bypass -File scripts\check_online.ps1
 
 | 想看什么 | 去哪 |
 | --- | --- |
-| 代码怎么流转（请求地图） | [docs/architecture.md](docs/architecture.md) |
-| 每个文件做什么 | [docs/files.md](docs/files.md) |
-| 怎么部署（Docker / 本地） | [docs/deployment.md](docs/deployment.md) |
-| 前端怎么组织 | [docs/themes.md](docs/themes.md) |
-| 怎么跑单元测试 | 本文「测试」一节 |
-| 怎么跑测评 | [eval/README.md](eval/README.md) |
-| 主题怎么维护 | [docs/themes.md](docs/themes.md) |
-| 线上打不开怎么排查 | [docs/tunnel-check.md](docs/tunnel-check.md) |
+| **前端怎么组织、改了怎么验证** | [docs/frontend.md](docs/frontend.md) |
+| 怎么跑单元测试 / 端到端测试 | 本文「测试」一节 |
+| 每个文件做什么 | 本文「项目结构」一节 |
 
 ---
 
 ## License
 
 MIT
+

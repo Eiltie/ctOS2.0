@@ -1,10 +1,10 @@
-# ============ 密钥 / 配置（绝不入库）============
+﻿# ============ 密钥 / 配置（绝不入库）============
 # config/.env 里有真实的 DEEPSEEK / TAVILY / AMAP 密钥和 MySQL 密码。
-# 需要配置时，复制 config/YOUR_config.env 为 config/.env 再填自己的值。
+# 需要配置时，复制 config/.env.example 为 config/.env 再填自己的值。
 config/.env
 .env
 *.env
-!config/YOUR_config.env
+!config/.env.example
 
 # ============ Python ============
 __pycache__/
@@ -78,9 +78,11 @@ modules/customer/eval/runs/
 .ipynb_checkpoints/
 *.ipynb
 
-# ============ 前端（本项目无构建步骤，这行是防御性的）============
+# ============ 前端（Vue 3 + Vite，构建产物不入库）============
+# 构建：cd web && npm run build    → 输出到 static/dist/
+# docker-compose 挂载 ./static，所以部署机上要自己构建一次
 node_modules/
-dist/
+static/dist/
 .vite/
 
 # ============ 密钥 / 证书的常见扩展名 ============
@@ -97,3 +99,4 @@ id_rsa.pub
 *.tar.gz
 *.rar
 *.7z
+
