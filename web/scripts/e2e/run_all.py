@@ -1359,6 +1359,10 @@ async def test_chat_batch_delete(page, api):
 async def test_feedback_submit(page, api):
     begin("反馈：能提交并显示成功")
 
+    # 每条反馈带一个唯一标记，跑完按标记删掉，别把垃圾留在库里
+    stamp = int(time.time())
+    marker = f"[E2E-{stamp}]"
+
     await login(page, api.token)
     await page.goto(BASE, wait_until="networkidle")
     await page.wait_for_timeout(1500)
@@ -1381,7 +1385,7 @@ async def test_feedback_submit(page, api):
     # 选一个 + 写内容
     await page.locator(".rating").nth(1).click()
     await page.wait_for_timeout(200)
-    await page.locator(".textarea").fill("E2E 自动测试反馈，可忽略。")
+    await page.locator(".textarea").fill(f"自动测试，可以忽略。{marker}")
     await page.wait_for_timeout(300)
 
     await page.locator(".primary").click()
@@ -1389,7 +1393,58 @@ async def test_feedback_submit(page, api):
 
     done = await page.locator(".done h2").count()
     check(done > 0, "提交成功有感谢页")
+
+    # 清掉这条测试反馈。
+    # 为什么必须清：
+    #   反馈是给真人看的东西，测试往里塞垃圾，看反馈时还得一条条分辨哪条是测试的。
+    #   之前就是没清，库里堆了三条「E2E 自动测试反馈」。
+    cleaned = cleanup_test_feedback(marker)
+    check(cleaned, f"测试反馈已清理（匹配 {marker}）")
     end()
+
+
+def cleanup_test_feedback(marker: str) -> bool:
+    """删掉内容里带这个标记的反馈。返回是否删到了。
+
+    用子进程调 Python 连库，不用当前进程：
+      测试进程不该为了清一条数据去加载数据库模块（会触发建表逻辑），
+      而且清理失败也不该让整个测试崩掉。
+    """
+    import subprocess
+    import tempfile
+    from pathlib import Path
+
+    # 清理脚本写到临时文件再跑，避免在命令行里拼引号（中文 + 引号很容易出错）
+    # 用 f-string 而不是 % 格式化：脚本里本身就有 %s，和 % 格式化会打架
+    pattern = f"%{marker}%"
+    script = (
+        "import sys\n"
+        f"sys.path.insert(0, {str(PROJECT_ROOT)!r})\n"
+        "from common.db import transaction\n"
+        "with transaction() as cur:\n"
+        "    cur.execute('DELETE FROM feedback WHERE content LIKE %s', "
+        f"({pattern!r},))\n"
+        "    print(cur.rowcount)\n"
+    )
+
+    path = Path(tempfile.gettempdir()) / "ctos-e2e-cleanup-feedback.py"
+    path.write_text(script, encoding="utf-8")
+
+    try:
+        result = subprocess.run(
+            [sys.executable, "-X", "utf8", str(path)],
+            cwd=str(PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode != 0:
+            print(f"      [清理失败] {result.stderr.strip()[:200]}")
+            return False
+        return result.stdout.strip().isdigit()
+    except Exception as e:
+        print(f"      [清理失败] {e}")
+        return False
 
 
 async def test_trip_batch_delete(page, api):
