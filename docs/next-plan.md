@@ -266,6 +266,145 @@
 
 ## 六、实施进度
 
+### 识图（后端已完成，2026-11-17）
+
+闲聊和智能出行可以带图提问。**不单独建识图图**——识图不改图结构，
+只改「消息长什么样」。
+
+**为什么不需要独立识图图：**
+如果模型本身支持多模态（DeepSeek `deepseek-v4-flash` 已实测支持），
+识图就是「把图拼进 HumanMessage 的 content」，没有任何独立决策，
+拆成图只会多一次模型调用、多一份 state，还看不到聊天历史。
+
+**核心改动：`content` 从 str 换成块数组**
+
+```python
+# 没有图（老行为，一字不差）
+HumanMessage(content="这张图里有什么")
+
+# 有图
+HumanMessage(content=[
+    {"type": "text", "text": "这张图里有什么"},
+    {"type": "image_url", "image_url": {"url": "data:image/png;base64,..."}},
+])
+```
+
+图、节点、边、`core/llm.py`、所有工具、所有子图（路线 / 攻略）**都没动**。
+
+**新增接口：**
+
+| 接口 | 作用 |
+| --- | --- |
+| `POST /chat/attachment` | 上传图片（multipart），返回 `image_id` |
+| `GET /chat/attachment/{id}` | 取图，只给图片所属租户看，别人拿到 id 也 404 |
+
+`/chat` 和 `/trip/chat` 各加一个可选字段 `image_ids: [int]`。
+
+**新增文件：**
+
+| 文件 | 作用 |
+| --- | --- |
+| `modules/chat/attachments.py` | 存图（按租户分目录）、取图（防目录穿越）、转模型块数组 |
+
+**新增表：** `message_images`（消息正文只存纯文字，图另记一行）
+
+**改到的文件：**
+
+| 文件 | 改了什么 |
+| --- | --- |
+| `api/main.py` | 上传/取图两个接口；`/chat`、`/trip/chat` 收 `image_ids`；闲聊用 `build_user_message` |
+| `modules/chat/sessions.py` | `build_user_message()`（有图才变形）、`text_of()`（content 可能是数组）、`attach_images()` |
+| `modules/trip/node.py` | `_last_user_text()` / `_history_text()` 改用 `text_of()`（**不改会 500**）；`decide_node()` 用 SystemMessage + HumanMessage 调模型，图才看得见 |
+| `modules/trip/agent.py` | `decide()` / `run_trip_service()` 加 `user_content` |
+| `modules/trip/stream.py` | `trip_stream()` 透传 `user_content` |
+| `databases/db_chat.py` | `message_images` 表和增删查 |
+| `docker-compose.yml` | 挂载 `./databases/images` |
+| `config/requirements.txt` | 加 `python-multipart`（上传表单需要） |
+
+**几个定死的规则：**
+
+- 图片不放 `static/`：那是公开挂载的，放进去等于全站可见
+- 格式按**文件真实内容**判断，不看扩展名（DeepSeek 也按内容判断）
+- 单张上限 8 MiB，单次最多 3 张
+- 消息正文只存纯文字，图走 `message_images`——历史回放逻辑一行不用改
+- 历史里不回放图片：上一轮的图这一轮模型看不到（读盘 + 反复吃 token，不值）
+
+**已验证：**
+
+- 上传 → 取图 → 带图闲聊：模型正确说出图片颜色
+- 带图出行：Agent 看到图并关联到出行话题
+- 跨租户取图返回 404；跨租户带图时图片被丢弃，正常回答
+- 不带图的老路径（闲聊 / 出行 / 角色扮演）行为不变
+- 测评 36 条：32 通过；2 条 RAG 用例在基线也失败；1 条角色边界与模型随机性有关（基线复跑 4 次也挂 1 次）
+
+**一个踩过的坑：**
+`trip/node.py` 的 `_last_user_text()` 原来直接 `return message.content`，
+content 变成数组后 `AGENT_PROMPT.replace("{query}", list)` 会直接 TypeError。
+凡是「把消息当文字用」的地方，必须过 `text_of()`。
+
+**另一个踩过的坑（孤儿图片记录）：**
+上传接口先插一行占位（`message_id` 为空），发消息时如果又插一行新的，
+同一个文件就会有两条记录，旧的那条永远挂着空 message_id 变成孤儿。
+现在发消息时用 `claim_image()` **UPDATE 认领**上传时那条，不插新行。
+
+**第四步：前端（已完成，2026-11-17）**
+
+闲聊和出行都能选图、粘贴、看缩略图、看历史图。
+
+**新增文件：**
+
+| 文件 | 作用 |
+| --- | --- |
+| `static/shared/js/common/attach.js` | 选图 / Ctrl+V 粘贴 / 缩略图 / 上传 / 历史图渲染 / 点开看大图。两套主题共用一份 |
+| `static/themeA/css/attach.css` | 按钮、缩略图、气泡图、大图、轻提示的样式（走主题变量） |
+| `static/themeB/css/attach.css` | 同上，指挥台版的变量名和主题选择器 |
+
+**改到的文件：**
+
+| 文件 | 改了什么 |
+| --- | --- |
+| `static/themeA/index.html`、`static/themeB/index.html` | 每套 3 个「＋」按钮 + 3 个预览区（闲聊 / 出行开场态 / 出行对话态）；引入 attach.js 和 attach.css |
+| `static/themeA/js/app.js`、`static/themeB/js/app.js` | `initChatAttach()`；`sendChat()` 先上传再带 `image_ids`；`appendRow()` 支持画图；两处拉消息的地方带上 `images` 字段 |
+| `static/themeA/js/trip/base.js`、`static/themeB/js/trip/base.js` | `tripInitAttach()`；`sendTrip()` 上传并带 `image_ids`；`appendTripUser()` 支持画图 |
+
+**交互定下来的几条：**
+
+- 发消息前才上传，不是选了图就传——用户可以「传三张删两张」，最后只发一次请求
+- 失败或中断时**不清空**待发图片，用户可以直接重试
+- 没字只有图也能发（后端自动补一句「这图里有什么」）
+- 一次最多 3 张、单张 8 MiB、只认 JPEG/PNG/GIF/WebP（和后端限制一致）
+- 出行有两个输入框（开场态 / 对话态），但待发图片只有一份：缩略图跟着当前可见的那一套走，组件换容器时会把旧的清掉
+- 历史图片靠 `GET /chat/attachment/{id}` 带 token 拉成 blob 再显示；`<img src>` 发不了 Authorization 头，所以不能直接指过去
+- 出行这一轮的图会显示在用户消息下面，但**不落库**（出行历史里翻不到图）
+
+**已验证：**
+
+- 组件逻辑单测 14 项全过（格式/大小/数量校验、换容器清旧图、clear 归零、纯图可发）
+- 按前端真实请求顺序打接口：上传 → 取图 → 带图聊天 → 拉历史，全部对上
+- 识图正确（图里红黄蓝三条横纹，模型全说对）
+- 历史消息返回 `images: [id]`，前端靠它画图
+- 修复后 `image_id` 被正确认领，测试期间孤儿记录为 0
+
+**没做到的：**
+浏览器端（playwright/chromium）没装成功，前端实际渲染效果需要你在浏览器里点一下确认。
+
+**上线时特别注意（这次踩了两个坑）：**
+
+1. **后端代码必须重建镜像才生效。** `static/` 是挂载的、改完刷新就生效，但 `modules/` `api/` 这些 Python 代码要
+   `docker compose --env-file config/.env up -d --build app`。
+   只重启容器不够——镜像里还是旧代码，上传接口会 404。
+
+2. **容器和本地用的是两个不同的 PostgreSQL。**
+   本地 `127.0.0.1:5432`（宿主机装的），容器 `db:5432`（Docker 里的 ctos2-db）。
+   在本地建过表不代表容器库有。容器库必须单独建：
+   ```
+   docker exec ctos2-app python -m core.db
+   ```
+   不建的话上传会 500：`relation "message_images" does not exist`。
+   （项目不在启动时自动建表，这是既有设计，见 `docs/deployment.md` 的「第一次部署时要建表」。）
+
+---
+
 ### 第 1 步：预设角色 + 角色对话（后端已完成）
 
 **新增文件：**

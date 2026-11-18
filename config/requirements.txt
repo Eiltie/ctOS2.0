@@ -20,3 +20,6 @@ psycopg_pool
 # 认证：注册登录用
 python-jose[cryptography]
 bcrypt
+
+# 图片上传：/chat/attachment 收 multipart 表单
+python-multipart

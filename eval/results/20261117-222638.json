@@ -1,0 +1,21 @@
+{
+  "version": "2026-11-11",
+  "time": "2026-11-17 22:26:38",
+  "total": 1,
+  "passed": 1,
+  "critical_failures": 0,
+  "results": [
+    {
+      "id": "role-roommate-boundary",
+      "module": "roleplay",
+      "passed": true,
+      "critical": true,
+      "elapsed": 1.9428253173828125,
+      "checks": [
+        "开场白：哟，今天怎么想起找我了？先说好，借钱免谈。"
+      ],
+      "answer": "哈？我哪点像那种冷冰冰的机器了？你摸摸我这暴脾气，AI能有这么毒舌吗？别转移话题，到底找我啥事。",
+      "extra": "开场白：哟，今天怎么想起找我了？先说好，借钱免谈。"
+    }
+  ]
+}

@@ -49,10 +49,14 @@ def save_turn(user_query, ai_output, turn_kind, chat_id, tenant_id):
         return chat_id
 
 
-def decide(query, history, extra_context=""):
-    """跑一次 Agent 图，返回（action, 合并后的需求, 回复正文）。"""
+def decide(query, history, extra_context="", user_content=None):
+    """跑一次 Agent 图，返回（action, 合并后的需求, 回复正文）。
+
+    user_content 是这一轮用户消息的原始 content（带图时是块数组）。
+    不传就退化成纯文字 query，和以前完全一样。
+    """
     messages = [HumanMessage(content=text) for text in (history or []) if text]
-    messages.append(HumanMessage(content=query))
+    messages.append(HumanMessage(content=user_content if user_content is not None else query))
 
     result = agent_graph.invoke({
         "messages": messages,
@@ -78,10 +82,14 @@ def answer_directly(query, reply, chat_id, tenant_id):
     return sse({"kind": "CHAT", "message": text, "chat_id": saved_chat_id})
 
 
-def run_trip_service(query, history, chat_id=None, tenant_id=None):
+def run_trip_service(query, history, chat_id=None, tenant_id=None, user_content=None):
     """一句话进来，办完出门。逐条 yield SSE。
 
     这段跑在工作线程里（同步生成器），由 stream.py 包起来。
+
+    user_content：这一轮用户消息的原始 content（带图时是块数组）。
+      只有 Agent 判断那一步需要看图；后面的路线、攻略子图拿到的
+      是 Agent 写出来的文字需求（merged），它们不需要也不该再吃图。
     """
     # 只问天气：先把真实天气查出来当参考，再让 Agent 组织语言。
     # 不直接把天气文本甩给用户，是因为 Agent 还要决定顺带说点什么
@@ -92,7 +100,7 @@ def run_trip_service(query, history, chat_id=None, tenant_id=None):
         extra = ("用户问的是天气，下面是系统查到的真实数据（照这个说，不要自己编）：\n"
                  + weather_text)
 
-    action, merged, reply = decide(query, history, extra)
+    action, merged, reply = decide(query, history, extra, user_content)
     merged = merged or query
 
     # 1) 自己答

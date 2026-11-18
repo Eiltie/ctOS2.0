@@ -10,9 +10,10 @@
 
 import json
 
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from core.llm import get_llm
+from modules.chat.sessions import text_of
 from modules.trip.prompts import AGENT_PROMPT
 from modules.trip.state import TripState
 
@@ -25,17 +26,35 @@ ACTIONS = ("answer", "route", "guide")
 
 
 def _history_text(messages):
-    """把这一圈之前用户说过的话拼成文本（不含最后一句）。"""
-    humans = [m.content for m in messages if m.type == "human"]
-    earlier = humans[:-1]
+    """把这一圈之前用户说过的话拼成文本（不含最后一句）。
+
+    用 text_of 取文字：用户带图时 content 是块数组，直接 join 会 TypeError。
+    """
+    humans = [text_of(m) for m in messages if m.type == "human"]
+    earlier = [t for t in humans[:-1] if t]
     return "\n".join(earlier) if earlier else "（还没聊过）"
 
 
 def _last_user_text(messages):
-    """最后一句用户说的话。"""
+    """最后一句用户说的话（只取文字部分）。
+
+    这个值要填进提示词的 {query} 占位，必须是字符串。
+    """
     for message in reversed(messages):
         if message.type == "human":
-            return message.content or ""
+            return text_of(message)
+    return ""
+
+
+def _last_user_content(messages):
+    """最后一句用户消息的原始 content。
+
+    带图时它是块数组（里面有 image_url），要原样交给模型才看得到图；
+    纯文字时是字符串。两种情况都可以直接当 HumanMessage 的 content。
+    """
+    for message in reversed(messages):
+        if message.type == "human":
+            return message.content
     return ""
 
 
@@ -69,7 +88,15 @@ def decide_node(state: TripState) -> dict:
               .replace("{query}", query)
               .replace("{extra}", extra))
 
-    raw = get_llm().with_config(tags=["internal"]).invoke(prompt).content
+    # 提示词当 system，用户这一条当 HumanMessage。
+    # 为什么要把用户消息再放一次：带图时 content 是块数组（含 image_url），
+    # 只塞进 prompt 字符串的话图就丢了，模型根本看不到。
+    # 纯文字时这一步和以前等价——prompt 里已经拼过 {query}，
+    # 这里再带一份原文不改变判断，还能让模型看到图。
+    user_content = _last_user_content(messages)
+    call_messages = [SystemMessage(content=prompt), HumanMessage(content=user_content)]
+
+    raw = get_llm().with_config(tags=["internal"]).invoke(call_messages).content
     data = _parse(raw)
 
     # 解析失败：别把用户晾着，按"自己答"处理，把模型写的内容直接用上

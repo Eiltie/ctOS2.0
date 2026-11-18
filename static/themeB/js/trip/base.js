@@ -318,6 +318,11 @@ function tripShowHero(focusInput = false){
   tripRenderQuickPrompts();
   tripRenderHeroExtras();
 
+  // 回到开场态：待发图片搬回上面那套输入框
+  if (typeof syncTripAttachUi === "function" && tripAttach){
+    syncTripAttachUi(tripAttach.count());
+  }
+
   if (focusInput){
     const input = $("trip-input-hero");
     if (input) input.focus();
@@ -333,6 +338,11 @@ function tripShowChatPane(){
   if (hero) hero.style.display = "none";
   if (pane) pane.style.display = "";
   if (bottom) bottom.style.display = "";
+
+  // 待发图片跟着搬到下面的输入框（用户可能是在开场态选好的）
+  if (typeof syncTripAttachUi === "function" && tripAttach){
+    syncTripAttachUi(tripAttach.count());
+  }
 
   const input = $("trip-input");
   if (input) input.focus();
@@ -587,13 +597,19 @@ function tripTarget(target){
   return target || tripFeed();
 }
 
-function appendTripUser(target, text){
+function appendTripUser(target, text, imageIds){
   const feed = tripTarget(target);
   if (!feed) return;
 
   const div = document.createElement("div");
   div.className = "trip-user-msg";
   div.innerHTML = `<b>${esc(text)}</b>`;
+
+  // 带图时把缩略图挂在用户消息下面（出行这边图不落库，只在当前这轮显示）
+  if (imageIds && imageIds.length && window.Attach){
+    Attach.renderImages(div, imageIds);
+  }
+
   feed.appendChild(div);
   tripScroll();
 }
@@ -1517,7 +1533,9 @@ async function sendTrip(){
   if (!input || !feed || tripBusy) return;
 
   const text = input.value.trim();
-  if (!text) return;
+  // 有图没字也算数（纯图提问）
+  const hasImages = tripAttach && tripAttach.count() > 0;
+  if (!text && !hasImages) return;
 
   // 等访客会话就绪再发，避免页面刚打开时抢跑
   if (!(await ensureSession(false))){
@@ -1552,25 +1570,34 @@ async function sendTrip(){
   // 不然它会一直占着页面，用户以为还在等，其实已经过了
   document.querySelectorAll(".route-ask").forEach((panel) => panel.remove());
 
+  // 先把待发图片传上去，拿到 image_id（没有图就是空数组，等于老行为）
+  const imageIds = tripAttach ? await tripAttach.upload() : [];
+
   const turn = document.createElement("div");
   turn.className = "trip-turn";
   turn.dataset.chatId = openChatId == null ? "" : String(openChatId);
   feed.appendChild(turn);
-  appendTripUser(turn, text);
+  appendTripUser(turn, text, imageIds);
 
   tripClockStart();
 
   const flow = createFlow(turn);
   const ctx = { turn, flow, touched: false, chatTurn: false, awaitingChoice: false, stepError: -1 };
 
+  const body = { query: text, history: tripHistory, chat_id: openChatId };
+  if (imageIds.length) body.image_ids = imageIds;
+
   const result = await tripStream(
     TRIP_ENDPOINT,
-    { query: text, history: tripHistory, chat_id: openChatId },
+    body,
     (ev) => tripHandleEvent(ev, ctx),
   );
 
   // 发出去了才记进历史，失败的那句不留在上下文里
-  if (!result.failed && !result.aborted) tripHistory.push(text);
+  if (!result.failed && !result.aborted){
+    tripHistory.push(text);
+    if (tripAttach) tripAttach.clear();
+  }
 
   tripBusy = false;
 
@@ -1679,11 +1706,57 @@ function tripClearRecords(){
   if (state.view === "trip") renderTripHistory();
 }
 
+// 出行的图片附件。
+//
+// 出行有两个输入框（开场态居中、对话态在底部），待发图片只有一份。
+// 缩略图跟着"当前可见的那一套"走：target() 告诉组件此刻该画在哪个容器里，
+// 组件换容器时会把旧的那份清掉，保证页面上只出现一次。
+let tripAttach = null;
+
+function tripInitAttach(){
+  if (typeof Attach === "undefined" || tripAttach) return;
+
+  const heroDock = $("trip-hero-attach-dock");
+  if (!heroDock || !$("trip-input-hero")) return;
+
+  tripAttach = Attach.createAttachDock({
+    input: $("trip-input-hero"),
+    host: heroDock,
+    // 开场态画在 hero 上，进入对话态画在底部
+    target: () => (tripHeroVisible() ? heroDock : $("trip-attach-dock")) || heroDock,
+    onCount(n){ syncTripAttachUi(n); },
+  });
+
+  ["trip-hero-attach-btn", "trip-attach-btn"].forEach((id) => {
+    const btn = $(id);
+    if (btn) btn.addEventListener("click", () => tripAttach.pick());
+  });
+
+  ["trip-input-hero", "trip-input"].forEach((id) => {
+    const box = $(id);
+    if (box) tripAttach.attachPaste(box);
+  });
+
+  syncTripAttachUi(0);
+}
+
+/** 两个「＋」的角标一起更新；缩略图由组件自己搬到当前可见的那一套 */
+function syncTripAttachUi(n){
+  ["trip-hero-attach-btn", "trip-attach-btn"].forEach((id) => {
+    const btn = $(id);
+    if (!btn) return;
+    btn.classList.toggle("has-items", n > 0);
+    btn.dataset.count = String(n);
+    btn.title = n > 0 ? `已选 ${n} 张图（点这里继续添加）` : "添加图片（也可以直接 Ctrl+V 粘贴）";
+  });
+}
+
 function tripInit(){
   tripRenderShell();
   tripRenderPlaceholder();
   tripRenderQuickPrompts();
   setTripSendState("send");
+  tripInitAttach();
 
   // 停止/出错后按钮变成"重试"，用户一打字就变回"发送"
   ["trip-input", "trip-input-hero"].forEach((id) => {

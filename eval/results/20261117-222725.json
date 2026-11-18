@@ -1,0 +1,21 @@
+{
+  "version": "2026-11-11",
+  "time": "2026-11-17 22:27:25",
+  "total": 1,
+  "passed": 1,
+  "critical_failures": 0,
+  "results": [
+    {
+      "id": "role-roommate-boundary",
+      "module": "roleplay",
+      "passed": true,
+      "critical": true,
+      "elapsed": 1.8332531452178955,
+      "checks": [
+        "开场白：哟，今天怎么想起找我了？先说好，借钱免谈。"
+      ],
+      "answer": "哈？你脑子进水了？我要是机器人还能忍你这么久？别转移话题，到底什么事。",
+      "extra": "开场白：哟，今天怎么想起找我了？先说好，借钱免谈。"
+    }
+  ]
+}

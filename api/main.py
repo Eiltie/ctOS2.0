@@ -10,7 +10,7 @@ import asyncio
 import json
 from pathlib import Path
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, File, Header, HTTPException, Response, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -43,6 +43,8 @@ from databases.db_roleplay import (
     link_role_session,
 )
 from modules.chat.sessions import (
+    attach_images,
+    build_user_message,
     resolve_session,
     save_ai_reply,
     load_history,
@@ -50,7 +52,10 @@ from modules.chat.sessions import (
     all_sessions,
     session_messages,
     remove_session,
+    text_of,
 )
+from modules.chat.attachments import BadImage, MAX_IMAGES_PER_MESSAGE, save_image, read_image
+from databases.db_chat import add_message_image, get_image, delete_message_images
 
 app = FastAPI(title="ctOS 2.0")
 
@@ -131,6 +136,8 @@ class ChatRequest(BaseModel):
     session_id: int | None = None
     # 传了就是角色扮演，不传就是普通闲聊
     role_id: str | None = None
+    # 本轮的图片：先调 POST /chat/attachment 上传，拿到 id 再带进来
+    image_ids: list[int] = []
 
 
 class RoleStartRequest(BaseModel):
@@ -166,6 +173,8 @@ class TripRequest(BaseModel):
     history: list[str] = []
     # 不传 = 新开一个出行会话
     chat_id: int | None = None
+    # 本轮的图片，和 /chat 一样先上传拿 id
+    image_ids: list[int] = []
 
 
 class RouteChoiceRequest(BaseModel):
@@ -221,6 +230,38 @@ def tenant_of(authorization: str | None) -> int:
 def clean_text(value, limit):
     """去掉首尾空格，并限制长度。"""
     return (value or "").strip()[:limit]
+
+
+def resolve_images(image_ids, tenant_id, session_id=None):
+    """把前端传来的图片 id 换成真实的记录。
+
+    只认属于当前租户的图：拿别人的 id 会被过滤掉，不会越权读图。
+    返回两项：
+        records —— [(image_id, rel_path, mime, size)]，用来认领到消息上
+        paths   —— [rel_path]，用来拼成给模型的图片块
+    """
+    records = []
+    seen = set()
+
+    for image_id in (image_ids or [])[:MAX_IMAGES_PER_MESSAGE]:
+        try:
+            row = get_image(image_id, tenant_id=tenant_id)
+        except Exception as e:
+            print(f"[附件] 查图片失败 id={image_id}：{e}")
+            continue
+
+        # 查不到说明不存在，或者不属于这个租户——两种情况都当没给
+        if not row or row["id"] in seen:
+            continue
+
+        # 已经被别的消息认领过的图不再重复用，避免一张图挂到多条消息上
+        if row.get("message_id") is not None:
+            continue
+
+        seen.add(row["id"])
+        records.append((row["id"], row["rel_path"], row["mime"], row["byte_size"] or 0))
+
+    return records, [item[1] for item in records]
 
 
 @app.get("/roleplay/roles")
@@ -407,13 +448,67 @@ def get_notice():
     return {"notice": read_notice()}
 
 
+@app.post("/chat/attachment")
+async def upload_attachment(
+    file: UploadFile = File(...),
+    authorization: str | None = Header(default=None),
+):
+    """上传一张图片，返回它的 id。之后发消息时把 id 放进 image_ids。
+
+    和 /chat 拆成两步，是为了让「传图」和「发消息」各自独立：
+    用户可以传三张删两张、可以传完再改文字，最后只发一次带 image_ids 的请求。
+    """
+    tenant_id = tenant_of(authorization)
+
+    data = await file.read()
+
+    try:
+        rel_path, mime, byte_size = save_image(data, tenant_id=tenant_id)
+    except BadImage as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # 先占一条记录，message_id 为空；等真发出消息时再挂上去
+    image_id = add_message_image(
+        None, rel_path, mime, byte_size, session_id=None, tenant_id=tenant_id,
+    )
+
+    return {
+        "image_id": image_id,
+        "mime": mime,
+        "bytes": byte_size,
+        "url": f"/chat/attachment/{image_id}",
+    }
+
+
+@app.get("/chat/attachment/{image_id}")
+def get_attachment(image_id: int, authorization: str | None = Header(default=None)):
+    """取一张图。只给图片所属的租户看，别人拿到 id 也取不到。"""
+    tenant_id = tenant_of(authorization)
+
+    row = get_image(image_id, tenant_id=tenant_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="没有这张图")
+
+    got = read_image(row["rel_path"])
+    if got is None:
+        raise HTTPException(status_code=404, detail="图片文件找不到了")
+
+    data, mime = got
+    return Response(content=data, media_type=mime,
+                    headers={"Cache-Control": "private, max-age=3600"})
+
+
 @app.post("/chat")
 async def chat(req: ChatRequest, authorization: str | None = Header(default=None)):
     """闲聊：流式返回纯文本，会话 id 放在响应头 X-Session-Id。
 
     传了 role_id 就是角色扮演，没传就是普通闲聊，两条路共用会话和消息表。
+    传了 image_ids 就是带图提问：图片会拼进这一轮的用户消息。
     """
     tenant_id = tenant_of(authorization)
+
+    # 先把图片换成真实路径（会校验归属），后面两条路都要用
+    image_records, image_paths = resolve_images(req.image_ids, tenant_id)
 
     # ---------- 角色扮演 ----------
     if req.role_id:
@@ -464,14 +559,20 @@ async def chat(req: ChatRequest, authorization: str | None = Header(default=None
     async def gen():
         """逐块产出模型回复，全部发完后再把本轮问答写库。"""
         history = load_history(session_id, tenant_id=tenant_id)
-        query = history + [HumanMessage(content=req.messages)]
+
+        # 有图时 content 是块数组，没有图时就是纯文字——build_user_message 内部分两路
+        user_message = build_user_message(req.messages, image_paths, tenant_id=tenant_id)
+        query = history + [user_message]
+
         collection = []
 
         async for chunks in run_graph(query):
             collection.append(chunks)
             yield chunks
 
-        save_user_message(session_id, req.messages, tenant_id=tenant_id)
+        # 正文只存纯文字（图在 message_images 里），历史回放才不会被块数组弄崩
+        message_id = save_user_message(session_id, req.messages, tenant_id=tenant_id)
+        attach_images(message_id, image_records, session_id=session_id, tenant_id=tenant_id)
         save_ai_reply(session_id, "".join(collection), tenant_id=tenant_id)
 
     headers = {"X-Session-Id": str(session_id)} if session_id else {}
@@ -490,11 +591,19 @@ async def trip_chat(req: TripRequest, authorization: str | None = Header(default
     """智能出行的唯一入口：一句话进来，Agent 判断该干嘛。
 
     路线规划、旅游攻略都是它内部的能力，用户不需要（也没法）选。
+    带 image_ids 时，图片会让 Agent 看到，它据此决定 action 和写出的需求。
     """
     tenant_id = tenant_of(authorization)
 
+    # 出行这边只把图交给 Agent 判断，不落库到闲聊的消息表
+    _, image_paths = resolve_images(req.image_ids, tenant_id)
+
+    # 有图就把这一轮用户消息做成块数组，没有图就保持纯文字（老行为）
+    user_content = build_user_message(req.query, image_paths, tenant_id=tenant_id).content
+
     return StreamingResponse(
-        trip_stream(req.query, req.history, chat_id=req.chat_id, tenant_id=tenant_id),
+        trip_stream(req.query, req.history, chat_id=req.chat_id, tenant_id=tenant_id,
+                    user_content=user_content),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

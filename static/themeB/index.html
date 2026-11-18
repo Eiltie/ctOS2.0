@@ -11,6 +11,7 @@
     <!-- 指挥台版自己的版式与配色 -->
     <link rel="stylesheet" href="/static/themeB/css/style.css?v=202611171752">
     <link rel="stylesheet" href="/static/themeB/css/theme-light.css?v=202611171752">
+    <link rel="stylesheet" href="/static/themeB/css/attach.css?v=202611172100">
 
 
     <!-- 指挥台版有两种风格：晨光控制台（亮）/ 指挥台（暗）。
@@ -242,8 +243,11 @@
                             <button class="prompt-btn">你好，介绍一下你自己</button>
                             <button class="prompt-btn">帮我梳理今天的待办事项</button>
                         </div>
+                        <!-- 待发图片的缩略图，由 Attach 组件填 -->
+                        <div class="attach-dock" id="chat-attach-dock"></div>
                         <div class="input-wrapper">
                             <div class="b-left"></div><div class="b-right"></div>
+                            <button class="attach-btn" id="chat-attach-btn" type="button" title="添加图片（也可以直接 Ctrl+V 粘贴）">＋</button>
                             <input type="text" id="chat-input" placeholder="向 ctOS 发送指令... (Enter 发送)">
                             <button class="send-btn" id="chat-send" type="button" onclick="chatSendOrStop()" title="发送">➤</button>
                         </div>
@@ -258,8 +262,10 @@
                             <img class="hero-icon" src="/static/shared/image/CTOS.webp?v=202611171752" alt="">
                             <span id="trip-greeting">有什么我能帮你的吗？</span>
                         </div>
+                        <div class="attach-dock" id="trip-hero-attach-dock"></div>
                         <div class="hero-input">
                             <div class="b-left"></div><div class="b-right"></div>
+                            <button class="attach-btn" id="trip-hero-attach-btn" type="button" title="添加图片（也可以直接 Ctrl+V 粘贴）">＋</button>
                             <input type="text" id="trip-input-hero" placeholder="说个目的地，或问从哪到哪怎么走...">
                             <button class="send-btn trip-send-btn" id="trip-send-hero" type="button" onclick="tripSendOrStop()" title="发送">➤</button>
                         </div>
@@ -273,8 +279,10 @@
                         <button class="trip-scroll-btn" id="trip-scroll-btn" style="display:none">回到最新 ↓</button>
                     </div>
                     <div class="bottom-section" id="trip-bottom" style="display:none">
+                        <div class="attach-dock" id="trip-attach-dock"></div>
                         <div class="input-wrapper">
                             <div class="b-left"></div><div class="b-right"></div>
+                            <button class="attach-btn" id="trip-attach-btn" type="button" title="添加图片（也可以直接 Ctrl+V 粘贴）">＋</button>
                             <input type="text" id="trip-input" placeholder="说个目的地，或问从哪到哪怎么走...">
                             <button class="send-btn trip-send-btn" id="trip-send" type="button" onclick="tripSendOrStop()" title="发送">➤</button>
                         </div>
@@ -460,6 +468,7 @@
 <script src="/static/shared/js/common/abort.js?v=202611171752"></script>
 <script src="/static/shared/js/common/sse.js?v=202611171752"></script>
 <script src="/static/shared/js/common/typer.js?v=202611171752"></script>
+<script src="/static/shared/js/common/attach.js?v=202611172100"></script>
 <script src="/static/shared/js/common/presence.js?v=202611171752"></script>
 <script src="/static/themeB/js/common/selection.js?v=202611171752"></script>
 <script src="/static/themeB/js/common/sticky.js?v=202611171752"></script>

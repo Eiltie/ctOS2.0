@@ -62,7 +62,8 @@ function rowHTML(kind){
 }
 
 // 追加一行，返回这一行元素；text 为 null 时留空气泡（给流式用）
-function appendRow(feed, kind, text){
+// images 是这条消息挂的图片 id 列表，有就画缩略图（历史消息重绘时用）
+function appendRow(feed, kind, text, images){
   const box = document.createElement("div");
   box.innerHTML = rowHTML(kind).trim();
   const el = box.firstElementChild;
@@ -78,6 +79,12 @@ function appendRow(feed, kind, text){
   }
 
   feed.appendChild(el);
+
+  // 图片异步加载，不阻塞这一行出现
+  if (images && images.length && window.Attach){
+    Attach.renderImages(el.querySelector(".bubble"), images);
+  }
+
   scrollDown(feed);
   return el;
 }
@@ -120,7 +127,7 @@ function renderChat(){
   }
 
   for (const m of (s.messages || [])){
-    appendRow(feed, m.role === "user" ? "user" : "ai", m.text);
+    appendRow(feed, m.role === "user" ? "user" : "ai", m.text, m.images);
   }
   scrollDown(feed);
 
@@ -1152,7 +1159,7 @@ async function openSession(id){
   // 消息按需拉；没有 messages 也重新拉，防止缓存标记还在但内容被覆盖掉了
   if (!state.loaded.has(id) || !Array.isArray(s.messages)){
     const rows = await getJson(`${API.sessions}/${id}/messages`);
-    s.messages = (Array.isArray(rows) ? rows : []).map((m) => ({ role: m.role, text: m.content }));
+    s.messages = (Array.isArray(rows) ? rows : []).map((m) => ({ role: m.role, text: m.content, images: m.images || [] }));
     state.loaded.add(id);
   }
 
@@ -1251,7 +1258,9 @@ async function sendChat(){
   if (!input || !feed || chatBusy) return;
 
   const text = input.value.trim();
-  if (!text) return;
+  // 没字但有图也算数（纯图提问：后端会自动补一句「这图里有什么」）
+  const hasImages = chatAttach && chatAttach.count() > 0;
+  if (!text && !hasImages) return;
 
   // 页面刚打开时访客会话可能还在创建，等它完成再发，避免发出没 token 的请求
   if (!(await ensureSession(false))){
@@ -1290,9 +1299,16 @@ async function sendChat(){
   let aborted = false;
 
   try{
+    // 先把待发图片传上去，拿到 image_id。没有图就是空数组，等于老行为
+    const imageIds = chatAttach ? await chatAttach.upload() : [];
+
+    // 上传期间用户可能点了停止
+    if (ctl.signal.aborted) throw Object.assign(new Error("已取消"), { name: "AbortError" });
+
     const payload = { messages: text };
     if (sessionId !== null) payload.session_id = sessionId;
     if (chatMode === "role-chat" && activeRole) payload.role_id = activeRole.id;
+    if (imageIds.length) payload.image_ids = imageIds;
 
     const res = await fetch(API.base + API.chat, {
       method: "POST",
@@ -1349,6 +1365,9 @@ async function sendChat(){
     finishAbort(ctl);
     chatBusy = false;
 
+    // 发出去了才清空待发图片；失败/中断时留着，用户可以直接重试
+    if (!failed && !aborted && chatAttach) chatAttach.clear();
+
     if (failed || aborted){
       chatCanRetry = true;
       setChatSendState(input.value.trim() ? "send" : "retry");
@@ -1386,7 +1405,7 @@ async function sendChat(){
       }else if (s){
         const rows = await getJson(`${API.sessions}/${cur}/messages`);
         if (Array.isArray(rows)){
-          s.messages = rows.map((m) => ({ role: m.role, text: m.content }));
+          s.messages = rows.map((m) => ({ role: m.role, text: m.content, images: m.images || [] }));
           state.loaded.add(cur);
           if (state.view === "chat") renderChat();
         }
@@ -1706,9 +1725,35 @@ async function syncTripRecords(){
   }
 }
 
+// 闲聊的图片附件：输入框旁的「＋」+ 粘贴 + 缩略图预览。
+// 全局只有一份，发消息时 sendChat 用它的 upload() 拿 image_ids。
+let chatAttach = null;
+
+function initChatAttach(){
+  const input = $("chat-input");
+  const btn = $("chat-attach-btn");
+  const dock = $("chat-attach-dock");
+  if (!input || !btn || !dock || typeof Attach === "undefined") return;
+
+  chatAttach = Attach.createAttachDock({
+    input,
+    host: dock,
+    onCount(n){
+      btn.classList.toggle("has-items", n > 0);
+      btn.dataset.count = String(n);
+      btn.title = n > 0 ? `已选 ${n} 张图（点这里继续添加）` : "添加图片（也可以直接 Ctrl+V 粘贴）";
+    },
+  });
+
+  btn.addEventListener("click", () => chatAttach.pick());
+  chatAttach.attachPaste(input);
+}
+
 window.addEventListener("DOMContentLoaded", async () => {
   const model = $("foot-model");
   if (model) model.textContent = API.model;
+
+  initChatAttach();
 
   // 三个模块的输入框都绑上回车
   bindEnter("trip-input", () => sendTrip());

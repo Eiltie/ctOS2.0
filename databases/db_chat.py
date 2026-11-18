@@ -43,10 +43,30 @@ CREATE TABLE IF NOT EXISTS messages (
 )
 """
 
+# 图片附件：消息正文只存纯文字，图单独记在这里
+# 为什么不塞进 messages.content：
+#   历史回放是 HumanMessage(content=正文)。正文里若混着图片块，
+#   读出来是 "..." 这种字符串，模型会当成用户在念代码。
+#   存纯文字 + 另表记图，回放逻辑一行不用改，老数据也不受影响。
+CREATE_MESSAGE_IMAGES_TABLE = """
+CREATE TABLE IF NOT EXISTS message_images (
+    id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id   INTEGER     NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    session_id  INTEGER     REFERENCES sessions(id) ON DELETE CASCADE,
+    message_id  INTEGER     REFERENCES messages(id) ON DELETE CASCADE,
+    rel_path    TEXT        NOT NULL,
+    mime        TEXT        NOT NULL,
+    byte_size   INTEGER     NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
 CREATE_INDEXES = (
     "CREATE INDEX IF NOT EXISTS ix_sessions_tenant ON sessions (tenant_id, updated_at DESC)",
     "CREATE INDEX IF NOT EXISTS ix_messages_session ON messages (session_id)",
     "CREATE INDEX IF NOT EXISTS ix_messages_tenant ON messages (tenant_id)",
+    "CREATE INDEX IF NOT EXISTS ix_message_images_message ON message_images (message_id)",
+    "CREATE INDEX IF NOT EXISTS ix_message_images_tenant ON message_images (tenant_id)",
 )
 
 
@@ -58,6 +78,7 @@ def create_chat_tables():
     """
     execute(CREATE_SESSIONS_TABLE)
     execute(CREATE_MESSAGES_TABLE)
+    execute(CREATE_MESSAGE_IMAGES_TABLE)
     for create_index in CREATE_INDEXES:
         execute(create_index)
 
@@ -127,6 +148,91 @@ def get_session_messages(session_id, tenant_id=DEFAULT_TENANT_ID):
         "FROM messages WHERE session_id = %s AND tenant_id = %s ORDER BY id ASC",
         (session_id, tenant_id),
     )
+
+
+def add_message_image(message_id, rel_path, mime, byte_size,
+                      session_id=None, tenant_id=DEFAULT_TENANT_ID):
+    """给某条消息挂一张图，返回图片记录 id。"""
+    return execute_returning_id(
+        "INSERT INTO message_images "
+        "(tenant_id, session_id, message_id, rel_path, mime, byte_size) "
+        "VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+        (tenant_id, session_id, message_id, rel_path, mime, byte_size),
+    )
+
+
+def images_of_message(message_id, tenant_id=DEFAULT_TENANT_ID):
+    """某条消息挂了哪些图，按挂上去的顺序返回。"""
+    return query(
+        "SELECT id, rel_path, mime, byte_size "
+        "FROM message_images WHERE message_id = %s AND tenant_id = %s "
+        "ORDER BY id ASC",
+        (message_id, tenant_id),
+    )
+
+
+def images_of_messages(message_ids, tenant_id=DEFAULT_TENANT_ID):
+    """一批消息各自挂了哪些图，返回 {message_id: [图片记录 id, ...]}。
+
+    给前端渲染历史消息用，只给 id，前端拿 id 去 /chat/attachment/{id} 取图。
+    一次查完，不要每条消息查一次。
+    """
+    ids = [int(i) for i in (message_ids or [])]
+    if not ids:
+        return {}
+
+    rows = query(
+        "SELECT id, message_id FROM message_images "
+        "WHERE message_id = ANY(%s) AND tenant_id = %s ORDER BY id ASC",
+        (ids, tenant_id),
+    )
+
+    grouped = {}
+    for row in rows:
+        grouped.setdefault(row["message_id"], []).append(row["id"])
+    return grouped
+
+
+def get_image(image_id, tenant_id=DEFAULT_TENANT_ID):
+    """按图片记录 id 取一行；不属于这个租户就返回 None。"""
+    rows = query(
+        "SELECT id, rel_path, mime, byte_size, message_id FROM message_images "
+        "WHERE id = %s AND tenant_id = %s",
+        (image_id, tenant_id),
+    )
+    return rows[0] if rows else None
+
+
+def claim_image(image_id, message_id, session_id=None, tenant_id=DEFAULT_TENANT_ID):
+    """把上传时占位的图片记录认领到某条消息上。
+
+    为什么不是再插一条：
+      上传接口先插一行占位（message_id 为空），发消息时如果又插一行新的，
+      同一个文件就会有两条记录，旧的那条永远挂着空 message_id 变成孤儿。
+      所以这里用 UPDATE 认领原来那条。
+
+    返回是否认领成功（记录不存在或不属于该租户时返回 False）。
+    """
+    return execute(
+        "UPDATE message_images SET message_id = %s, session_id = %s "
+        "WHERE id = %s AND tenant_id = %s",
+        (message_id, session_id, image_id, tenant_id),
+    ) > 0
+
+
+def delete_message_images(message_id, tenant_id=DEFAULT_TENANT_ID):
+    """删某条消息的图片记录，返回被删掉的行（含 rel_path，便于删盘上的文件）。"""
+    rows = query(
+        "SELECT id, rel_path FROM message_images "
+        "WHERE message_id = %s AND tenant_id = %s",
+        (message_id, tenant_id),
+    )
+    if rows:
+        execute(
+            "DELETE FROM message_images WHERE message_id = %s AND tenant_id = %s",
+            (message_id, tenant_id),
+        )
+    return rows
 
 
 if __name__ == "__main__":

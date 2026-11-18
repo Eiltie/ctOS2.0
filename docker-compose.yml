@@ -94,6 +94,9 @@ services:
       - ./modules/customer/data/chroma:/app/modules/customer/data/chroma
       # 人工确认的暂停现场：容器重建后，没选完的方案还能接着选
       - ./databases/checkpoints:/app/databases/checkpoints
+      # 用户上传的图片：容器重建后，历史消息里的图还在
+      # （必须在宿主机上也有一份，否则镜像重建会丢）
+      - ./databases/images:/app/databases/images
     ports:
       - "8080:8080"
     networks:

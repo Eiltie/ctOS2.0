@@ -72,10 +72,37 @@ api/main.py          ← 唯一入口，所有路由都在这里
    │  ↑ 每个业务请求先进 auth，从 token 取出 tenant_id
    │
    ├─ POST /auth/trial ──→ 访客账号（页面首次打开自动调用）
-   ├─ POST /chat      ──→ 闲聊 / 角色扮演   纯文本流
-   ├─ POST /trip/chat ──→ 智能出行（Agent 判断：自己答 / 路线 / 攻略）  SSE 事件流
+   ├─ POST /chat/attachment ──→ 上传图片，返回 image_id
+   ├─ GET  /chat/attachment/{id} ──→ 取图（鉴权，只给本租户）
+   ├─ POST /chat      ──→ 闲聊 / 角色扮演   纯文本流（可带 image_ids）
+   ├─ POST /trip/chat ──→ 智能出行（Agent 判断：自己答 / 路线 / 攻略）  SSE 事件流（可带 image_ids）
    └─ POST /customer/chat ─→ 客服           SSE 事件流
 ```
+
+**识图的接入点（重要）：**
+
+识图**不是一张独立的图**。模型本身支持多模态，所以识图只是「消息长什么样」的问题：
+
+| 场景 | content |
+| --- | --- |
+| 没有图 | `"这张图里有什么"`（字符串，和以前一样） |
+| 有图 | `[{"type":"text",...}, {"type":"image_url",...}]`（块数组） |
+
+图的拓扑、节点、边、`core/llm.py`、所有工具、路线和攻略两个子图都没动。
+
+```
+上传接口 → modules/chat/attachments.py（存盘 + 记账 message_images）
+                     ↓
+        build_user_message(text, image_paths)   ← 有图才变块数组
+                     ↓
+   闲聊：api/main.py 构造 HumanMessage
+   出行：交给 decide_node()，Agent 看到图后写 action + query
+                     ↓
+        Agent 写出的 query 是纯文字 → 两个子图原样吃，不用改
+```
+
+凡是「把消息当文字用」的地方（`trip/node.py` 两处等）必须过 `text_of()`，
+否则 content 变成数组后会 TypeError。
 
 **先记住这张图**，下面四节是每一条链路的展开。
 
