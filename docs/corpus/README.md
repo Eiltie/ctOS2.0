@@ -1,4 +1,4 @@
-﻿# ctOS 2.0
+# ctOS 2.0
 
 一个 FastAPI + LangGraph 搭建的多模块 AI 应用。同一个 FastAPI app 挂载多个能力模块，共用一套静态资源与会话接口。
 
@@ -24,13 +24,13 @@
 
 出行和客服都不是独立 app，它们是 ctOS 的能力。
 
-智能出行内部有两项能力（`modules/trip/capabilities/` 下的路线规划和旅游攻略），
+智能出行内部有两项能力（`modules/trip/` 下的 `route/` 和 `guide/` 下的路线规划和旅游攻略），
 它们是 Agent 手里的工具，不是用户能选的模式。
 
 每个业务模块各有一张 LangGraph 图，互不干扰：
 
 - 闲聊：`START → chat_node → END`，最简单的一张图
-- 角色扮演：不走图，直接拼提示词调模型流式输出（`modules/roleplay/stream.py`）
+- 角色扮演：不走图，直接拼提示词调模型流式输出（`modules/chat/roleplay/stream.py`）
 - 智能出行：`START → agent → END`，一个节点做判断，再按判断去调下面两张子图
   - 路线规划（子图）：`START → collect_routes → ask_user（暂停等选方案）→ compare_routes → decide_route → write_tips → END`
   - 旅游攻略（子图）：`START → weather → spots_agent →（工具循环）→ ask_spots（暂停等勾选）→ planner → advice → END`
@@ -89,96 +89,104 @@ SSE 事件名统一是：`SAY`、`START`、`STEP`、`TOKEN`、`DONE`、`CHAT`、
 
 **闲聊模式**（`/chat`）——流式纯文本对话：
 
-![闲聊模式](../../../../screenshot/ctOS_chat.png)
+![闲聊模式](../../screenshot/ctOS_chat.png)
 
 **智能出行**（`/trip/chat`）——两种模式，中途都会暂停让你确认：
 
-![智能出行](../../../../screenshot/ctOS_trip01.png)
+![智能出行](../../screenshot/ctOS_trip01.png)
 
 线上可以直接看：<https://ctos2.cn>（点顶栏切换模块，角色扮演在左侧菜单里）。
 
 ## 目录结构
 
+项目按职责分成八层，依赖方向单向（api → cli → modules → common → databases）。
+
 ```
 ctOS2.0/
-├── api/                        # HTTP 接口层
-│   ├── main.py                 # ★ FastAPI 入口，所有业务路由都在这里
+├── api/                        # ③ 接口层：每个模块一个路由文件
+│   ├── main.py                 # ★ FastAPI 入口，只做装配（建 app + 挂静态 + include_router）
+│   ├── deps.py                 # 路由共用：取租户 tenant_of / 校验图片 / SSE 响应头
 │   └── routes/
-│       ├── auth.py             # 认证路由：/auth/register、/auth/login、/auth/me
-│       └── trial.py            # 访客账号：/auth/trial（独立文件，可整块删）
-├── core/                       # 跨模块公用
+│       ├── auth.py             # /auth/register、/auth/login、/auth/me
+│       ├── trial.py            # 访客账号 /auth/trial（独立文件，可整块删）
+│       ├── chat.py             # /chat（含角色扮演分支）+ /chat/attachment
+│       ├── trip.py             # /trip/*：出行唯一入口 + 路线选择 + 会话管理
+│       ├── guide.py            # /guide/spots：勾完景点继续
+│       ├── roleplay.py         # /roleplay/*：角色增删查 + 记忆
+│       ├── customer.py         # /customer/chat
+│       ├── sessions.py         # /sessions：列出 / 读消息 / 删除
+│       ├── presence.py         # /presence/*：在线人数
+│       ├── feedback.py         # /feedback
+│       └── system.py           # /notice、/health、/
+├── cli/                        # ④ 本地层：终端入口
+│   ├── guide.py                # 旅游攻略终端版：python -m cli.guide
+│   └── imagegen.py             # 生图终端版：python -m cli.imagegen
+├── common/                     # ② 公共层：跨模块共用
 │   ├── llm.py                  # 唯一的模型客户端 get_llm()，也负责加载 .env
 │   ├── db.py                   # PostgreSQL 连接 + 建表总入口 create_all_tables()
 │   ├── auth.py                 # 密码 bcrypt 哈希 + JWT 签发与校验
-│   └── sse.py                  # SSE 事件打包 + 把同步生成器放进工作线程
-├── databases/                  # 表和读写（一个业务模块一个文件）
-│   ├── db_tenant.py            # 全局身份表 tenants
-│   ├── db_auth.py              # 用户表 users
-│   ├── db_chat.py              # 闲聊表 sessions / messages
-│   ├── db_trip.py              # 出行表 trip_chats / trip_sessions / trip_user_inputs / trip_ai_outputs
-│   ├── db_roleplay.py          # 角色扮演表 role_play_sessions / role_play_memories / role_play_roles
-│   ├── db_feedback.py          # 反馈表 feedback
-│   ├── db_view.py              # 命令行查看工具
-│   ├── clean_db.py             # 命令行清理工具
-│   └── feedback_view.py        # 命令行查看反馈
-├── modules/                    # 四个业务模块（chat / roleplay / trip / customer）
-│   ├── chat/                   # 闲聊：graph / node / prompts / state / stream / sessions
-│   ├── roleplay/               # 角色扮演：roles / presets / prompts / stream / search / memory / openings
-│   ├── trip/                   # 智能出行
-│   │   ├── graph.py            # 攻略图（天气 → 景点 → 等勾选 → 行程 → 路线）
-│   │   ├── node.py             # 攻略的四个节点
-│   │   ├── route.py            # 条件边：景点 agent 要不要继续搜
-│   │   ├── tools.py            # 三个工具：天气 / 联网搜索 / 路线
-│   │   ├── prompts.py          # 攻略提示词 + 意图分流提示词
-│   │   ├── state.py            # 图状态定义
-│   │   ├── understand.py       # 第一句分流：路线 / 攻略 / 闲聊
-│   │   ├── stream.py           # 对外唯一入口 trip_stream()，产出 SSE
-│   │   ├── guide_ask.py        # 攻略暂停节点：收用户勾选的景点
-│   │   ├── guide_stream.py     # 攻略出口：暂停、恢复、问要不要查真实路线
-│   │   ├── route_decision_tools.py   # 高德路线数据：地点 / 驾车 / 公交 / 步行 / 骑行
-│   │   ├── route_decision_prompts.py # 路线决策的 4 个提示词
-│   │   ├── route_decision_graph.py   # 路线决策图：查候选 → 暂停 → 写结论
-│   │   ├── route_decision_stream.py  # 路线决策出口：解析 / 校验 / 暂停恢复 / 存库
-│   │   └── cli.py              # 终端调试入口
-│   └── customer/               # 智能客服（RAG）
-│       ├── graph.py            # START → retrieve → generate → END
-│       ├── node.py             # 检索节点、生成节点
-│       ├── state.py            # 图状态定义
-│       ├── prompts.py          # 回答提示词
-│       ├── stream.py           # 对外唯一入口 customer_stream()
-│       ├── rag_store.py        # 知识库加载（全进程只加载一次）
-│       ├── rag_ingest.py       # 一次性入库脚本
-│       ├── rag_search.py       # 三层检索：关键词 / 向量 / 混合
-│       ├── rag_config.py       # 文档目录、向量库目录、集合名、embedding 模型
-│       ├── rag_eval.py         # 检索测评脚本（40 题）
-│       ├── eval/golden.json    # 测评题库
-│       └── data/
-│           ├── docs/           # 知识库原始文档（本文就在这里）
-│           └── chroma/         # 向量库落盘目录（由入库脚本生成，不入库）
+│   ├── sse.py                  # SSE 事件打包 + 把同步生成器放进工作线程
+│   ├── checkpoints.py          # LangGraph 暂停现场（路线和攻略共用一个 sqlite）
+│   └── tools/                  # 外部数据工具
+│       ├── search.py           # 联网搜索
+│       ├── weather.py          # 天气（Open-Meteo）
+│       └── amap.py             # 高德地图
+├── databases/                  # ⑥ 数据库层：公共 / 各模块 / 运维工具
+│   ├── common/
+│   │   ├── db.py               # 连接 + 通用操作 + 建表总入口
+│   │   └── db_tenant.py        # 全局身份表 tenants
+│   ├── modules/
+│   │   ├── db_auth.py          # 用户 users
+│   │   ├── db_chat.py          # sessions / messages / message_images
+│   │   ├── db_trip.py          # 出行 4 张表
+│   │   ├── db_roleplay.py      # 角色扮演 3 张表
+│   │   └── db_feedback.py      # 反馈 feedback
+│   └── tools/                  # 运维 CLI，不参与 Web 服务
+│       ├── view.py             # 查看数据
+│       ├── clean.py            # 清理数据
+│       └── feedback_view.py    # 查看反馈
+├── modules/                    # ① 模块层：按子集 / 交集组织
+│   ├── chat/                   # 闲聊（父）
+│   │   ├── graph / node / state / prompts / stream / sessions / attachments
+│   │   └── roleplay/           # ← 子集：角色扮演（复用闲聊的会话表）
+│   ├── trip/                   # 智能出行（父）
+│   │   ├── agent.py            # 编排：判断该自己答 / 走路线 / 做攻略
+│   │   ├── graph / node / state / prompts / stream
+│   │   ├── route/              # ← 子集：路线规划
+│   │   └── guide/              # ← 子集：旅游攻略
+│   ├── customer/               # 智能客服（RAG）
+│   │   ├── graph / node / state / prompts / stream
+│   │   ├── rag_config.py       # 语料目录、向量库目录、集合名、向量模型
+│   │   ├── rag_store.py        # 知识库加载（全进程只加载一次）
+│   │   ├── rag_search.py       # 三层检索：关键词 / 向量 / 混合
+│   │   ├── rag_ingest.py       # 入库脚本
+│   │   ├── rag_eval.py         # 检索测评脚本（40 题）
+│   │   ├── embedding.py        # 向量化（本机 Ollama）
+│   │   ├── eval/golden.json    # 检索测评题库
+│   │   └── data/chroma/        # 向量库落盘（运行产物，不入 git）
+│   └── imagegen/               # ← 交集：生图（在建，尚未接入路由）
+├── tests/                      # ⑤ 测试层
+│   ├── test_*.py               # 单元测试（不连库不调模型）
+│   └── e2e/                    # 端到端测评（要真模型，手动跑）
+├── docs/                       # ⑧ 文档层
+│   ├── reading/                # 给人读：架构、文件清单、部署、主题、生图
+│   ├── planning/               # 规划稿与排查记录
+│   └── corpus/                 # RAG 语料（本文就在这里）
+├── config/                     # ⑦ 配置层：.env、配置模板、requirements.txt、公告
 ├── static/                     # 前端（无构建步骤）
 │   ├── index.html              # 入口页：读偏好 + 判断屏幕宽度，跳到 themeA 或 themeB
 │   ├── themeA/                 # 经典版：左侧栏 + 顶栏 tab + 气泡对话（3 种风格）
-│   │   ├── index.html
-│   │   ├── css/                # style / modules / theme / ui / mobile …
-│   │   └── js/                 # app.js、trip.js、customer.js、common/
 │   ├── themeB/                 # 指挥台版：图标导轨 + 右侧控制台（仅宽屏，2 种风格）
-│   │   ├── index.html
-│   │   ├── css/                # base / components / style / theme-light
-│   │   └── js/                 # console.js、theme-ui.js …
 │   └── shared/                 # 两套共用
-│       ├── image/              # LOGO、客服图标
-│       └── js/common/          # prefs、presence、配置、认证、SSE、打字机……
+├── scripts/                    # 构建与运维脚本
 ├── screenshot/                 # README 用的界面截图
-├── docs/                       # 项目文档
-├── eval/                       # 端到端测评（39 条）
-├── config/                     # .env、配置模板、requirements.txt
 ├── Dockerfile                  # 镜像构建
 └── docker-compose.yml          # 应用 + 数据库两个容器
 ```
 
 ## 数据存储
 
-所有业务数据存在 PostgreSQL 数据库 `ctos2` 里，共 12 张表：
+所有业务数据存在 PostgreSQL 数据库 `ctos2` 里，共 13 张表：
 
 | 表 | 所属模块 | 说明 |
 | --- | --- | --- |
@@ -202,7 +210,7 @@ ctOS2.0/
 
 智能客服是一问一答，**不写数据库**，所以没有自己的表。它的「知识」只落在本地 Chroma 目录里。
 
-除了这 12 张表，还有两处**运行产物、不入 git**：
+除了这 13 张表，还有两处**运行产物、不入 git**：
 
 - `databases/checkpoints/route_checkpoints.sqlite`：出行的 LangGraph 暂停现场（SQLite）
 - `modules/customer/data/chroma/`：客服的向量库
@@ -219,21 +227,21 @@ ctOS2.0/
 - `role_play_memories.rounds`：这个角色聊了几轮，每满 6 轮整理一次记忆
 - `feedback.rating`：存中文原文（很满意 / 满意 / 一般 / 不太满意），不存数字
 
-连接层 `core/db.py` 的 `get_conn()` 每个操作开一个短连接，用完自动关，
+连接层 `common/db.py` 的 `get_conn()` 每个操作开一个短连接，用完自动关，
 出错自动回滚；`transaction()` 把多条写入包成一个事务。
-**不要另写第二份开连接的代码**，所有 SQL 都走 `core/db.py` 提供的 `query` / `query_one` / `execute`。
+**不要另写第二份开连接的代码**，所有 SQL 都走 `common/db.py` 提供的 `query` / `query_one` / `execute`。
 
 查看数据库内容（不用装任何工具）：
 
 ```bash
-python -X utf8 -m databases.db_view            # 列出所有会话
-python -X utf8 -m databases.db_view show 3     # 看某个会话的完整对话
-python -X utf8 -m databases.db_view trips      # 出行列表
-python -X utf8 -m databases.db_view stats      # 统计
+python -X utf8 -m databases.tools.view            # 列出所有会话
+python -X utf8 -m databases.tools.view show 3     # 看某个会话的完整对话
+python -X utf8 -m databases.tools.view trips      # 出行列表
+python -X utf8 -m databases.tools.view stats      # 统计
 python -X utf8 -m databases.feedback_view      # 用户反馈
 ```
 
-> `db_view.py` 用命令行查看闲聊的几张表。线上的数据在 `ctos2-db` 容器里：
+> `databases/tools/view.py` 用命令行查看闲聊的几张表。线上的数据在 `ctos2-db` 容器里：
 > `docker exec ctos2-db psql -U ctos_app ctos2` 可以直接进去查。
 
 ## 快速开始
@@ -252,7 +260,7 @@ pip install -r config/requirements.txt
 Agent 编排（langgraph / langchain 系列 / openai / httpx）、
 客服模块（chromadb / jieba / rank-bm25）、
 数据库（psycopg）、认证（python-jose / bcrypt）。
-其中 `langgraph-checkpoint-sqlite` 是出行暂停现场用的——`modules/trip/capabilities/route/graph.py`
+其中 `langgraph-checkpoint-sqlite` 是出行暂停现场用的——`modules/trip/route/graph.py`
 用它把 interrupt 的状态落到 `databases/checkpoints/`；业务数据本身仍然走 PostgreSQL。
 
 ### 2. 配置环境变量
@@ -307,10 +315,10 @@ JWT_SECRET_KEY=
 ### 3. 初始化数据库
 
 ```bash
-python -X utf8 -m core.db
+python -X utf8 -m common.db
 ```
 
-会建好全部 12 张表（`tenants` / `users` / `sessions` / `messages` / `trip_chats` /
+会建好全部 13 张表（`tenants` / `users` / `sessions` / `messages` / `trip_chats` /
 `trip_sessions` / `trip_user_inputs` / `trip_ai_outputs` / `role_play_sessions` /
 `role_play_memories` / `role_play_roles` / `feedback`），已存在则跳过，不会动已有数据。
 **没建表的话注册登录会直接报错。**
@@ -318,7 +326,7 @@ python -X utf8 -m core.db
 
 ### 4. 智能客服入库（第一次使用前跑一次）
 
-智能客服依赖本地向量库，需要先把 `data/docs/` 里的文档切块、向量化、入库：
+智能客服依赖本地向量库，需要先把 `docs/corpus/` 里的文档切块、向量化、入库：
 
 ```bash
 python -X utf8 -m modules.customer.rag_ingest
@@ -327,7 +335,7 @@ python -X utf8 -m modules.customer.rag_ingest
 注意几点：
 
 - 入库用的是**本机 Ollama**，不需要密钥；但要保证 Ollama 在跑，并且拉过模型
-- 只处理 `data/docs/` 下的 `*.md` 文件（不含子目录）
+- 只处理 `docs/corpus/` 下的 `*.md` 文件（不含子目录）
 - 按 Markdown 标题切块，每块带「文件名 › 一级标题 › 二级标题」的标题路径；
   代码块里的 `#` 不算标题，也不会把代码块切断
 - 单块超过 800 字符（`MAX_CHUNK_CHARS`）再按段落切开，短于 40 字符的碎片丢掉
@@ -377,7 +385,7 @@ python -X utf8 -m api.main
 出行模块可以脱离 Web 服务在终端直接跑：
 
 ```bash
-python -X utf8 -m modules.trip.capabilities.guide.cli
+python -X utf8 -m cli.guide
 ```
 
 > Windows 控制台默认 GBK，不加 `-X utf8` 中文可能乱码。
@@ -400,10 +408,10 @@ python -X utf8 -m modules.customer.stream
 python -X utf8 -m modules.customer.rag_eval
 ```
 
-端到端测评四个模块（39 条题库，需要服务已启动）：
+端到端测评四个模块（36 条题库，需要服务已启动）：
 
 ```bash
-python -X utf8 eval/run_eval.py
+python -X utf8 -m tests.e2e.run_eval
 ```
 
 ## 智能客服是怎么工作的
@@ -440,7 +448,7 @@ python -X utf8 eval/run_eval.py
 不过问「你好」「谢谢」「在吗」这类寒暄时，它会回一句引导语，告诉你该问什么。
 
 **为什么客服总说没找到答案？**
-先确认要问的内容是否已经写进 `data/docs/` 下的文档；改完文档要重新跑入库脚本并重启服务。
+先确认要问的内容是否已经写进 `docs/corpus/` 下的文档；改完文档要重新跑入库脚本并重启服务。
 如果文档里有但还答不出，可能是问法差异太大，可以换个说法。
 
 **对话记录会丢吗？**
@@ -450,7 +458,7 @@ python -X utf8 eval/run_eval.py
 **要注册才能用吗？**
 不用。打开 <https://ctos2.cn> 会先自动进入一个**访客空间**（独立租户，记录只存在当前浏览器），
 想跨设备保留记录再点侧栏底部「账号登录」注册或登录。每个账号的数据是隔离的，互相看不到。
-访客账号的邮箱统一是 `trial_xxx@ctos-trial.local`，可用 `clean_db.py` 清理。
+访客账号的邮箱统一是 `trial_xxx@ctos-trial.local`，可用 `databases/tools/clean.py` 清理。
 
 **线上地址是什么？**
 <https://ctos2.cn>，`www.ctos2.cn` 也能访问，两个地址的页面完全一样。
