@@ -299,4 +299,26 @@ defineExpose({ clear, focus: () => textarea.value?.focus() })
 .composer-send--stop {
   background: var(--c-coffee);
 }
-</style>
+
+/* ---------- 窄屏（≤ 768px）----------
+   输入框是手机上最主要的交互，要照顾三件事：
+     1. 触摸区够大（按钮 40px 以上）
+     2. 左右留白收窄，让文字能多显示
+     3. 底部留出安全区（iPhone 的手势条） */
+@media (max-width: 768px) {
+  .composer {
+    padding: 6px var(--m-pad);
+    padding-bottom: calc(6px + env(safe-area-inset-bottom));
+  }
+
+  .composer-input {
+    font-size: 16px; /* 小于 16px 时 iOS 会自动放大页面 */
+  }
+
+  .composer-icon,
+  .composer-send {
+    width: 38px;
+    height: 38px;
+  }
+}</style>
+

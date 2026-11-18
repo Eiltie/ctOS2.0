@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * 左侧会话列表（对话模块用）。
  *
@@ -568,6 +568,46 @@ async function deleteSelected() {
 :deep(.empty) {
   padding: var(--s-7) var(--s-4);
 }
-</style>
+
+/* ---------- 窄屏（≤ 768px）----------
+   侧栏在手机上变成抽屉，条目要更好点（手指比鼠标粗） */
+@media (max-width: 768px) {
+  .list-head {
+    padding: 12px 12px 8px;
+  }
+
+  .list-scroll {
+    padding: 2px 8px 12px;
+  }
+
+  /* 条目加大触摸区：手指比鼠标粗，但要比特意留白更紧凑 */
+  .trip-item,
+  .session-item {
+    padding: 9px 10px;
+  }
+
+  /* 删除按钮在手机上一直显示（没有 hover） */
+  .trip-del,
+  .session-del {
+    opacity: 1;
+  }
+
+  .list-foot {
+    padding: 10px 12px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+
+  .select-bar {
+    padding: 10px 10px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+
+  .bar-btn {
+    padding: 8px 10px;
+    font-size: var(--f-sm);
+  }
+}</style>
+
+
 
 

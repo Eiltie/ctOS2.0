@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 /**
  * 玩法条 —— 模块内部的玩法切换。
  *
@@ -141,5 +141,52 @@ function pick(mode: ModeDef) {
   color: var(--c-text-3);
   flex-shrink: 0;
 }
-</style>
+
+/* ---------- 窄屏（≤ 768px）----------
+   玩法条要横向滚动而不是换行。
+   以后加更多玩法也不会把这一行撑成两行 */
+@media (max-width: 768px) {
+  .modebar {
+    padding: 6px var(--m-pad);
+    gap: var(--s-2);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .modebar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 右边那句「新玩法会加在这里」在手机上没位置，藏掉 */
+  .modebar-hint {
+    display: none;
+  }
+
+  /* 「玩法」这个前置标签也藏掉，省地方 */
+  .modebar-label {
+    display: none;
+  }
+
+  .mode {
+    padding: 5px 11px;
+    font-size: var(--f-xs);
+    white-space: nowrap;
+    flex-shrink: 0;
+    gap: 4px;
+    /* 手机上不要那个大圆角阴影，显得笨重 */
+    box-shadow: none;
+    border: 1px solid var(--c-line);
+  }
+
+  /* 选中的那个也要有清晰的边界，不然分不清哪个是当前玩法 */
+  .mode--active {
+    border-color: var(--c-line-strong);
+  }
+
+  .mode-icon {
+    font-size: var(--f-sm);
+  }
+}</style>
+
 

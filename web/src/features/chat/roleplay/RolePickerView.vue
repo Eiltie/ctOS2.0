@@ -13,6 +13,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import SessionList from '../SessionList.vue'
+import SidebarDrawer from '@/shared/components/SidebarDrawer.vue'
 import { chatStore } from '../store'
 import { roleplayStore } from './store'
 import RoleCardItem from './RoleCardItem.vue'
@@ -81,9 +82,9 @@ async function pick(role: RoleCard) {
 
 <template>
   <div class="roles-view">
-    <aside class="roles-sidebar">
+    <SidebarDrawer>
       <SessionList />
-    </aside>
+    </SidebarDrawer>
 
     <main class="roles-main">
       <div class="roles-head">
@@ -341,4 +342,25 @@ async function pick(role: RoleCard) {
   font-size: var(--f-sm);
   color: var(--c-brand-deep);
 }
-</style>
+
+/* ---------- 窄屏（≤ 768px）---------- */
+@media (max-width: 768px) {
+  .roles-head {
+    padding: 0 var(--m-pad);
+  }
+
+  .roles-feed {
+    padding-top: var(--s-5);
+  }
+
+  .roles-inner {
+    padding: 0 var(--m-pad);
+  }
+
+  /* 角色卡片：手机上两列太挤，改成一列 */
+  .role-grid {
+    grid-template-columns: 1fr;
+  }
+}</style>
+
+

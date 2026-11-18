@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>手机端布局方案预览</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: #eef0f2;
+    padding: 32px 20px 60px;
+    color: #1b1f24;
+  }
+  .page-head {
+    max-width: 1360px;
+    margin: 0 auto 28px;
+  }
+  .page-head h1 { font-size: 20px; font-weight: 650; margin-bottom: 6px; }
+  .page-head p { font-size: 13px; color: #6b7280; line-height: 1.6; }
+
+  .row {
+    display: flex;
+    gap: 32px;
+    justify-content: center;
+    flex-wrap: wrap;
+    max-width: 1360px;
+    margin: 0 auto 44px;
+  }
+  .plan { width: 400px; }
+  .plan-head { margin-bottom: 14px; }
+  .plan-title { font-size: 15px; font-weight: 650; margin-bottom: 4px; }
+  .plan-desc { font-size: 12px; color: #6b7280; line-height: 1.6; }
+  .plan-tag {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 99px;
+    background: #dbeafe;
+    color: #1d4ed8;
+    margin-left: 6px;
+    vertical-align: 2px;
+  }
+
+  /* ---------- 手机外框 ---------- */
+  .phone {
+    width: 390px;
+    height: 780px;
+    background: #fff;
+    border-radius: 28px;
+    box-shadow: 0 10px 40px rgba(16,24,40,.14), 0 0 0 1px rgba(16,24,40,.06);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* ---------- 通用色 ---------- */
+  :root {
+    --c-bg: #fff;
+    --c-soft: #f7f8f9;
+    --c-line: #e8eaed;
+    --c-text: #1b1f24;
+    --c-text2: #5b6470;
+    --c-text3: #9aa3ae;
+    --c-brand: #3d857b;
+    --c-brand-soft: #e8f1ef;
+    --c-brand-deep: #2c6b62;
+  }
+
+  /* ============================================================
+     方案 A：侧栏收进抽屉（汉堡菜单）
+     ============================================================ */
+  .a-top {
+    height: 52px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--c-line);
+    flex-shrink: 0;
+  }
+  .a-menu {
+    width: 36px; height: 36px;
+    display: grid; place-items: center;
+    border-radius: 10px;
+    color: var(--c-text2);
+    flex-shrink: 0;
+  }
+  .a-brand {
+    display: flex; align-items: center; gap: 7px;
+    font-weight: 650; font-size: 14px;
+    flex-shrink: 0;
+  }
+  .a-brand i {
+    width: 26px; height: 26px;
+    border-radius: 8px;
+    background: linear-gradient(140deg, #4a5058, #1b1f24);
+    color: #fff;
+    display: grid; place-items: center;
+    font-size: 11px; font-style: normal; font-weight: 700;
+  }
+  .a-tabs {
+    display: flex;
+    gap: 2px;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+  .a-tab {
+    padding: 6px 10px;
+    font-size: 13px;
+    color: var(--c-text3);
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+  }
+  .a-tab.on { color: var(--c-text); font-weight: 600; border-bottom-color: var(--c-brand); }
+
+  .a-modes {
+    display: flex;
+    gap: 6px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--c-line);
+    flex-shrink: 0;
+    overflow-x: auto;
+  }
+  .a-mode {
+    padding: 5px 12px;
+    font-size: 12px;
+    border-radius: 99px;
+    background: var(--c-soft);
+    color: var(--c-text2);
+    white-space: nowrap;
+  }
+  .a-mode.on { background: var(--c-bg); box-shadow: 0 0 0 1px var(--c-line); color: var(--c-text); font-weight: 600; }
+
+  .a-body { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .a-chat { flex: 1; padding: 16px 14px; overflow: hidden; }
+  .a-msg {
+    display: flex; gap: 8px; margin-bottom: 16px;
+  }
+  .a-msg.me { flex-direction: row-reverse; }
+  .a-avatar {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--c-soft); color: var(--c-text3);
+    display: grid; place-items: center; font-size: 11px;
+    flex-shrink: 0;
+  }
+  .a-bubble {
+    max-width: 78%;
+    padding: 9px 12px;
+    border-radius: 16px;
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
+  .a-msg.me .a-bubble { background: #f1f2f4; border-top-right-radius: 6px; }
+  .a-msg.ai .a-bubble { padding: 0; color: var(--c-text); }
+
+  .a-composer {
+    padding: 8px 12px 14px;
+    flex-shrink: 0;
+  }
+  .a-input {
+    display: flex; align-items: center; gap: 8px;
+    border: 1px solid var(--c-line);
+    border-radius: 22px;
+    padding: 9px 9px 9px 14px;
+    background: var(--c-bg);
+  }
+  .a-input span { flex: 1; font-size: 13px; color: var(--c-text3); }
+  .a-send {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--c-soft);
+    display: grid; place-items: center;
+    color: var(--c-text3);
+    flex-shrink: 0;
+  }
+
+  /* 抽屉 */
+  .a-drawer {
+    position: absolute;
+    inset: 0;
+    background: rgba(16,24,40,.32);
+  }
+  .a-drawer-panel {
+    width: 78%;
+    height: 100%;
+    background: var(--c-soft);
+    display: flex;
+    flex-direction: column;
+  }
+  .a-drawer-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 14px 10px;
+  }
+  .a-drawer-head strong { font-size: 14px; }
+  .a-new {
+    font-size: 12px; padding: 5px 11px;
+    border: 1px solid var(--c-line);
+    border-radius: 99px; background: #fff;
+  }
+  .a-sessions { flex: 1; overflow: hidden; padding: 0 8px; }
+  .a-session {
+    padding: 10px 10px;
+    border-radius: 10px;
+    margin-bottom: 2px;
+  }
+  .a-session.on { background: #fff; box-shadow: 0 1px 3px rgba(16,24,40,.08); }
+  .a-session b { display: block; font-size: 13px; font-weight: 550; margin-bottom: 2px; }
+  .a-session small { font-size: 11px; color: var(--c-text3); }
+  .a-drawer-foot {
+    padding: 12px 14px 18px;
+    border-top: 1px solid var(--c-line);
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--c-text3);
+  }
+
+  /* ============================================================
+     方案 B：底部标签栏
+     ============================================================ */
+  .b-top {
+    height: 50px;
+    display: flex; align-items: center; justify-content: center;
+    gap: 7px;
+    border-bottom: 1px solid var(--c-line);
+    flex-shrink: 0;
+    font-weight: 650; font-size: 14px;
+    position: relative;
+  }
+  .b-top i {
+    width: 24px; height: 24px; border-radius: 7px;
+    background: linear-gradient(140deg, #4a5058, #1b1f24);
+    color: #fff; display: grid; place-items: center;
+    font-size: 10px; font-style: normal; font-weight: 700;
+  }
+  .b-list-btn {
+    position: absolute; left: 12px;
+    width: 32px; height: 32px;
+    display: grid; place-items: center;
+    color: var(--c-text2);
+  }
+  .b-modes {
+    display: flex; gap: 6px;
+    padding: 8px 12px;
+    flex-shrink: 0;
+    overflow-x: auto;
+  }
+  .b-bottom {
+    height: 58px;
+    border-top: 1px solid var(--c-line);
+    display: flex;
+    flex-shrink: 0;
+    padding-bottom: 4px;
+  }
+  .b-nav {
+    flex: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 2px;
+    font-size: 10.5px;
+    color: var(--c-text3);
+  }
+  .b-nav.on { color: var(--c-brand-deep); font-weight: 600; }
+  .b-nav svg { width: 19px; height: 19px; }
+
+  /* ============================================================
+      C：侧栏做成独立页面
+     ============================================================ */
+  .c-top {
+    height: 52px;
+    display: flex; align-items: center;
+    gap: 10px; padding: 0 14px;
+    border-bottom: 1px solid var(--c-line);
+    flex-shrink: 0;
+  }
+  .c-back {
+    width: 30px; height: 30px;
+    display: grid; place-items: center;
+    color: var(--c-text2);
+  }
+  .c-title { font-size: 15px; font-weight: 650; }
+  .c-tabs {
+    display: flex; gap: 2px; margin-left: auto;
+  }
+  .c-tab {
+    padding: 5px 9px; font-size: 12.5px;
+    color: var(--c-text3);
+  }
+  .c-tab.on { color: var(--c-text); font-weight: 600; }
+
+  /* 说明 */
+  .pros {
+    margin-top: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    color: #4b5563;
+  }
+  .pros b { color: #111827; }
+  .pros .minus { color: #b45309; }
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>手机端布局 · 三套方案</h1>
+  <p>
+    现在手机上是「侧栏 + 内容」并排，390px 宽根本放不下——顶栏文字竖排、侧栏占满整屏、右侧内容看不见。<br>
+    下面三套方案解决「侧栏怎么办」，选一套我就照它改。
+  </p>
+</div>
+
+<!-- ============================================================ -->
+<!-- 方案 A                                                       -->
+<!-- ============================================================ -->
+<div class="row">
+  <div class="plan">
+    <div class="plan-head">
+      <div class="plan-title">A. 抽屉式侧栏 <span class="plan-tag">最省事</span></div>
+      <div class="plan-desc">顶栏左边加汉堡按钮，点开侧栏盖过来，点外面关掉。</div>
+    </div>
+
+    <div class="phone">
+      <div class="a-top">
+        <div class="a-menu">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M4 7h16M4 12h16M4 17h16"/>
+          </svg>
+        </div>
+        <div class="a-brand"><i>ct</i>ctOS</div>
+        <div class="a-tabs">
+          <div class="a-tab on">对话</div>
+          <div class="a-tab">出行</div>
+          <div class="a-tab">客服</div>
+        </div>
+      </div>
+
+      <div class="a-modes">
+        <div class="a-mode on">💬 闲聊</div>
+        <div class="a-mode">🎭 角色扮演</div>
+      </div>
+
+      <div class="a-body">
+        <div class="a-chat">
+          <div class="a-msg me">
+            <div class="a-avatar">V</div>
+            <div class="a-bubble">下周去杭州玩三天，带老人</div>
+          </div>
+          <div class="a-msg ai">
+            <div class="a-avatar">ct</div>
+            <div class="a-bubble">三天带老人，建议把行程排松一点。第一天西湖边上走走，第二天灵隐寺，第三天西溪湿地坐船——不用爬太多台阶。</div>
+          </div>
+          <div class="a-msg me">
+            <div class="a-avatar">V</div>
+            <div class="a-bubble">帮我排个具体行程</div>
+          </div>
+        </div>
+
+        <div class="a-composer">
+          <div class="a-input">
+            <span>说点什么…</span>
+            <div class="a-send">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 19V5"/><path d="m5.5 11.5 6.5-6.5 6.5 6.5"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 抽屉展开态 -->
+      <div class="a-drawer">
+        <div class="a-drawer-panel">
+          <div class="a-drawer-head">
+            <strong>最近对话</strong>
+            <div class="a-new">+ 新建</div>
+          </div>
+          <div class="a-sessions">
+            <div class="a-session on"><b>下周去杭州玩三天</b><small>闲聊 · 3 轮</small></div>
+            <div class="a-session"><b>孙悟空</b><small>角色 · 20 次对话</small></div>
+            <div class="a-session"><b>北京有什么好玩的</b><small>闲聊 · 1 轮</small></div>
+            <div class="a-session"><b>杭州东站 → 灵隐寺</b><small>闲聊 · 1 轮</small></div>
+            <div class="a-session"><b>毒舌室友</b><small>角色 · 2 次对话</small></div>
+          </div>
+          <div class="a-drawer-foot">
+            <span>共 12 个会话</span>
+            <span style="margin-left:auto">访客</span>
+            <span style="width:24px;height:24px;border-radius:50%;background:#e8eaed;display:grid;place-items:center;font-size:10px">访</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pros">
+      <b>优点</b>：改动最小，聊天区能占满宽度<br>
+      <span class="minus">缺点</span>：切换会话要多点一下（先开抽屉）
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 方案 B                                                       -->
+  <!-- ============================================================ -->
+  <div class="plan">
+    <div class="plan-head">
+      <div class="plan-title">B. 底部标签栏 <span class="plan-tag">最像 App</span></div>
+      <div class="plan-desc">顶栏只留 logo，模块切换挪到底部。会话列表还是抽屉。</div>
+    </div>
+
+    <div class="phone">
+      <div class="b-top">
+        <div class="b-list-btn">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M4 7h16M4 12h16M4 17h16"/>
+          </svg>
+        </div>
+        <i>ct</i> ctOS
+      </div>
+
+      <div class="b-modes">
+        <div class="a-mode on">💬 闲聊</div>
+        <div class="a-mode">🎭 角色扮演</div>
+      </div>
+
+      <div class="a-body">
+        <div class="a-chat">
+          <div class="a-msg me">
+            <div class="a-avatar">V</div>
+            <div class="a-bubble">从杭州东站到灵隐寺怎么走</div>
+          </div>
+          <div class="a-msg ai">
+            <div class="a-avatar">ct</div>
+            <div class="a-bubble">查到了 3 条路线，最省心的是打车约 40 分钟、43 元；最省钱是公交 62 分钟、7 元要多换两次。</div>
+          </div>
+          <div class="a-msg me">
+            <div class="a-avatar">V</div>
+            <div class="a-bubble">那坐地铁呢</div>
+          </div>
+        </div>
+
+        <div class="a-composer">
+          <div class="a-input">
+            <span>说点什么…</span>
+            <div class="a-send">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 19V5"/><path d="m5.5 11.5 6.5-6.5 6.5 6.5"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="b-bottom">
+        <div class="b-nav on">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.9-.9L3 20.5l1.6-4.4A8.4 8.4 0 0 1 12 3.1a8.4 8.4 0 0 1 9 8.4Z"/>
+          </svg>
+          对话
+        </div>
+        <div class="b-nav">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 10c0 5.5-8 11-8 11s-8-5.5-8-11a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="2.6"/>
+          </svg>
+          出行
+        </div>
+        <div class="b-nav">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4" height="6" rx="2"/><rect x="17.5" y="13" width="4" height="6" rx="2"/><path d="M20 19v1a2 2 0 0 1-2 2h-3"/>
+          </svg>
+          客服
+        </div>
+      </div>
+    </div>
+
+    <div class="pros">
+      <b>优点</b>：拇指够得着，最符合手机习惯<br>
+      <span class="minus">缺点</span>：顶栏空出来的地方有点浪费；底部栏占了 58px
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 方案 C                                                       -->
+  <!-- ============================================================ -->
+  <div class="plan">
+    <div class="plan-head">
+      <div class="plan-title">C. 列表做成独立页 <span class="plan-tag">最清爽</span></div>
+      <div class="plan-desc">左右滑动切换「列表 ↔ 对话」，像微信那样。</div>
+    </div>
+
+    <div class="phone">
+      <!-- 列表页 -->
+      <div class="a-top">
+        <div class="a-brand"><i>ct</i>ctOS</div>
+        <div class="a-tabs">
+          <div class="a-tab on">对话</div>
+          <div class="a-tab">出行</div>
+          <div class="a-tab">客服</div>
+        </div>
+      </div>
+
+      <div style="flex:1;overflow:hidden;padding-top:6px">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px 8px">
+          <strong style="font-size:15px">最近对话</strong>
+          <div style="font-size:12px;padding:5px 11px;border:1px solid #e8eaed;border-radius:99px">+ 新建</div>
+        </div>
+        <div style="padding:0 8px">
+          <div class="a-session on"><b>下周去杭州玩三天</b><small>闲聊 · 3 轮 · 21:03</small></div>
+          <div class="a-session"><b>孙悟空</b><small>角色 · 20 次对话 · 20:31</small></div>
+          <div class="a-session"><b>北京有什么好玩的</b><small>闲聊 · 1 轮 · 19:00</small></div>
+          <div class="a-session"><b>杭州东站 → 灵隐寺</b><small>闲聊 · 1 轮 · 18:52</small></div>
+          <div class="a-session"><b>毒舌室友</b><small>角色 · 2 次对话 · 18:30</small></div>
+          <div class="a-session"><b>你好呀</b><small>闲聊 · 2 轮 · 18:20</small></div>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid #e8eaed;padding:12px 14px;display:flex;align-items:center;font-size:12px;color:#9aa3ae;gap:8px">
+        共 12 个会话
+        <span style="margin-left:auto">访客</span>
+        <span style="width:26px;height:26px;border-radius:50%;background:#e8eaed;display:grid;place-items:center;font-size:10px">访</span>
+      </div>
+    </div>
+
+    <div class="pros">
+      <b>优点</b>：列表和对话各自占满整屏，最清爽<br>
+      <span class="minus">缺点</span>：从列表点进去、再返回，多两次操作<br>
+      <span class="minus">注意</span>：这套和 A 差不多工作量，但交互改动更大
+    </div>
+  </div>
+</div>
+
+<div class="page-head">
+  <p>
+    <b>三套共有的改动</b>（不管选哪套都要做）：<br>
+    · 顶栏文字不再竖排，账号名收成一个头像<br>
+    · 玩法条横向滚动，放不下不换行<br>
+    · 内容区左右留白从 24px 收到 14px<br>
+    · 输入框、气泡、按钮加大触摸区（手指比鼠标粗）<br>
+    · 键盘弹出时输入框要顶上来（用 dvh 而不是 vh）<br>
+    · 出行那边的小标题「出行记录」和右侧标题合并成一行
+  </p>
+</div>
+
+</body>
+</html>

@@ -13,6 +13,7 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import ChatComposer from '@/shared/components/ChatComposer.vue'
 import TripList from './TripList.vue'
+import SidebarDrawer from '@/shared/components/SidebarDrawer.vue'
 import TripTurnCard from './TripTurnCard.vue'
 import PendingImages from '@/shared/attachments/PendingImages.vue'
 import { MAX_IMAGES_PER_MESSAGE } from '@/shared/attachments/api'
@@ -138,9 +139,9 @@ function pickExample(text: string) {
 
 <template>
   <div class="trip-view">
-    <aside class="trip-sidebar">
+    <SidebarDrawer>
       <TripList />
-    </aside>
+    </SidebarDrawer>
 
     <main class="trip-main">
       <div class="trip-head">
@@ -432,5 +433,41 @@ function pickExample(text: string) {
     opacity: 1;
   }
 }
-</style>
+
+/* ---------- 窄屏（≤ 768px）----------
+   侧栏已经收进抽屉（SidebarDrawer），这里只管内容区 */
+@media (max-width: 768px) {
+  .trip-head {
+    padding: 0 var(--m-pad);
+  }
+
+  .trip-title {
+    max-width: 62vw;
+  }
+
+  .trip-inner {
+    padding: 0 var(--m-pad);
+  }
+
+  .trip-feed {
+    padding-top: var(--s-5);
+  }
+
+  .trip-hero {
+    padding: var(--s-8) var(--m-pad) 0;
+  }
+
+  .trip-hero h2 {
+    font-size: 19px;
+  }
+
+  /* 示例问题卡片：手机上文字要能换行 */
+  .example {
+    padding: 10px 13px;
+    font-size: var(--f-sm);
+    line-height: var(--lh-normal);
+  }
+}</style>
+
+
 

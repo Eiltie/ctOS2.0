@@ -12,6 +12,7 @@ import { authStore } from '@/shared/auth/authStore'
 import AccountMenu from '@/shared/auth/AccountMenu.vue'
 import AuthDialog from '@/shared/auth/AuthDialog.vue'
 import FeedbackDialog from '@/shared/components/FeedbackDialog.vue'
+import { drawer } from '@/shared/lib/drawer'
 
 const route = useRoute()
 const router = useRouter()
@@ -22,6 +23,11 @@ const currentModule = computed(() => moduleOfRoute(route.name))
 const authOpen = ref(false)
 const feedbackOpen = ref(false)
 
+/** 移动端：打开侧栏抽屉 */
+function toggleDrawer() {
+  drawer.toggle()
+}
+
 function go(path: string) {
   void router.push(path)
 }
@@ -29,6 +35,30 @@ function go(path: string) {
 
 <template>
   <header class="topbar">
+    <!--
+      移动端：打开侧栏抽屉的汉堡按钮。
+      桌面端隐藏（侧栏是常驻的，不需要按钮）。
+    -->
+    <button
+      type="button"
+      class="drawer-btn"
+      aria-label="打开侧栏"
+      @click="toggleDrawer"
+    >
+      <svg
+        width="19"
+        height="19"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        aria-hidden="true"
+      >
+        <path d="M4 7h16M4 12h16M4 17h16" />
+      </svg>
+    </button>
+
     <div class="brand">
       <span class="brand-mark">ct</span>
       <span class="brand-name">ctOS 2.0</span>
@@ -199,6 +229,80 @@ function go(path: string) {
   font-size: var(--f-sm);
   font-weight: 600;
 }
-</style>
+
+/* ============================================================================
+   移动端（≤ 768px）
+   ============================================================================ */
+
+/* 汉堡按钮：桌面端不显示 */
+.drawer-btn {
+  display: none;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-md);
+  color: var(--c-text-2);
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.drawer-btn:hover {
+  background: var(--c-bg-soft);
+}
+
+@media (max-width: 768px) {
+  .topbar {
+    gap: var(--s-2);
+    padding: 0 var(--m-pad);
+    height: var(--m-head);
+  }
+
+  .drawer-btn {
+    display: grid;
+  }
+
+  /* 手机上品牌只留图标，省地方 */
+  .brand-name {
+    display: none;
+  }
+
+  .brand-mark {
+    width: 28px;
+    height: 28px;
+    font-size: var(--f-xs);
+  }
+
+  /* 标签页：缩小、禁止换行。
+     关键：white-space: nowrap —— 不然「对话」两个字会被拆成两行竖排 */
+  .tabs {
+    gap: 0;
+    margin-left: auto;
+    min-width: 0;
+  }
+
+  .tab {
+    padding: 0 var(--s-2);
+    margin: 0;
+    gap: 0;
+    font-size: var(--f-sm);
+    white-space: nowrap;
+    min-height: 34px;
+  }
+
+  /* 手机上标签只留文字，图标省掉 */
+  .tab-icon {
+    display: none;
+  }
+
+  .topbar-right {
+    gap: 0;
+    flex-shrink: 0;
+  }
+
+  /* 账号名占地方，手机上只留头像（点开菜单里能看到全名） */
+  .topbar-right :deep(.who) {
+    display: none;
+  }
+}</style>
+
 
 

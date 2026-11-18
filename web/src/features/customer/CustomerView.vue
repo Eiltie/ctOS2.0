@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * 智能客服。
  *
@@ -429,4 +429,33 @@ function pickSuggestion(text: string) {
   font-size: var(--f-xs);
   color: var(--c-text-3);
 }
-</style>
+
+/* ---------- 窄屏（≤ 768px）---------- */
+@media (max-width: 768px) {
+  .customer-head {
+    padding: 0 var(--m-pad);
+  }
+
+  .customer-inner {
+    padding: 0 var(--m-pad);
+  }
+
+  .customer-feed {
+    padding-top: var(--s-5);
+  }
+
+  .customer-hero {
+    padding: var(--s-8) var(--m-pad) 0;
+  }
+
+  .customer-hero h2 {
+    font-size: 19px;
+  }
+
+  /* 引导问题卡片 */
+  .suggestion {
+    padding: 10px 13px;
+    font-size: var(--f-sm);
+  }
+}</style>
+

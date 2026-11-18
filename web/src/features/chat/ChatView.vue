@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 /**
  * 对话 · 闲聊。
  *
@@ -13,6 +13,7 @@ import ChatComposer from '@/shared/components/ChatComposer.vue'
 import EmptyState from '@/shared/components/EmptyState.vue'
 import MessageBubble from './MessageBubble.vue'
 import SessionList from './SessionList.vue'
+import SidebarDrawer from '@/shared/components/SidebarDrawer.vue'
 import PendingImages from '@/shared/attachments/PendingImages.vue'
 import ImageLightbox from '@/shared/attachments/ImageLightbox.vue'
 import { chatStore } from './store'
@@ -153,9 +154,9 @@ function leaveRole() {
 
 <template>
   <div class="chat-view">
-    <aside class="chat-sidebar">
+    <SidebarDrawer>
       <SessionList />
-    </aside>
+    </SidebarDrawer>
 
     <main class="chat-main">
       <!-- 标题栏。
@@ -282,16 +283,9 @@ function leaveRole() {
   min-height: 0;
 }
 
-/* ---------- 左侧 ---------- */
-.chat-sidebar {
-  width: var(--w-sidebar);
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--c-bg-sidebar);
-  border-right: 1px solid var(--c-line);
-  min-height: 0;
-}
+/* ---------- 左侧 ----------
+   桌面端是常驻侧栏，手机端由 SidebarDrawer 包成抽屉，
+   宽度和背景色在 SidebarDrawer 里控制 */
 
 /* ---------- 右侧 ---------- */
 .chat-main {
@@ -463,21 +457,39 @@ function leaveRole() {
   }
 }
 
-/* ---------- 窄屏 ---------- */
+/* ---------- 窄屏（≤ 768px）----------
+   侧栏已经收进抽屉（SidebarDrawer），这里只管内容区的排布 */
 @media (max-width: 768px) {
-  .chat-sidebar {
-    display: none;
-  }
-
   .chat-head {
-    padding: 0 var(--s-4);
+    padding: 0 var(--m-pad);
   }
 
   .chat-title {
     max-width: 60vw;
   }
+
+  /* 内容区左右留白收窄：手机上 24px 太奢侈 */
+  .chat-inner {
+    padding: 0 var(--m-pad);
+  }
+
+  .chat-feed {
+    padding-top: var(--s-5);
+  }
+
+  /* 空状态别太靠下 */
+  .chat-empty {
+    padding: var(--s-8) var(--m-pad) 0;
+  }
+
+  /* 角色会话的头部按钮（档案/记忆/换个角色）在手机上挤，缩小 */
+  .chat-head-actions :deep(button) {
+    font-size: var(--f-xs);
+    padding: 4px 8px;
+  }
 }
 </style>
+
 
 
 

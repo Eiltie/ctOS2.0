@@ -173,6 +173,21 @@ body,
   height: 100%;
 }
 
+/*
+  手机上用 dvh 而不是 %。
+   % 跟着父元素算，地址栏收起展开时父元素高度不变，
+   键盘一弹输入框就被挤出屏幕。
+   dvh 是「当前实际可视高度」，键盘弹出会跟着缩。
+   不支持 dvh 的老浏览器会忽略这行，退回上面的 height: 100%。
+*/
+@supports (height: 100dvh) {
+  html,
+  body,
+  #app {
+    height: 100dvh;
+  }
+}
+
 body {
   font-family:
     'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
@@ -256,5 +271,49 @@ a:hover {
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================================
+   移动端
+   ============================================================================
+   断点只有一个：≤ 768px 算手机。
+
+   为什么不按 iPad 尺寸再细分：
+     现在的布局只有「侧栏 + 内容」两栏，768 以上能并排放得下，
+     以下放不下就得收起来。中间那些尺寸用同一套规则就够，
+     多两个断点只会让维护成本翻倍。
+
+   为什么用 dvh 而不是 vh：
+     手机上地址栏会收起展开，vh 算的是「最大高度」，
+     键盘弹出时输入框会被顶出屏幕。dvh 跟着可视区域变。
+   ============================================================================ */
+
+:root {
+  /* 手机上的内容边距：比桌面窄一半 */
+  --m-pad: 14px;
+  /* 手机上顶栏高度 */
+  --m-head: 50px;
+}
+
+@media (max-width: 768px) {
+  /* 全局：禁止横向滚动。手机上一个横向溢出就会让整页能左右拖，很难受 */
+  html,
+  body {
+    overflow-x: hidden;
+    overscroll-behavior-y: none;
+  }
+
+  /* 输入框字号不能小于 16px，否则 iOS 会自动放大页面 */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+
+  /* 手机上不需要滚动条样式 */
+  ::-webkit-scrollbar {
+    width: 0;
+    height: 0;
   }
 }
