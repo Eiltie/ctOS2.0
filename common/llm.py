@@ -18,8 +18,6 @@ from pathlib import Path
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 
-from common import stats
-
 # 项目根目录：本文件在 core/ 下，往上两级
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -54,9 +52,6 @@ def get_llm(temperature: float = DEFAULT_TEMPERATURE, thinking: bool = False) ->
         temperature=temperature,
         # 服务端认这个参数：none 表示不思考，high 表示正常思考
         reasoning_effort=THINKING_LEVEL if thinking else NO_THINKING_LEVEL,
-        # 统计：每次调用结束回调一次，累加 token 到当前请求上。
-        # 不在请求里（命令行、单测）时回调内部自己跳过，不影响调用。
-        callbacks=[stats.llm_callback()],
     )
 
 

@@ -1,4 +1,4 @@
-﻿"""高德地图：地名查坐标、四种方式的路线、给模型用的单段路线工具。
+"""高德地图：地名查坐标、四种方式的路线、给模型用的单段路线工具。
 
 做什么：只负责"查数据"，把高德的返回整理成统一的字典或文字。
         哪条更值得推荐、给用户看什么结论，是业务层的事
@@ -20,7 +20,6 @@ from langchain_core.tools import tool
 # 只为了触发 .env 加载（common.llm 在 import 时会读一次配置）。
 # 下面 AMAP_KEY 在模块顶层读取，必须保证在这之前 .env 已经加载好。
 import common.llm  # noqa: F401
-from common.stats import tracked
 
 # 高德地图的 Key 和接口地址
 AMAP_KEY = os.getenv("AMAP_KEY")
@@ -184,7 +183,6 @@ def _to_place(name, place, wanted_city):
     }
 
 
-@tracked("amap")
 def find_place_candidates(place_name, city="", limit=3):
     """列出几个可能的地点，给用户挑。
 
@@ -219,7 +217,6 @@ def find_place_candidates(place_name, city="", limit=3):
     return found
 
 
-@tracked("amap")
 def find_place(place_name, city="", allow_nationwide=False):
     """把地名换成经纬度和地址；查不到返回 None。
 
@@ -314,7 +311,6 @@ def _path_minutes(path):
     return _seconds_to_minutes(seconds)
 
 
-@tracked("amap")
 def get_drive_choices(start_point, end_point):
     """查驾车/打车的候选路线，最多留两条。"""
     if not AMAP_KEY:
@@ -384,7 +380,6 @@ def get_drive_choices(start_point, end_point):
     return choices
 
 
-@tracked("amap")
 def get_bus_choices(start_point, end_point, start_city_code, end_city_code):
     """查公交/地铁的候选路线，最多留两条。"""
     if not AMAP_KEY:
@@ -464,7 +459,6 @@ def get_bus_choices(start_point, end_point, start_city_code, end_city_code):
     return choices
 
 
-@tracked("amap")
 def get_walk_choice(start_point, end_point):
     """查步行路线，只返回一条。"""
     if not AMAP_KEY:
@@ -499,7 +493,6 @@ def get_walk_choice(start_point, end_point):
     return choice
 
 
-@tracked("amap")
 def get_bike_choice(start_point, end_point):
     """查骑行路线，只返回一条。"""
     if not AMAP_KEY:
@@ -555,7 +548,6 @@ def _geocode(address: str, city: str) -> tuple[str, str]:
 
 # @tool 同上。mode 默认开车，不传就是驾车
 @tool
-@tracked("amap")
 def get_directions(origin: str, destination: str, city: str, mode: str = "driving") -> str:
     """查询两个地点之间的路线、距离和耗时。
 
@@ -606,4 +598,3 @@ def get_directions(origin: str, destination: str, city: str, mode: str = "drivin
             f"终点匹配：{d_addr}\n"
             f"距离：{distance_km:.1f} 公里\n"
             f"耗时：约 {minutes} 分钟")
-

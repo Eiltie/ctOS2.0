@@ -6,7 +6,6 @@
 """
 
 import asyncio
-import contextvars
 import json
 import threading
 
@@ -28,40 +27,16 @@ async def stream_from_thread(worker_generator, heartbeat_seconds=8):
     queue: asyncio.Queue = asyncio.Queue()
     done = object()
 
-    # 复制当前的 contextvars 传给工作线程。
-    #
-    # 为什么必须做：
-    #   contextvars 是「按协程/线程隔离」的，新起的 threading.Thread
-    #   拿到的是空白上下文。统计模块靠 contextvars 记「当前是哪次请求」，
-    #   不复制的话线程里 stats.current() 永远是 None，
-    #   出行的 token 和工具调用就全记不上（踩过：模型调了 20 秒，记了 0 次）。
-    #
-    # 为什么在创建线程之前复制：
-    #   copy_context() 复制的是「调用这一刻」的上下文，
-    #   必须在 start() 之前拿，之后拿到的已经是空的（主协程可能已经切走）。
-    ctx = contextvars.copy_context()
-
-    def worker_streaming():
-        """在工作线程里逐条推进生成器。
-
-        为什么要用 ctx.run 包住 next()：
-          只有包住才能在复制过来的上下文里执行，
-          业务代码里 stats.current() 才拿得到当前请求的记录。
-        """
+    def worker():
         try:
-            while True:
-                try:
-                    item = ctx.run(lambda: next(worker_generator))
-                except StopIteration:
-                    break
+            for item in worker_generator:
                 loop.call_soon_threadsafe(queue.put_nowait, item)
         except Exception as e:
-            # 生成器内部抛了异常（真正的业务错误）
             loop.call_soon_threadsafe(queue.put_nowait, ("error", e))
         finally:
             loop.call_soon_threadsafe(queue.put_nowait, done)
 
-    threading.Thread(target=worker_streaming, daemon=True).start()
+    threading.Thread(target=worker, daemon=True).start()
 
     while True:
         try:
