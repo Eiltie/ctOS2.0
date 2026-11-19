@@ -1,4 +1,4 @@
-"""联网搜索：DeepSeek 官方的 Search 接口。
+﻿"""联网搜索：DeepSeek 官方的 Search 接口。
 
 做什么：把一次搜索的结果（标题 + 摘要 + 来源）拼成一段给模型读的文字。
 被谁用：modules/guide（搜景点）、modules/chat/roleplay/search.py（AI 帮我查）。
@@ -9,6 +9,7 @@ import os
 
 import httpx
 from langchain_core.tools import tool
+from common.stats import tracked
 
 # 只为了触发 .env 加载（common.llm 在 import 时会 load_dotenv 一次）。
 # 本文件在请求时才读 DEEPSEEK_API_KEY，所以这里不是必须的，
@@ -32,6 +33,7 @@ SEARCH_SUMMARY_LIMIT = 300
 SEARCH_MIN_SCORE = 1.0
 
 
+@tracked("search")
 @tool
 def web_search(query: str) -> str:
     """联网搜索实时信息：景点攻略、门票价格、开放时间、评价、最新资讯等。
@@ -93,3 +95,4 @@ def web_search(query: str) -> str:
         output_lines.append("来源：" + "　".join(source_urls))
 
     return "\n".join(output_lines)
+

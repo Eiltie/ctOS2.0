@@ -1,4 +1,4 @@
-"""天气：Open-Meteo，不需要 Key。
+﻿"""天气：Open-Meteo，不需要 Key。
 
 做什么：城市名换经纬度，再查未来几天的天气，拼成一段给模型读的文字。
 被谁用：路线决策（出发当天）、旅游攻略（整趟行程）、出行记录的天气快捷回答。
@@ -9,6 +9,7 @@ from datetime import date, datetime, timedelta
 
 import httpx
 from langchain_core.tools import tool
+from common.stats import tracked
 
 # 天气：地名接口和预报接口
 GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search"
@@ -95,6 +96,7 @@ def _lookup_city(city: str) -> dict | None:
 
 # 这个 @tool 是让 AI 能调这个函数用的，它自己不收参数，
 # AI 是看下面函数的参数名和说明来决定怎么传的
+@tracked("weather")
 @tool
 def get_weather(city: str, days: int = 3, start_date: str = "") -> str:
     """查询指定城市某几天的天气。
@@ -189,3 +191,4 @@ def get_weather(city: str, days: int = 3, start_date: str = "") -> str:
                             "实际天气可能变化较大，请以出发前一两天的最新预报为准。")
 
     return "\n".join(output_lines)
+

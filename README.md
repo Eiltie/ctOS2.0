@@ -454,6 +454,38 @@ python -X utf8 scripts/e2e/run_all.py trip
 
 ## 调试与检查
 
+**运行统计** —— 开一个终端挂着，边上网页边看后端每次请求的数据：
+
+```bash
+python -X utf8 scripts/stats_watch.py              # 实时跟读，Ctrl+C 退出
+python -X utf8 scripts/stats_watch.py --summary    # 只看累计汇总
+python -X utf8 scripts/stats_watch.py --clear      # 清空统计
+```
+
+输出长这样：
+
+```
+[10:32:59] /trip/chat  出行   正常    9.3s in=2632  out=413  天气×1
+[10:33:08] /trip/chat  出行   正常    7.2s in=2705  out=69   高德×6 天气×1
+[10:34:01] /chat       对话   出错    2.4s in=120   out=0    原因:模型报错
+──────────────────────────────────────────────────────
+共 3 次  正常 2  出错 1
+完成率 66.7%  平均 6.3s  token 5938  工具 7 次，成功 7（100%）
+```
+
+结局分四种，**中途关页面和出错分开放**（用户自己关的不算系统故障）：
+
+| 结局 | 含义 |
+| --- | --- |
+| 正常 | 跑完了（含正常停在等用户选方案/勾景点） |
+| 出错 | 过程中抛了异常 |
+| 中断 | 用户关页面或断网 |
+| 卡住 | 90 秒没有新输出 |
+
+数据存在 `logs/stats.jsonl`（一行一个 JSON，不入库）。统计逻辑全在 `common/stats.py`。
+
+其他检查：
+
 ```bash
 # 客服检索质量：跑 40 题题库
 python -X utf8 -m modules.customer.rag_eval
