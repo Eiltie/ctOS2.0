@@ -103,38 +103,34 @@ def _last_user_text(query) -> str:
 def _generate_and_register(query, tenant_id, session_id, history_reply=""):
     """跑一次生图，把结果登记进 message_images，返回 image_id。
 
-    任何一步失败都返回 None —— 生图是锦上添花，不能拖垮这轮对话。
+    生图本身是 common/tools/imagesproduct 的事，这里只负责：
+    拼需求、调用、登记。任何一步失败都返回 None —— 生图是锦上添花，不能拖垮这轮对话。
     """
     if tenant_id is None:
         # 没有租户就没法归档，直接不画
         print("[生图] 缺少 tenant_id，跳过")
         return None
 
+    # 用「用户这句话 + 模型刚才的回复」一起当生图需求：
+    # 模型回复里往往补全了细节（「一只橘猫，坐在阳光下的窗台上」），
+    # 单看用户那句话信息可能不够。
+    need = clean_image_reply(history_reply)
+    requirement = f"{query}\n\n{need}" if need else query
+
     try:
-        from modules.imagegen.stream import run_graph as image_graph
+        from common.tools.imagesproduct import imageProduct
 
-        # 用「用户这句话 + 模型刚才的回复」一起当生图需求：
-        # 模型回复里往往补全了细节（「一只橘猫，坐在阳光下的窗台上」），
-        # 单看用户那句话信息可能不够。
-        need = clean_image_reply(history_reply)
-        prompt = f"{query}\n\n{need}" if need else query
-
-        result = image_graph(prompt, tenant_id=tenant_id)
+        saved = imageProduct(requirement, tenantId=tenant_id)
     except Exception as e:
         print(f"[生图] 生成失败（不影响这轮对话）：{e}")
         return None
 
-    if result.get("status") != "ok":
-        # need_more（要求补充信息）也走这里：
-        # 对话这边不做多轮追问，信息不够就干脆不画。
-        print(f"[生图] 未出图：{result.get('status')} {result.get('problem', '')}")
+    if not saved:
         return None
 
-    rel_path = result.get("image_url") or ""
-    if not rel_path:
-        return None
+    rel_path, mime, byte_size = saved
 
-    return _register_image(rel_path, tenant_id, session_id)
+    return _register_image(rel_path, tenant_id, session_id, mime, byte_size)
 
 
 # 图片扩展名 → MIME。和 modules/chat/attachments.py 支持的一致
@@ -147,25 +143,24 @@ _EXT_MIME = {
 }
 
 
-def _register_image(rel_path, tenant_id, session_id):
-    """把生成的图登记进 message_images，返回 image_id。"""
+def _register_image(rel_path, tenant_id, session_id, mime=None, byte_size=0):
+    """把生成的图登记进 message_images，返回 image_id。
+
+    mime / byte_size 由 imageProduct 给出（它是按文件真实内容判的），
+    没给才按扩展名兜底。
+    """
     try:
-        import os
-
         from databases.modules.db_chat import add_message_image
-        from modules.chat.attachments import resolve_path
 
-        path = resolve_path(rel_path)
-        size = os.path.getsize(path) if path and path.exists() else 0
-
-        ext = rel_path.rsplit(".", 1)[-1].lower()
-        mime = _EXT_MIME.get(ext, "image/jpeg")
+        if not mime:
+            ext = rel_path.rsplit(".", 1)[-1].lower()
+            mime = _EXT_MIME.get(ext, "image/jpeg")
 
         return add_message_image(
             None,
             rel_path,
             mime,
-            size,
+            byte_size or 0,
             session_id=session_id,
             tenant_id=tenant_id,
         )

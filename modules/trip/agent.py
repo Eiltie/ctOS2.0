@@ -236,26 +236,22 @@ def _generate_image_turn(offer, user_query, chat_id, tenant_id):
     yield sse({"kind": "SAY", "text": "正在生成图片，大概十几秒…"})
 
     try:
-        from modules.imagegen.stream import run_graph as image_graph
+        from common.tools.imagesproduct import imageProduct
 
-        result = image_graph(offer["prompt"], tenant_id=tenant_id)
+        saved = imageProduct(offer["prompt"], tenantId=tenant_id)
     except Exception as e:
         print(f"[生图] 生成失败：{e}")
         yield sse({"kind": "CHAT", "message": "这次没能生成图片，稍后再试试。", "chat_id": chat_id})
         return
 
-    if result.get("status") != "ok":
-        print(f"[生图] 未出图：{result.get('status')} {result.get('problem', '')}")
+    if not saved:
         yield sse({"kind": "CHAT", "message": "这次没能生成图片，稍后再试试。", "chat_id": chat_id})
         return
 
-    rel_path = result.get("image_url") or ""
-    if not rel_path:
-        yield sse({"kind": "CHAT", "message": "这次没能生成图片，稍后再试试。", "chat_id": chat_id})
-        return
+    rel_path, mime, byte_size = saved
 
     # 登记进 message_images，让前端能用统一的方式取图
-    image_id = _register_image(rel_path, tenant_id, chat_id)
+    image_id = _register_image(rel_path, tenant_id, chat_id, mime, byte_size)
 
     if image_id is None:
         yield sse({"kind": "CHAT", "message": "这次没能生成图片，稍后再试试。", "chat_id": chat_id})
@@ -276,24 +272,22 @@ def _generate_image_turn(offer, user_query, chat_id, tenant_id):
     yield sse({"kind": "IMAGE", "image_id": image_id, "chat_id": saved_chat_id})
 
 
-def _register_image(rel_path, tenant_id, session_id):
-    """把生成的图登记进 message_images，返回 image_id。"""
+def _register_image(rel_path, tenant_id, session_id, mime=None, byte_size=0):
+    """把生成的图登记进 message_images，返回 image_id。
+
+    mime / byte_size 由 imageProduct 给出；没给才按扩展名兜底。
+    """
     try:
-        import os
-
         from databases.modules.db_chat import add_message_image
-        from modules.chat.attachments import resolve_path
 
-        path = resolve_path(rel_path)
-        size = os.path.getsize(path) if path and path.exists() else 0
-
-        ext = rel_path.rsplit(".", 1)[-1].lower()
-        mime = {"png": "image/png", "webp": "image/webp", "gif": "image/gif"}.get(
-            ext, "image/jpeg"
-        )
+        if not mime:
+            ext = rel_path.rsplit(".", 1)[-1].lower()
+            mime = {"png": "image/png", "webp": "image/webp", "gif": "image/gif"}.get(
+                ext, "image/jpeg"
+            )
 
         return add_message_image(
-            None, rel_path, mime, size,
+            None, rel_path, mime, byte_size or 0,
             session_id=None, tenant_id=tenant_id,
         )
     except Exception as e:
