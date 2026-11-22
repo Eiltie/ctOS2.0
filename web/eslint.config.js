@@ -15,7 +15,9 @@ import pluginVue from 'eslint-plugin-vue'
  */
 export default [
   {
-    ignores: ['dist/**', 'node_modules/**'],
+    // scripts/ 下是 Node 环境的构建和开发工具（用 process / require / __dirname），
+    // 不是浏览器代码，不套用前端的规则。
+    ignores: ['dist/**', 'node_modules/**', 'scripts/**'],
   },
 
   js.configs.recommended,
