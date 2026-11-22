@@ -1480,45 +1480,6 @@ async def test_trip_batch_delete(page, api):
 
 
 # ============================================================================
-# 测试：出行生图（只验证判断，不真画 —— 画一张要花钱）
-# ============================================================================
-
-
-async def test_trip_image_offer(page, api):
-    begin("出行：路线跑完会主动提议生成图")
-
-    await login(page, api.token)
-    await page.goto(f"{BASE}/trip", wait_until="networkidle")
-    await page.wait_for_timeout(1500)
-
-    await page.locator(".new-btn").click()
-    await page.wait_for_timeout(500)
-
-    await page.locator("textarea").fill("从杭州东站到灵隐寺怎么走")
-    await page.locator("textarea").press("Enter")
-
-    # 等到出现方案面板（这时应该已经提议过）
-    try:
-        await page.wait_for_selector(".ask-panel .option", timeout=180_000)
-    except Exception:
-        check(False, "180 秒内没出现方案面板")
-        end()
-        return
-
-    await page.wait_for_timeout(2500)
-
-    # 页面上应该有「要不要…生成…图」的提议
-    body = await page.locator(".trip-feed").inner_text()
-    offered = "要不要" in body and "图" in body
-    check(offered, "Agent 主动提议了生成图")
-
-    # 提议之后按回车不会自动画（要用户明确说要）
-    img_before = await page.locator(".gen-image").count()
-    check(img_before == 0, "仅提议不会自动出图")
-    end()
-
-
-# ============================================================================
 # 分组
 # ============================================================================
 
@@ -1560,9 +1521,6 @@ GROUPS = {
         test_chat_batch_delete,
         test_trip_batch_delete,
         test_feedback_submit,
-    ],
-    "tripimg": [
-        test_trip_image_offer,
     ],
 }
 

@@ -233,9 +233,7 @@ ctOS2.0/
 │   │   └── roleplay/   角色扮演（闲聊的子集）
 │   ├── trip/           智能出行
 │   │   ├── route/      路线规划
-│   │   ├── guide/      旅游攻略
-│   │   ├── image_offer.py    出行生图的「主动提议」
-│   │   └── image_pending.py  记住「刚提议过，等用户回答」
+│   │   └── guide/      旅游攻略
 │   ├── customer/       客服（含 data/docs 知识库）
 │   └── imagegen/       生图（Seedream）
 ├── web/            前端（Vue 3 + TypeScript + Vite）
