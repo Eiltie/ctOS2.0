@@ -38,7 +38,7 @@ npm run dev        # 开发服务器，改代码自动刷新（端口 5174）
 CTOS_BACKEND=http://127.0.0.1:8081 npm run dev
 ```
 
-后端要单独启动：`python -X utf8 app.py`
+后端要单独启动：`python -X utf8 -m common.main`
 
 ---
 

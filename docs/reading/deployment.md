@@ -154,7 +154,7 @@ Get-NetTCPConnection -LocalPort 8080 -State Listen
 
 ### 改了代码但没生效
 
-- 改的是 **后端**：重启 `python app.py` 那个进程
+- 改的是 **后端**：重启 `python -m common.main` 那个进程
 - 改的是 **前端**：`cd web && npm run build`，然后强制刷新（Ctrl+F5）
   - 线上的话还要跑 `node scripts/stamp-static.js` 加版本号，否则 `.js` / `.css` 会被 Cloudflare 缓存 4 小时
 - 改的是 **知识库文档**：要重跑入库（见下一条）并重启服务

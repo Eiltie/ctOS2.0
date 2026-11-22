@@ -346,7 +346,7 @@ python -X utf8 -m modules.customer.rag_ingest
 ### 5. 启动服务
 
 ```bash
-python -X utf8 app.py
+python -X utf8 -m common.main
 ```
 
 打开 <http://127.0.0.1:8080/> 即为前端页面。线上对应的是 <https://ctos2.cn/>。
@@ -431,7 +431,7 @@ python -X utf8 -m modules.customer.rag_eval
 - **存储**：PostgreSQL 17（会话与出行记录，多租户）；Chroma 存 RAG 向量
 - **检索**：jieba + rank-bm25 与向量混合
 - **认证**：JWT + bcrypt
-- **部署**：uvicorn 直接拉起服务（`python app.py`），线上 <https://ctos2.cn> 由 Cloudflare 提供域名和 HTTPS
+- **部署**：uvicorn 直接拉起服务（`python -m common.main`），线上 <https://ctos2.cn> 由 Cloudflare 提供域名和 HTTPS
 - **配置**：python-dotenv
 
 ## 常见问题

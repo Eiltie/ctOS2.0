@@ -7,7 +7,7 @@
     api/routes/*.py     各模块的对外接口
 
 启动方式：
-    python -X utf8 app.py        ← 项目总入口在根目录的 app.py
+    python -X utf8 -m common.main     ← 项目总入口
 """
 
 from pathlib import Path
@@ -83,12 +83,12 @@ app.include_router(system.router)      # /notice、/health、/（首页）
 
 
 if __name__ == "__main__":
-    # 启动入口统一放在项目根目录的 app.py，这里直接转过去，
+    # 启动入口统一在 common/main.py，这里直接转过去，
     # 免得两份启动代码各改各的。
     import sys
     from pathlib import Path
 
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from app import main
+    from common.main import main
 
     main()

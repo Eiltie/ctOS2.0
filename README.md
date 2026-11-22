@@ -148,7 +148,7 @@ cp config/YOUR_config.env config/.env
 
 # 4. 建库 + 启动
 python -X utf8 -m databases.schema   # 执行 databases/schema.sql，首次必跑；改了表结构再跑一次
-python -X utf8 app.py           # 拉起服务，浏览器打开 http://127.0.0.1:8080/
+python -X utf8 -m common.main           # 拉起服务，浏览器打开 http://127.0.0.1:8080/
 ```
 
 > 建表语句都在 `databases/schema.sql`，也可以直接用 `psql -U ctos_app -d ctos2 -f databases/schema.sql` 跑。
@@ -191,7 +191,6 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 ```
 ctOS2.0/
-├── app.py          总启动入口：python -X utf8 app.py
 ├── api/            接口层（每个模块一个路由文件）
 │   ├── main.py         只做装配：建 app + 挂静态 + include_router
 │   ├── deps.py         共用：租户解析 / 图片校验 / SSE 响应头
@@ -208,7 +207,8 @@ ctOS2.0/
 │       ├── presence.py 在线人数
 │       ├── feedback.py 反馈
 │       └── system.py   公告 / 健康检查 / 首页
-├── common/         公共层：只有全局依赖
+├── common/         公共层
+│   ├── main.py         总启动入口：python -X utf8 -m common.main
 │   └── llm.py          唯一的模型客户端（所有模块都要取模型）
 ├── tools/          工具层：两个以上模块在用的外部数据
 │   ├── search.py       联网搜索（角色扮演 + 攻略）
@@ -413,7 +413,7 @@ curl -N -X POST http://127.0.0.1:8080/trip/chat \
 | 地图 | 高德（路线决策） |
 | 天气 | Open-Meteo（免密钥） |
 | 认证 | JWT + bcrypt |
-| 部署 | uvicorn 直接拉起（`python app.py`），Cloudflare Tunnel 提供域名与 TLS |
+| 部署 | uvicorn 直接拉起（`python -m common.main`），Cloudflare Tunnel 提供域名与 TLS |
 | 前端 | Vue 3 + TypeScript + Vite；无 UI 框架，样式用 CSS 变量集中在 `tokens.css`；SSE 流式渲染 |
 
 ---

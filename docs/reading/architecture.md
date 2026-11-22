@@ -27,7 +27,8 @@ ctOS2.0/
 │       ├── presence.py    ← /presence/*（在线人数）
 │       ├── feedback.py    ← /feedback
 │       └── system.py      ← /notice /health /（首页）
-├── common/                ← 公共层：只有全局依赖（所有模块都必须用）
+├── common/                ← 公共层：启动入口 + 全局依赖
+│   ├── main.py            ← 项目总入口：python -m common.main
 │   └── llm.py             ← 唯一的 get_llm()
 ├── tools/                 ← 工具层：两个以上模块在用的外部数据工具
 │   ├── search.py          ← web_search（chat 角色扮演 + trip 攻略）
@@ -73,7 +74,7 @@ ctOS2.0/
 ### 启动方式
 
 ```bash
-python -X utf8 app.py      # 拉起服务，默认监听 127.0.0.1:8080
+python -X utf8 -m common.main      # 拉起服务，默认监听 127.0.0.1:8080
 ```
 
 ### 请求流向
