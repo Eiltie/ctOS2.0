@@ -32,7 +32,7 @@ from psycopg.rows import dict_row
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # 复用 core/llm.py 已经加载的 .env（load_dotenv 幂等，再调一次不影响）
-load_dotenv(_PROJECT_ROOT / "config" / ".env")
+load_dotenv(_PROJECT_ROOT / ".env")
 
 # 默认租户：多租户功能上线前，所有数据都归到这个租户
 DEFAULT_TENANT_ID = 1

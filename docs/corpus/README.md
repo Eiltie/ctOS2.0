@@ -250,7 +250,7 @@ python -m venv venv
 venv\Scripts\activate          # Windows
 # source venv/bin/activate     # macOS / Linux
 
-pip install -r config/requirements.txt
+pip install -r requirements.txt
 ```
 
 依赖分几组：Web（fastapi / uvicorn / python-dotenv）、
@@ -265,10 +265,10 @@ Agent 编排（langgraph / langchain 系列 / openai / httpx）、
 复制模板并填入自己的值：
 
 ```bash
-cp config/YOUR_config.env config/.env
+cp .env.example .env
 ```
 
-`config/.env` 需要填写：
+`.env` 需要填写：
 
 ```
 DEEPSEEK_API_KEY=      # DeepSeek 密钥，对话、图上推理、联网搜索都用它
@@ -307,7 +307,7 @@ JWT_SECRET_KEY=
 - 加智能出行：再补 `AMAP_KEY`（联网搜索复用 DeepSeek 密钥，不用另外申请）
 - 加智能客服：再补 `ZHIPU_API_KEY`
 
-> `config/.env` 已被 `.gitignore` 忽略，**不要**提交真实密钥。
+> `.env` 已被 `.gitignore` 忽略，**不要**提交真实密钥。
 
 ### 3. 初始化数据库
 
@@ -471,9 +471,9 @@ python -X utf8 -m modules.customer.rag_eval
 
 ## 安全说明
 
-- 所有密钥均从 `config/.env` 读取，代码中不写死任何凭据。
-- 数据库是 PostgreSQL，密码同样在 `config/.env` 里；默认只监听本机，不对公网开放端口。
+- 所有密钥均从 `.env` 读取，代码中不写死任何凭据。
+- 数据库是 PostgreSQL，密码同样在 `.env` 里；默认只监听本机，不对公网开放端口。
 - 接口都要登录：所有业务路由都从 `Authorization: Bearer <token>` 解析租户，未登录返回 401。
   例外是 `/auth/*`、`/health`、两个 `ping`、`/notice`、`/feedback` 和静态资源。
-- `.gitignore` 已排除 `config/.env`、`*.env`、`venv/`、`__pycache__/`、`*.sql`、`*.db`、向量库目录、测评结果等。
+- `.gitignore` 已排除 `.env`、`*.env`、`venv/`、`__pycache__/`、`*.sql`、`*.db`、向量库目录、测评结果等。
 - 若曾误提交密钥，请立即在对应平台轮换（删除文件并不能让密钥失效）。

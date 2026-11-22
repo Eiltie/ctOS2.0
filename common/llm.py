@@ -24,7 +24,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # 全项目只在这里读一次 .env。
 # 其他文件不要再调 load_dotenv（重复解析没有意义，还可能互相覆盖）。
-load_dotenv(_PROJECT_ROOT / "config" / ".env")
+load_dotenv(_PROJECT_ROOT / ".env")
 
 # 各模块默认温度：调用方不传就按这里取
 DEFAULT_TEMPERATURE = 0.3

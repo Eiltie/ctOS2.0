@@ -558,7 +558,7 @@ def get_directions(origin: str, destination: str, city: str, mode: str = "drivin
         mode: 出行方式，driving 表示驾车/打车（默认），walking 表示步行。
     """
     if not AMAP_KEY:
-        return "没有配置 AMAP_KEY，请检查项目根目录的 config/.env 文件。"
+        return "没有配置 AMAP_KEY，请检查项目根目录的 .env 文件。"
 
     if mode not in AMAP_DIRECTION_URL:
         # 不支持的方式回退驾车，别让流程中断

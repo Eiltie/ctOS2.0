@@ -55,7 +55,7 @@ if __name__ == "__main__":
         apply_schema()
     except Exception as e:
         print(f"建库失败：{e}")
-        print("检查 config/.env 里的 PG_* 配置，以及 PostgreSQL 是否启动。")
+        print("检查 .env 里的 PG_* 配置，以及 PostgreSQL 是否启动。")
         sys.exit(1)
 
     print("建库完成")

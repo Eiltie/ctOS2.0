@@ -4,7 +4,7 @@
 怎么用：
     python -X utf8 -m databases.tools.clean
 
-    --port 5433 可以指定端口，连别的数据库实例（默认读 config/.env 里的 PG_PORT）。
+    --port 5433 可以指定端口，连别的数据库实例（默认读 .env 里的 PG_PORT）。
 
 安全约定：
     删除前都会先显示有多少条，并要求输入确认词。
@@ -15,7 +15,7 @@ import os
 import sys
 
 # --port NNNN：临时指定数据库端口，必须在 import databases.conn 之前设置，
-# 保证 load_dotenv 不覆盖它。用来连 config/.env 之外的另一套库。
+# 保证 load_dotenv 不覆盖它。用来连 .env 之外的另一套库。
 if "--port" in sys.argv:
     _i = sys.argv.index("--port")
     if _i + 1 < len(sys.argv):
@@ -357,7 +357,7 @@ def main():
 if __name__ == "__main__":
     if "--help" in sys.argv:
         print("用法：")
-        print("  python -X utf8 -m databases.tools.clean             清理 config/.env 里配的那套库")
+        print("  python -X utf8 -m databases.tools.clean             清理 .env 里配的那套库")
         print("  python -X utf8 -m databases.tools.clean --port 5433  清理 127.0.0.1:5433 那套库")
         sys.exit(0)
 
@@ -365,4 +365,4 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         print("\n出错了：", e)
-        print("检查 config/.env 里的 PG_* 配置，以及 PostgreSQL 是否启动。")
+        print("检查 .env 里的 PG_* 配置，以及 PostgreSQL 是否启动。")

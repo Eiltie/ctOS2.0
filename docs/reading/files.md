@@ -12,9 +12,11 @@
 | --- | --- | --- |
 | `README.md` | 239 | 项目说明：线上地址、四个模块、怎么装、怎么跑、怎么用 |
 | `LICENSE` | 17 | MIT 协议 |
-| `.gitignore` | 76 | 哪些文件不进 git（密钥、数据库、向量库、检查点、缓存） |
+| `.gitignore` | 76 | 哪些文件不进 git（密钥、产物、向量库、检查点、缓存） |
+| `.env` | — | **所有密钥和连接配置**（不进 git）。模板在 `config/.env.example` |
+| `requirements.txt` | 24 | Python 依赖清单 |
 
-> **配置只有一份**：`config/.env`。根目录不放 `.env`，代码用 `load_dotenv` 读这一份。
+> **配置只有一份**：根目录的 `.env`。代码用 `load_dotenv` 读它。
 
 ---
 
@@ -159,7 +161,7 @@ python -X utf8 -m databases.tools.feedback_view stats       # 统计
 
 **`tools/clean.py` 用法**：
 ```bash
-python -X utf8 -m databases.tools.clean              # 清 config/.env 里配的那套库
+python -X utf8 -m databases.tools.clean              # 清 .env 里配的那套库
 python -X utf8 -m databases.tools.clean --port 5433  # 清 127.0.0.1:5433 那套库
 ```
 
@@ -374,20 +376,37 @@ npm run build        # 输出到 web/dist/
 
 ---
 
-## 七、`config/` `docs/` `scripts/`
+## 七、根目录 / `config/` / `docs/` / `scripts/`
+
+### 根目录
 
 | 文件 | 职责 |
 | --- | --- |
-| `config/.env` | **所有密钥和连接配置**（不进 git） |
-| `config/YOUR_config.env` | 配置模板，告诉别人要填什么 |
-| `config/notice.json` | **更新公告**：id、标题、日期、正文、条目；改完刷新页面生效 |
-| `config/requirements.txt` | Python 依赖清单（langgraph / langchain 等版本已钉） |
+| `.env` | **所有密钥和连接配置**（不进 git） |
+| `requirements.txt` | Python 依赖清单（langgraph / langchain 等版本已钉） |
+
+### `config/` —— 配置
+
+改完不用动代码、不用重启的东西放这里。
+
+| 文件 | 职责 |
+| --- | --- |
+| `.env.example` | 配置模板。复制成根目录的 `.env` 再填自己的值 |
+| `notice.json` | **更新公告**：id、标题、日期、正文、条目；改完刷新页面生效 |
+
+### `docs/` `scripts/`
+
+| 文件 | 职责 |
+| --- | --- |
 | `docs/architecture.md` | 请求地图：用户点一下，代码经过哪些文件 |
 | `docs/files.md` | **本文档**：每个文件做什么 |
 | `docs/deployment.md` | 部署说明：线上实例、本地运行、环境变量、上线流程 |
-| `docs/themes.md` | 两套主题 / 五种风格的结构、手机端规则、加主题的做法 |
-| `docs/imagegen.md` | 生图模块（在建，尚未接入路由） |
+| `docs/frontend.md` | 前端怎么组织、怎么构建、怎么验证 |
+| `docs/themes.md` | 前端样式：scoped 样式、tokens.css、手机端适配 |
+| `docs/design-preview/` | 界面定稿截图 |
+| `docs/corpus/` | 客服知识库源文件（RAG 语料） |
 | `scripts/check_online.ps1` | 连续访问线上关键资源，判断是否间歇性超时 |
+| `scripts/stamp-static.js` | 给构建产物加版本号（防 Cloudflare 4 小时缓存） |
 
 ---
 
@@ -411,7 +430,7 @@ npm run build        # 输出到 web/dist/
 | 加公用前端组件 | `web/src/shared/components/` |
 | 改完前端（线上） | `cd web && npm run build`，再跑 `node scripts/stamp-static.js`（防 Cloudflare 4 小时缓存） |
 | 改端口 | 环境变量 `PORT` |
-| 改数据库连接 | `config/.env` 的 `PG_*` 变量 |
+| 改数据库连接 | `.env` 的 `PG_*` 变量 |
 | 上线 / 更新线上 | 见 `deployment.md` 第六节 |
 
 ---

@@ -24,7 +24,7 @@
 **线上和本地唯一的区别是域名和 TLS**：应用代码完全一样，
 进程监听同一个端口，HTTPS 由 Cloudflare 那一层负责。
 
-**线上体感的前提**：`config/.env` 里的密钥必须有效（DeepSeek / 高德），
+**线上体感的前提**：`.env` 里的密钥必须有效（DeepSeek / 高德），
 且账户有余额。缺密钥或余额不足时，对应模块会返回「这次没跑通」。
 客服的向量化跑在 Ollama 上，不占外网、也不需要密钥。
 
@@ -40,15 +40,18 @@
 ### 启动
 
 ```powershell
-# 1. 启动 PostgreSQL
-D:\PostgreSQL\pgsql\bin\pg_ctl.exe -D D:\PostgreSQL\data -l D:\PostgreSQL\server.log -o "-p 5432" start
+# 1. 确认 PostgreSQL 在跑
+#    装成 Windows 服务的话开机自启，一般不用管。检查一下：
+Get-Service -Name "*postgres*"
+#    Status 显示 Running 就行；不是的话（管理员 PowerShell）：
+#    Start-Service postgresql-x64-18
 
 # 2. 建表（第一次，或改了表结构）
 cd D:\ctOS2.0
 venv\Scripts\python.exe -X utf8 -m databases.schema
 
 # 3. 启动应用（这条就把服务拉起来了）
-venv\Scripts\python.exe -X utf8 -m api.main
+venv\Scripts\python.exe -X utf8 -m common.main
 
 # 4. 浏览器打开
 # http://127.0.0.1:8080/
@@ -60,8 +63,8 @@ venv\Scripts\python.exe -X utf8 -m api.main
 
 ```powershell
 # 应用：在运行它的终端按 Ctrl+C
-# 数据库：
-D:\PostgreSQL\pgsql\bin\pg_ctl.exe -D D:\PostgreSQL\data stop
+# 数据库：它是 Windows 服务，一般不用停（要停的话管理员 PowerShell）
+#   Stop-Service postgresql-x64-18
 ```
 
 ---
@@ -87,7 +90,7 @@ D:\PostgreSQL\pgsql\bin\psql.exe -U ctos_app -d ctos2 -f backup.sql
 
 ## 三、环境变量
 
-所有配置只在 `config/.env` **一份**，代码通过 `common/llm.py` 里的 `load_dotenv` 读取。
+所有配置只在 `.env` **一份**，代码通过 `common/llm.py` 里的 `load_dotenv` 读取。
 
 | 变量 | 必填 | 说明 |
 | --- | --- | --- |
@@ -144,7 +147,7 @@ Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -match '^192\
 venv\Scripts\python.exe -c "from databases.conn import check_connection; print(check_connection())"
 ```
 
-连不上就是 `config/.env` 里的 `PG_*` 配置不对，或者数据库没起。
+连不上就是 `.env` 里的 `PG_*` 配置不对，或者数据库没起。
 
 ### 端口被占用
 

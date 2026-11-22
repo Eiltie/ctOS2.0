@@ -66,9 +66,10 @@ ctOS2.0/
 │   └── customer/          ← 独立：客服（graph/node/state/prompts/stream + rag_* + data/）
 ├── web/                   ← 前端：Vue 3 源码（src/）+ 产物（dist/）
 ├── docs/                  ← 本文档
-├── eval/                  ← 端到端测评
-├── config/                ← .env、requirements.txt、notice.json
-└── scripts/               ← 运维脚本（清理库、检查线上）
+├── .env                   ← 密钥和连接配置（不进 git）
+├── requirements.txt       ← Python 依赖
+├── config/                ← 配置：.env.example 模板、notice.json 公告
+└── scripts/               ← 运维脚本（清理库、检查线上、加版本号）
 ```
 
 ### 启动方式

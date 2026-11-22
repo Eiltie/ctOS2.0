@@ -58,7 +58,7 @@ python -m venv venv
 venv\Scripts\activate          # Windows
 # source venv/bin/activate     # macOS / Linux
 
-pip install -r config/requirements.txt
+pip install -r requirements.txt
 ```
 
 ### 第二步：配置环境变量
@@ -66,10 +66,10 @@ pip install -r config/requirements.txt
 复制配置模板，然后填入自己的值：
 
 ```bash
-cp config/YOUR_config.env config/.env
+cp .env.example .env
 ```
 
-`config/.env` 需要填写以下内容：
+`.env` 需要填写以下内容：
 
 ```
 DEEPSEEK_API_KEY=      # DeepSeek 密钥，对话、出题、联网搜索都用它
@@ -94,7 +94,7 @@ ZHIPU_API_KEY=         # 智谱密钥（历史配置项，现在客服向量化�
 这个密钥是**必需的**：`rag_store.load_store()` 在加载知识库时会先检查它，取不到就直接抛错。
 也就是说，`ZHIPU_API_KEY` 没配的话，智能客服模块启动不起来（Web 服务本身的其它模块不受影响）。
 
-**安全提醒**：`config/.env` 已被 `.gitignore` 忽略，**不要**把真实密钥提交到代码仓库。
+**安全提醒**：`.env` 已被 `.gitignore` 忽略，**不要**把真实密钥提交到代码仓库。
 如果不小心提交过，请立刻去对应平台轮换密钥——仅仅删除文件并不能让密钥失效。
 
 ### 第三步：初始化数据库
@@ -143,16 +143,16 @@ python -m venv venv
 venv\Scripts\activate          # Windows
 # source venv/bin/activate     # macOS / Linux
 
-pip install -r config/requirements.txt
+pip install -r requirements.txt
 ```
 
 ### 2. 配置密钥
 
 ```bash
-cp config/YOUR_config.env config/.env
+cp .env.example .env
 ```
 
-然后在 `config/.env` 里填好 `DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL`、
+然后在 `.env` 里填好 `DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL`、
 `AMAP_KEY`、`ZHIPU_API_KEY`、`PG_*`（数据库连接）、`JWT_SECRET_KEY`（登录签名密钥）。
 
 ### 3. 初始化数据库
@@ -576,7 +576,7 @@ python -X utf8 -m modules.customer.rag_ingest
 ### 关于使用
 
 **Q：克隆下来为什么跑不起来？**
-A：因为这个项目**不含任何 API 密钥**，必须自己申请并填进 `config/.env`。
+A：因为这个项目**不含任何 API 密钥**，必须自己申请并填进 `.env`。
 对话和客服只需要 1 个外部密钥：DeepSeek（对话 + 联网搜索，必需）、高德（算路线，出行用），
 外加 PostgreSQL 的连接参数和登录用的 `JWT_SECRET_KEY`。
 另外克隆下来时数据库和向量库都还不存在，要先跑 `databases/conn.py` 建表、
@@ -584,7 +584,7 @@ A：因为这个项目**不含任何 API 密钥**，必须自己申请并填进 
 只拿到 DeepSeek 密钥的话，闲聊和出行都能用（联网搜索复用同一个密钥），只有客服会不可用。
 
 **Q：怎么启动这个项目？**
-A：三步。① 装依赖 `pip install -r config/requirements.txt`；
+A：三步。① 装依赖 `pip install -r requirements.txt`；
 ② 建表 `python -X utf8 -m databases.schema`；
 ③ 启动服务 `python -X utf8 -m common.main`，然后在浏览器打开 <http://127.0.0.1:8080/>。
 如果是第一次用智能客服，中间还要多跑一次入库脚本 `python -X utf8 -m modules.customer.rag_ingest`。
@@ -596,10 +596,10 @@ A：在项目根目录执行：
 ```bash
 python -m venv venv
 venv\Scripts\activate          # Windows
-pip install -r config/requirements.txt
+pip install -r requirements.txt
 ```
 
-依赖清单在 `config/requirements.txt` 里，分 Web、出行模块、客服模块、数据库、认证五组。
+依赖清单在 `requirements.txt` 里，分 Web、出行模块、客服模块、数据库、认证五组。
 装完依赖后跑 `python -X utf8 -m common.main` 就把服务拉起来了。
 
 **Q：服务在哪个端口上跑？启动后访问哪个地址？**
@@ -607,7 +607,7 @@ A：本地默认端口是 **8080**（`PORT` 环境变量控制），地址是 <h
 线上地址是 <https://ctos2.cn>，走标准 443 端口和 HTTPS。
 
 **Q：系统支持哪些大模型？**
-A：对话和图上的推理用的是 DeepSeek，通过 `config/.env` 里的 `DEEPSEEK_MODEL` 配置。
+A：对话和图上的推理用的是 DeepSeek，通过 `.env` 里的 `DEEPSEEK_MODEL` 配置。
 向量化跑在本机 Ollama 上（默认 `qwen3-embedding:0.6b`），和对话用的 DeepSeek 是两个不同的模型，各司其职。
 
 **Q：端口可以改吗？**
@@ -673,7 +673,7 @@ A：可以。四个能力都已接入页面，点顶栏的「智能客服」即�
 **Q：报错说 `ModuleNotFoundError: No module named 'chromadb'`（或 jieba、rank-bm25）怎么办？**
 A：这三个包是智能客服模块（RAG 检索）的依赖。确认你已经执行过：
 ```bash
-pip install -r config/requirements.txt
+pip install -r requirements.txt
 ```
 如果还是报错，很可能是**装到了别的 Python 环境里**。
 请检查你当前用的 Python 是不是项目里的 venv：
@@ -696,7 +696,7 @@ python -X utf8 -m modules.customer.stream
 ```
 
 **Q：报错说缺少 `ZHIPU_API_KEY` 怎么办？**
-A：这是向量检索必需的密钥。请在 `config/.env` 里补上：
+A：这是向量检索必需的密钥。请在 `.env` 里补上：
 ```
 ZHIPU_API_KEY=你的密钥
 ```
@@ -730,7 +730,7 @@ A：说明表达太模糊了。把话说具体一点，比如「下周想去杭�
 
 ### 6.2 依赖清单
 
-依赖统一写在 `config/requirements.txt`，分五组：
+依赖统一写在 `requirements.txt`，分五组：
 
 ```
 fastapi
@@ -767,7 +767,7 @@ bcrypt
 
 ### 6.3 启动顺序
 
-1. 确认 `config/.env` 已填好所有密钥（含 `ZHIPU_API_KEY`、`PG_*`、`JWT_SECRET_KEY`）
+1. 确认 `.env` 已填好所有密钥（含 `ZHIPU_API_KEY`、`PG_*`、`JWT_SECRET_KEY`）
 2. 建表：`python -X utf8 -m databases.schema`
 3. 智能客服要用的话，先跑一次入库脚本
 4. 启动 Web 服务：`python -X utf8 -m common.main`
@@ -932,9 +932,9 @@ npm run build
 
 ## 八、安全说明
 
-- 所有密钥都从 `config/.env` 读取，**代码里不写死任何凭据**
-- `.gitignore` 已排除 `config/.env`、`*.env`、`venv/`、`__pycache__/`、`*.sql`、`*.db`、向量库目录、测评结果等
-- 只有配置模板 `config/YOUR_config.env` 会入库，里面有占位符，不含真实值
+- 所有密钥都从 `.env` 读取，**代码里不写死任何凭据**
+- `.gitignore` 已排除 `.env`、`*.env`、`venv/`、`__pycache__/`、`*.sql`、`*.db`、向量库目录、测评结果等
+- 只有配置模板 `.env.example` 会入库，里面有占位符，不含真实值
 - **所有业务接口都要登录**：请求头带 `Authorization: Bearer <token>`，未登录返回 401
 - 密码存 bcrypt 哈希；登录失败时不区分「邮箱不存在」和「密码错误」，避免被用来枚举账号
 - **数据库不暴露到公网**：PostgreSQL 默认只监听本机，不对公网开放端口

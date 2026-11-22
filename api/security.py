@@ -18,7 +18,7 @@ from jose import JWTError, jwt
 # 项目根：本文件在 core/ 下，往上两级
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-load_dotenv(_PROJECT_ROOT / "config" / ".env")
+load_dotenv(_PROJECT_ROOT / ".env")
 
 # JWT 签名算法
 ALGORITHM = "HS256"
@@ -57,9 +57,9 @@ def _secret_key() -> str:
     key = os.getenv("JWT_SECRET_KEY")
     if not key:
         raise RuntimeError(
-            "config/.env 里没有 JWT_SECRET_KEY。\n"
+            ".env 里没有 JWT_SECRET_KEY。\n"
             "生成一个：python -c \"import secrets; print(secrets.token_urlsafe(48))\"\n"
-            "然后加到 config/.env：JWT_SECRET_KEY=<那个值>"
+            "然后加到 .env：JWT_SECRET_KEY=<那个值>"
         )
     return key
 

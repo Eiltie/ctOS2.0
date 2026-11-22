@@ -1,7 +1,6 @@
 # ============ 密钥 / 配置（绝不入库）============
-# config/.env 里有真实的 DEEPSEEK / TAVILY / AMAP 密钥和 MySQL 密码。
-# 需要配置时，复制 config/.env.example 为 config/.env 再填自己的值。
-config/.env
+# 根目录 .env 里有真实的 DEEPSEEK / AMAP 密钥和数据库密码。
+# 需要配置时，复制 config/.env.example 为根目录的 .env 再填自己的值。
 .env
 *.env
 !config/.env.example

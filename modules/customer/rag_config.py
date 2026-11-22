@@ -17,7 +17,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 # 全项目统一由 core/llm.py 负责 load_dotenv。
 # 这里再调一次是幂等的（已加载过不会有副作用），
 # 保证「单独跑本文件」或「直接 import rag_config」时密钥也能读到。
-load_dotenv(_PROJECT_ROOT / "config" / ".env")
+load_dotenv(_PROJECT_ROOT / ".env")
 
 # 客服模块自己的目录
 MODULE_DIR = Path(__file__).resolve().parent
@@ -37,7 +37,7 @@ COLLECTION_NAME = "ctos2_docs"
 # 向量检索用的模型跑在本机（Ollama）上，不走云端接口。
 # 好处：不用密钥、不联网、不花钱，入库也快。
 #
-# 两个环境变量可以在 config/.env 里覆盖下面两个默认值：
+# 两个环境变量可以在 .env 里覆盖下面两个默认值：
 #   OLLAMA_HOST         服务的地址，默认本机 11434 端口
 #   OLLAMA_EMBED_MODEL  模型名，默认 qwen3-embedding:0.6b
 

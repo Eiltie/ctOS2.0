@@ -156,7 +156,7 @@ if result["status"] == "need_more":
 
 ## 七、配置
 
-`config/.env`：
+`.env`：
 
 ```env
 SEEDREAM_API_KEY=ark-xxxxxxxx
@@ -172,7 +172,7 @@ ARK_IMAGE_MODEL=doubao-seedream-5-0-flash-260915
 ```python
 import httpx, os
 from dotenv import load_dotenv
-load_dotenv("config/.env")
+load_dotenv(".env")
 r = httpx.get("https://ark.cn-beijing.volces.com/api/v3/models",
               headers={"Authorization": f"Bearer {os.getenv('SEEDREAM_API_KEY')}"})
 for m in r.json()["data"]:

@@ -37,7 +37,7 @@ TIMEOUT = 180
 _MODEL_HINT = (
     f"请确认本机 Ollama 正在运行，并且已经拉过模型：\n"
     f"    ollama pull {EMBEDDING_MODEL}\n"
-    f"如果 Ollama 不在默认地址，请在 config/.env 里改 OLLAMA_HOST。"
+    f"如果 Ollama 不在默认地址，请在 .env 里改 OLLAMA_HOST。"
 )
 
 

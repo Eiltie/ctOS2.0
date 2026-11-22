@@ -134,21 +134,21 @@
 **前提**：Python 3.14、PostgreSQL 17
 
 ```bash
-# 1. 启动 PostgreSQL
-D:\PostgreSQL\pgsql\bin\pg_ctl.exe -D D:\PostgreSQL\data start
+# 1. 确认 PostgreSQL 在跑（装成 Windows 服务的话开机自启，不用管）
+Get-Service -Name "*postgres*"
 
 # 2. 装依赖
 python -m venv venv
 venv\Scripts\activate
-pip install -r config/requirements.txt
+pip install -r requirements.txt
 
-# 3. 配置密钥（只有这一份：config/.env）
-cp config/YOUR_config.env config/.env
-# 编辑 config/.env
+# 3. 配置密钥：复制模板到根目录的 .env 再填自己的值
+copy config\.env.example .env
+# 编辑 .env
 
 # 4. 建库 + 启动
 python -X utf8 -m databases.schema   # 执行 databases/schema.sql，首次必跑；改了表结构再跑一次
-python -X utf8 -m common.main           # 拉起服务，浏览器打开 http://127.0.0.1:8080/
+python -X utf8 -m common.main        # 拉起服务，浏览器打开 http://127.0.0.1:8080/
 ```
 
 > 建表语句都在 `databases/schema.sql`，也可以直接用 `psql -U ctos_app -d ctos2 -f databases/schema.sql` 跑。
@@ -158,7 +158,7 @@ python -X utf8 -m common.main           # 拉起服务，浏览器打开 http://
 
 ### 必需的配置
 
-`config/.env` 里至少填这些：
+`.env` 里至少填这些：
 
 ```ini
 # AI 服务
@@ -191,6 +191,8 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 ```
 ctOS2.0/
+├── .env            真实密钥和连接配置（不进 git）
+├── requirements.txt   Python 依赖清单
 ├── api/            接口层（每个模块一个路由文件）
 │   ├── main.py         只做装配：建 app + 挂静态 + include_router
 │   ├── deps.py         共用：租户解析 / 图片校验 / SSE 响应头
@@ -270,6 +272,8 @@ ctOS2.0/
 │   ├── check_online.ps1      检查线上是否可访问
 │   └── stamp-static.js       给产物加版本号（防 CF 缓存）
 └── config/         配置
+    ├── .env.example          配置模板（复制成根目录的 .env 再填值）
+    └── notice.json           更新公告
 ```
 
 **改前端看 [docs/frontend.md](docs/frontend.md)。**
@@ -324,7 +328,7 @@ python -X utf8 -m databases.tools.feedback_view stats  # 统计
 ### 清理数据
 
 ```bash
-python -X utf8 -m databases.tools.clean              # 清 config/.env 里配的那套库
+python -X utf8 -m databases.tools.clean              # 清 .env 里配的那套库
 python -X utf8 -m databases.tools.clean --port 5433  # 清 127.0.0.1:5433 那套库
 ```
 
