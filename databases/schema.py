@@ -18,7 +18,7 @@
 import sys
 from pathlib import Path
 
-from common.db import check_connection, get_conn
+from databases.conn import check_connection, get_conn
 
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
 

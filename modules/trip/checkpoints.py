@@ -21,8 +21,9 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 
 # 检查点文件：刷新页面不影响，服务重启也能接着选。
 # 放在单独的子目录里，别和代码混在一起，也方便备份和清理。
+# 本文件在 modules/trip/ 下，往上三层才是项目根。
 CHECKPOINT_PATH = (
-    Path(__file__).resolve().parent.parent
+    Path(__file__).resolve().parent.parent.parent
     / "databases"
     / "checkpoints"
     / "route_checkpoints.sqlite"

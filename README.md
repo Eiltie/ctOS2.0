@@ -148,7 +148,7 @@ cp config/YOUR_config.env config/.env
 
 # 4. 建库 + 启动
 python -X utf8 -m databases.schema   # 执行 databases/schema.sql，首次必跑；改了表结构再跑一次
-python -X utf8 -m api.main           # 拉起服务，浏览器打开 http://127.0.0.1:8080/
+python -X utf8 app.py           # 拉起服务，浏览器打开 http://127.0.0.1:8080/
 ```
 
 > 建表语句都在 `databases/schema.sql`，也可以直接用 `psql -U ctos_app -d ctos2 -f databases/schema.sql` 跑。
@@ -191,9 +191,11 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 ```
 ctOS2.0/
+├── app.py          总启动入口：python -X utf8 app.py
 ├── api/            接口层（每个模块一个路由文件）
 │   ├── main.py         只做装配：建 app + 挂静态 + include_router
 │   ├── deps.py         共用：租户解析 / 图片校验 / SSE 响应头
+│   ├── security.py     密码哈希 + JWT（只有接口层用）
 │   └── routes/
 │       ├── auth.py     注册 / 登录 / 当前用户
 │       ├── trial.py    访客账号（可整块删）
@@ -206,20 +208,16 @@ ctOS2.0/
 │       ├── presence.py 在线人数
 │       ├── feedback.py 反馈
 │       └── system.py   公告 / 健康检查 / 首页
-├── common/         公共层：跨模块共用
-│   ├── llm.py          唯一的模型客户端
-│   ├── db.py           数据库连接 + 建表总入口
-│   ├── auth.py         密码哈希 + JWT
-│   ├── sse.py          SSE 打包 + 同步生成器转线程
-│   ├── checkpoints.py  出行的暂停现场（路线和攻略共用）
-│   └── tools/          外部数据工具
-│       ├── search.py   联网搜索
-│       ├── weather.py  天气（Open-Meteo）
-│       └── amap.py     地图（高德）
+├── common/         公共层：只有全局依赖
+│   └── llm.py          唯一的模型客户端（所有模块都要取模型）
+├── tools/          工具层：两个以上模块在用的外部数据
+│   ├── search.py       联网搜索（角色扮演 + 攻略）
+│   └── imagesproduct.py 生图（对话 + 出行）
 ├── databases/      数据库层
-│   ├── common/         公共
-│   │   ├── db.py       连接 + 通用操作 + 建表总入口
-│   │   └── db_tenant.py tenants
+│   ├── conn.py         连接 + 通用操作（query / execute / transaction）
+│   ├── schema.sql      13 张表的建表语句
+│   ├── schema.py       建库入口：python -m databases.schema
+│   ├── common/db_tenant.py  tenants
 │   ├── modules/        各模块的表
 │   │   ├── db_auth.py      users
 │   │   ├── db_chat.py      sessions / messages / message_images
@@ -415,7 +413,7 @@ curl -N -X POST http://127.0.0.1:8080/trip/chat \
 | 地图 | 高德（路线决策） |
 | 天气 | Open-Meteo（免密钥） |
 | 认证 | JWT + bcrypt |
-| 部署 | uvicorn 直接拉起（`python -m api.main`），Cloudflare Tunnel 提供域名与 TLS |
+| 部署 | uvicorn 直接拉起（`python app.py`），Cloudflare Tunnel 提供域名与 TLS |
 | 前端 | Vue 3 + TypeScript + Vite；无 UI 框架，样式用 CSS 变量集中在 `tokens.css`；SSE 流式渲染 |
 
 ---
@@ -447,11 +445,9 @@ curl -N -X POST http://127.0.0.1:8080/trip/chat \
 
 **工程质量**
 
-- **单元测试只覆盖"判断代码"那一层**（见下面「测试」一节）：`common/auth.py` 的 token/密码、
-  `route/need.py` 的需求检查、`route/tools.py` 的偏好归一到打分推荐、`agent.py` 的天气意图判断。
-  模型输出质量、行程合理性、角色像不像，这些测试**测不了**，只能靠人看
-- `modules/customer/rag_eval.py` 是手工跑的检索测评，要真实服务 + 模型，不进 CI
-  两者都要真实服务 + 真实模型，不进 CI
+- 目前没有自动化测试。每个 agent 有独立的终端入口（`cli/` 下六个），
+  改完代码跑一下对应用口就能验证流程通不通
+- `modules/customer/rag_eval.py` 是手工跑的检索测评，要真实服务 + 模型
 - 没有登录限流，可以被暴力试密码
 - 生图没有限额，用户反复要图会一直花钱
 
@@ -462,7 +458,7 @@ curl -N -X POST http://127.0.0.1:8080/trip/chat \
 | 想看什么 | 去哪 |
 | --- | --- |
 | **前端怎么组织、改了怎么验证** | [docs/frontend.md](docs/frontend.md) |
-| 怎么跑单元测试 / 端到端测试 | 本文「测试」一节 |
+| 想在终端单独跑某个模块 | `cli/` 下六个入口，见本文「项目结构」 |
 | 每个文件做什么 | 本文「项目结构」一节 |
 
 ---

@@ -19,7 +19,7 @@ import base64
 import secrets
 from pathlib import Path
 
-from common.db import DEFAULT_TENANT_ID
+from databases.conn import DEFAULT_TENANT_ID
 
 # 图片存放的根目录：core/ 的上一级是项目根，再进 databases/images
 IMAGES_ROOT = Path(__file__).resolve().parent.parent.parent / "databases" / "images"

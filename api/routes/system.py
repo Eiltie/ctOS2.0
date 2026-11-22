@@ -77,7 +77,7 @@ def get_contract():
 @router.get("/health")
 async def health():
     """健康检查：不需要登录，给部署平台和监控用。"""
-    from common.db import check_connection
+    from databases.conn import check_connection
 
     try:
         info = check_connection()

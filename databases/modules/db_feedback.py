@@ -14,7 +14,7 @@
 ============================================================================
 """
 
-from common.db import execute, execute_returning_id, query, query_one
+from databases.conn import execute, execute_returning_id, query, query_one
 
 # 反馈表
 #

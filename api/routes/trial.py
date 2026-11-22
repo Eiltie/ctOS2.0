@@ -23,8 +23,8 @@ import secrets
 
 from fastapi import APIRouter
 
-from common.auth import create_token, hash_password
-from common.db import DEFAULT_TENANT_ID
+from api.security import create_token, hash_password
+from databases.conn import DEFAULT_TENANT_ID
 from databases.modules.db_auth import create_user, touch_last_login
 
 router = APIRouter(prefix="/auth", tags=["访客账号"])
@@ -101,7 +101,7 @@ def trial_login():
 
 def count_trial_accounts() -> int:
     """访客账号有多少个。以后要清理时用得上，也可以在运维时查一下。"""
-    from common.db import query_one
+    from databases.conn import query_one
 
     row = query_one(
         "SELECT COUNT(*) AS n FROM users WHERE email LIKE %s",

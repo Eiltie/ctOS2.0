@@ -12,7 +12,7 @@
     - 谁都可以引用它，但它不反过来依赖任何业务模块
 """
 
-from common.db import execute, query, query_one
+from databases.conn import execute, query, query_one
 
 # 默认租户：早期还没接入登录时的兜底数据都挂在它下面。
 # 现在每个注册用户有自己的租户，这一行主要给「建库即能用」和本地调试兜底。

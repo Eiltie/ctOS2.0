@@ -9,7 +9,7 @@
   数据查询用的都是这个 tenant_id，所以用户和租户目前是一对一。
 """
 
-from common.db import execute, query_one, transaction
+from databases.conn import execute, query_one, transaction
 
 # users 表建表语句在 databases/schema.sql
 

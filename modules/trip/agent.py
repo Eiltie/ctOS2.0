@@ -20,7 +20,7 @@
 
 from langchain_core.messages import AIMessage, HumanMessage
 
-from common.sse import sse
+from modules.trip.sse import sse
 from databases.modules.db_trip import save_trip_turn
 from modules.trip.guide.quick import answer_weather
 from modules.trip.guide.stream import start_guide

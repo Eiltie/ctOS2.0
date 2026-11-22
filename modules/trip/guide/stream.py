@@ -2,7 +2,7 @@
 
 做什么：跑攻略图 → 停在景点清单等用户勾选 → 继续排行程、写游玩建议 → 存库。
 被谁用：modules/trip/agent.py（Agent 判断 action=guide 后调）和 api/main.py（勾完继续）。
-注意：同步生成器，统一交给 common.sse.stream_from_thread 跑；暂停现场存在检查点文件里。
+注意：同步生成器，统一交给 modules.trip.sse.stream_from_thread 跑；暂停现场存在检查点文件里。
 
 走到这里的前提：
   Agent 已经判断这一句该做攻略。所以这里不再做"是不是走错门"的判断，
@@ -14,8 +14,8 @@ import uuid
 from langchain_core.messages import AIMessageChunk
 from langgraph.types import Command
 
-from common.checkpoints import get_checkpointer
-from common.sse import sse
+from modules.trip.checkpoints import get_checkpointer
+from modules.trip.sse import sse
 from databases.modules.db_trip import save_trip_turn
 from modules.trip.guide.graph import build_graph
 

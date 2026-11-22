@@ -10,13 +10,13 @@
 
 PostgreSQL 版本。和 SQLite 版的差异：
   - 占位符用 %s
-  - 查询走 common.db 的 query / query_one
+  - 查询走 databases.conn 的 query / query_one
   - 多了 users / tenants 的查看（多租户之后才有）
 """
 
 import sys
 
-from common.db import check_connection, query, query_one
+from databases.conn import check_connection, query, query_one
 
 
 def line(char="=", width=64):

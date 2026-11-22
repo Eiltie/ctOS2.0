@@ -8,7 +8,7 @@ PostgreSQL 版本，与 SQLite 版的差异同 db_chat.py：
   - 所有表带 tenant_id，所有查询带上它
 """
 
-from common.db import (
+from databases.conn import (
     DEFAULT_TENANT_ID,
     execute,
     execute_returning_id,

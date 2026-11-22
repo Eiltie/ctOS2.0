@@ -65,22 +65,19 @@
 
 ---
 
-## 三、`common/` —— 公共层（跨模块共用）
+## 三、`common/` —— 公共层（只有全局依赖）
 
-**四个模块都要用的东西。和具体业务无关。**
+**判断标准：所有模块都必须依赖它，才算公共。只有部分模块在用的不算。**
 
 | 文件 | 行数 | 职责 | 什么时候看 |
 | --- | --- | --- | --- |
 | `llm.py` | 33 | **全项目唯一的 `get_llm()`**。决定用哪个模型、温度、是否思考 | 想换模型、调温度、加超时 |
-| `db.py` | 170 | 数据库连接和通用操作（`query` / `execute` / `transaction`），以及建表总入口 `create_all_tables()` | 想知道怎么连库、怎么执行 SQL、怎么加表 |
-| `auth.py` | 72 | 密码哈希（bcrypt）、JWT 签发与校验 | 改 token 有效期、改密码规则 |
-| `sse.py` | 38 | SSE 事件打包（`data: {...}\n\n`）+ `stream_from_thread()` | 改流式输出格式 |
-| `checkpoints.py` | 40 | LangGraph 暂停现场（路线和攻略共用一个 sqlite） | 改暂停恢复逻辑 |
 
-**注意**：`db.py` 里的 `_conninfo()` 用 dict 传参而不是拼 DSN 字符串，因为密码里有反斜杠会出问题。
-
-**`sse.py` 里有两个东西**：`sse()` 负责打包；`stream_from_thread()` 把同步的 LangGraph
-放到工作线程里跑，边跑边把 SSE 字符串送回来，并带 8 秒心跳（防止用户长时间看不到任何字）。
+> 其他曾经放在 `common/` 的文件，按「谁在用」归位了：
+> - `db.py` → `databases/conn.py`（连数据库属于数据库层）
+> - `auth.py` → `api/security.py`（只有接口层用）
+> - `sse.py` → `modules/trip/sse.py` + `modules/customer/sse.py`（两个模块各一份）
+> - `checkpoints.py` → `modules/trip/checkpoints.py`（只有出行用）
 
 ---
 
@@ -89,11 +86,20 @@
 **每个文件对应一组表。只写 SQL，不写业务逻辑。**
 按「公共 / 各模块 / 运维工具」分成三组。
 
+### 连接与建库
+
+| 文件 | 行数 | 职责 |
+| --- | --- | --- |
+| `conn.py` | 160 | **连接 + 通用操作**：`get_conn()` / `query()` / `query_one()` / `execute()` / `transaction()` / `check_connection()`。所有 `db_*.py` 都走它 |
+| `schema.sql` | 223 | **所有建表 / 补列 / 索引语句**。13 张表都在这里，全是 `IF NOT EXISTS`，跑在已有数据的库上安全 |
+| `schema.py` | 61 | 建库入口：`python -X utf8 -m databases.schema` 执行 schema.sql；也可以直接 `psql -f databases/schema.sql` |
+
+> `conn.py` 里的 `_conninfo()` 用 dict 传参而不是拼 DSN 字符串，因为密码里有反斜杠会出问题。
+
 ### `common/` —— 公共部分
 
 | 文件 | 行数 | 对应的表 | 职责 |
 | --- | --- | --- | --- |
-| `db.py` | 160 | — | 连接 + 通用操作（`query` / `execute` / `transaction`）。建表已移到 schema.sql，`create_all_tables()` 只做转发 |
 | `db_tenant.py` | 40 | `tenants` | **全局身份表**：查询租户。不属于任何业务模块，users / sessions / trip_* 都外键引用它 |
 
 ### `modules/` —— 各模块独立的表
@@ -271,7 +277,7 @@ modules/<模块名>/
 - 需求解析把 `history` 一起喂给模型，所以"改成8点出发"这类补充一次调用就能接上，不用先合并再解析
 - `tools.py` 只剩业务判断：跨城只查驾车、带老人不推荐走路、下雨不推荐骑车、按偏好打分
 - 路线决策的 HITL：图停在 `ask_user`，用 `interrupt` 保存现场；用户选完走 `/trip/route/choose`，用 `Command(resume=...)` 继续
-- 暂停现场由 `common/checkpoints.py` 统一管（路线和攻略共用一个 sqlite 文件，靠线程号前缀区分）；文件打不开时自动退回内存
+- 暂停现场由 `modules/trip/checkpoints.py` 统一管（路线和攻略共用一个 sqlite 文件，靠线程号前缀区分）；文件打不开时自动退回内存
 
 ### `modules/trip/guide/` —— 旅游攻略
 
@@ -438,7 +444,7 @@ static/
 | 改提示词 | 对应模块的 `prompts.py` |
 | 加一个新接口 | 新建 `api/routes/xxx.py`，再到 `api/main.py` 加一行 `include_router` |
 | 加一张表 | 往 `databases/schema.sql` 加建表语句，跑 `python -X utf8 -m databases.schema`；再新建 `databases/modules/db_xxx.py` 写增删改查 |
-| 改流式事件格式 | 对应模块的 `stream.py`（打包函数在 `common/sse.py`） |
+| 改流式事件格式 | 对应模块的 `stream.py`（打包函数在 `modules/trip/sse.py`） |
 | 加外部工具 | 两个以上模块用 → `tools/`；只有单个模块用 → 放那个模块里 |
 | 改预设角色 | `modules/chat/roleplay/presets.py`（重启生效） |
 | 改记忆规则 | `modules/chat/roleplay/memory.py`（每 6 轮、200 字上限） |

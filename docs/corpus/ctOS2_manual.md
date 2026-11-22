@@ -42,7 +42,7 @@ ctOS 2.0 是一个用 FastAPI 加 LangGraph 搭建的多模块 AI 应用。
 - **存储**：PostgreSQL 17 存会话、账号与出行记录（多租户）；Chroma 用于 RAG 向量库
 - **检索**：jieba + rank-bm25 与向量混合
 - **认证**：JWT + bcrypt
-- **部署**：uvicorn 直接拉起服务（`python -m api.main`），线上由 Cloudflare 托管域名与 HTTPS
+- **部署**：uvicorn 直接拉起服务（`python app.py`），线上由 Cloudflare 托管域名与 HTTPS
 - **配置**：python-dotenv
 
 ---
@@ -121,7 +121,7 @@ python -X utf8 -m modules.customer.rag_ingest
 ### 第五步：启动服务
 
 ```bash
-python -X utf8 -m api.main
+python -X utf8 app.py
 ```
 
 然后在浏览器打开 <http://127.0.0.1:8080/> 就是前端页面。
@@ -170,7 +170,7 @@ python -X utf8 -m modules.customer.rag_ingest
 ### 5. 启动服务
 
 ```bash
-python -X utf8 -m api.main
+python -X utf8 app.py
 ```
 
 看到 uvicorn 启动成功后，在浏览器打开 <http://127.0.0.1:8080/> 即可使用。
@@ -181,7 +181,7 @@ python -X utf8 -m api.main
 如果之前已经装好依赖、配好密钥、建好表、入过库，那以后每次只要一条命令：
 
 ```bash
-python -X utf8 -m api.main
+python -X utf8 app.py
 ```
 
 > Windows 控制台默认 GBK，不加 `-X utf8` 中文可能乱码。
@@ -579,14 +579,14 @@ python -X utf8 -m modules.customer.rag_ingest
 A：因为这个项目**不含任何 API 密钥**，必须自己申请并填进 `config/.env`。
 对话和客服只需要 1 个外部密钥：DeepSeek（对话 + 联网搜索，必需）、高德（算路线，出行用），
 外加 PostgreSQL 的连接参数和登录用的 `JWT_SECRET_KEY`。
-另外克隆下来时数据库和向量库都还不存在，要先跑 `common/db.py` 建表、
+另外克隆下来时数据库和向量库都还不存在，要先跑 `databases/conn.py` 建表、
 再跑 `rag_ingest` 入库，这两个都是一次性的初始化步骤。
 只拿到 DeepSeek 密钥的话，闲聊和出行都能用（联网搜索复用同一个密钥），只有客服会不可用。
 
 **Q：怎么启动这个项目？**
 A：三步。① 装依赖 `pip install -r config/requirements.txt`；
 ② 建表 `python -X utf8 -m databases.schema`；
-③ 启动服务 `python -X utf8 -m api.main`，然后在浏览器打开 <http://127.0.0.1:8080/>。
+③ 启动服务 `python -X utf8 app.py`，然后在浏览器打开 <http://127.0.0.1:8080/>。
 如果是第一次用智能客服，中间还要多跑一次入库脚本 `python -X utf8 -m modules.customer.rag_ingest`。
 **不想自己装的话，直接用线上的 <https://ctos2.cn> 就行，注册后就能用。**
 
@@ -600,7 +600,7 @@ pip install -r config/requirements.txt
 ```
 
 依赖清单在 `config/requirements.txt` 里，分 Web、出行模块、客服模块、数据库、认证五组。
-装完依赖后跑 `python -X utf8 -m api.main` 就把服务拉起来了。
+装完依赖后跑 `python -X utf8 app.py` 就把服务拉起来了。
 
 **Q：服务在哪个端口上跑？启动后访问哪个地址？**
 A：本地默认端口是 **8080**（`PORT` 环境变量控制），地址是 <http://127.0.0.1:8080/>。
@@ -770,7 +770,7 @@ bcrypt
 1. 确认 `config/.env` 已填好所有密钥（含 `ZHIPU_API_KEY`、`PG_*`、`JWT_SECRET_KEY`）
 2. 建表：`python -X utf8 -m databases.schema`
 3. 智能客服要用的话，先跑一次入库脚本
-4. 启动 Web 服务：`python -X utf8 -m api.main`
+4. 启动 Web 服务：`python -X utf8 app.py`
 
 这样四个步骤跑完，服务就在 `127.0.0.1:8080` 上起来了。
 
@@ -806,7 +806,7 @@ bcrypt
 # 1. 修改 docs/corpus/ 下的文档
 # 2. 重新入库
 python -X utf8 -m modules.customer.rag_ingest
-# 3. 重启服务，否则内存里还是旧知识库（Ctrl+C 再重新 python -m api.main）
+# 3. 重启服务，否则内存里还是旧知识库（Ctrl+C 再重新 python app.py）
 ```
 
 **单独调试某个模块**（不启动 Web 服务，每个 agent 一个入口）：
@@ -835,7 +835,7 @@ python -X utf8 -m databases.tools.view show 3
 **线上健康检查与日志**：
 ```bash
 curl https://ctos2.cn/health
-# 日志就是运行 python -m api.main 那个终端的输出；要在后台跑可以用 nohup 或计划任务
+# 日志就是运行 python app.py 那个终端的输出；要在后台跑可以用 nohup 或计划任务
 ```
 
 ---
@@ -946,13 +946,13 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 ## 九、数据库表结构
 
 项目使用 PostgreSQL 数据库：`ctos2`，共 13 张表。
-所有模块共用同一个数据库、同一套连接函数（`common/db.py` 的 `get_conn()` / `query()` / `execute()`）。
+所有模块共用同一个数据库、同一套连接函数（`databases/conn.py` 的 `get_conn()` / `query()` / `execute()`）。
 
-建表入口是 `common/db.py` 的 `create_all_tables()`，它会先建全局身份表 `tenants`，
+建表入口是 `databases/conn.py` 的 `create_all_tables()`，它会先建全局身份表 `tenants`，
 再依次调用各模块的建表函数。建表语句都用了 `CREATE TABLE IF NOT EXISTS`，重复执行是安全的。
 
 连接层每个操作开一个短连接，用完自动关、出错自动回滚；`transaction()` 把多条写入包成一个事务。
-**不要另写第二份开连接的代码**，所有 SQL 都走 `common/db.py` 提供的函数。
+**不要另写第二份开连接的代码**，所有 SQL 都走 `databases/conn.py` 提供的函数。
 
 **多租户**：`tenants` 是一切的根，`users` / `sessions` / `trip_chats` / `trip_sessions` 都外键引用它，
 所有业务表都带 `tenant_id` 列。API 层从登录 token 解析出当前租户，一路传下去做数据隔离。
@@ -1063,8 +1063,8 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 3. 在模块内写一个流式封装文件，对外只暴露一个生成器（参照 `modules/trip/stream.py` 里的 `trip_stream` / `modules/customer/stream.py` 里的 `customer_stream`）
 4. 在 `api/main.py` 里加一个路由，把生成器塞进 `StreamingResponse`；**记得像别的业务路由一样调 `tenant_of(authorization)`**，否则新接口会绕过登录和数据隔离
 5. 在前端加一个面板和请求逻辑（参照 `static/themeA/js/trip.js` / `customer.js`，指挥台版对应 `static/themeB/js/`），并把新视图加进 `static/shared/js/common/config.js` 的 `VIEW_ORDER`
-6. 要存数据的话，在 `databases/` 下加一个 `db_xxx.py`（命名参照现有的 `db_chat.py` / `db_trip.py`），表里带上 `tenant_id`，并把它的建表函数加进 `common/db.py` 的 `create_all_tables()`
-7. 上线：把代码同步到服务器，重启 `python -X utf8 -m api.main`
+6. 要存数据的话，在 `databases/` 下加一个 `db_xxx.py`（命名参照现有的 `db_chat.py` / `db_trip.py`），表里带上 `tenant_id`，并把它的建表函数加进 `databases/conn.py` 的 `create_all_tables()`
+7. 上线：把代码同步到服务器，重启 `python -X utf8 app.py`
 
 模块之间应该保持独立：各自的图、各自的提示词、各自的配置读取。
 共享的只有 FastAPI 应用、端口、会话接口和数据库连接层。
@@ -1102,5 +1102,5 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 - `generate` 节点把最近 3 轮对话（`HISTORY_TURNS = 3`）拼进提示词，让模型理解「它」指什么。
 
 目前客服问答**不落库**。如果要把问答也存进会话记录，参照闲聊的做法在 `databases/` 下加表，
-并把建表函数加进 `common/db.py` 的 `create_all_tables()`。
+并把建表函数加进 `databases/conn.py` 的 `create_all_tables()`。
 注意：这会改变「客服不留记录」的现有设计意图。

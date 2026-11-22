@@ -65,7 +65,7 @@ def imageProduct(query: str, image: list = None, tenantId: int = None):
 
     # 4) 存盘
     try:
-        from common.db import DEFAULT_TENANT_ID
+        from databases.conn import DEFAULT_TENANT_ID
 
         return save_image(content, tenant_id=tenantId or DEFAULT_TENANT_ID)
     except Exception as e:

@@ -7,7 +7,7 @@
 注意：预设角色不存这里，直接写在 modules/chat/roleplay/presets.py。
 """
 
-from common.db import execute, query, query_one, transaction
+from databases.conn import execute, query, query_one, transaction
 
 # role_play_* 三张表的建表语句在 databases/schema.sql
 

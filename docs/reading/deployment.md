@@ -141,7 +141,7 @@ Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -match '^192\
 ### 健康检查失败
 
 ```powershell
-venv\Scripts\python.exe -c "from common.db import check_connection; print(check_connection())"
+venv\Scripts\python.exe -c "from databases.conn import check_connection; print(check_connection())"
 ```
 
 连不上就是 `config/.env` 里的 `PG_*` 配置不对，或者数据库没起。
@@ -154,7 +154,7 @@ Get-NetTCPConnection -LocalPort 8080 -State Listen
 
 ### 改了代码但没生效
 
-- 改的是 **后端**：重启 `python -m api.main` 那个进程
+- 改的是 **后端**：重启 `python app.py` 那个进程
 - 改的是 **前端**：`cd web && npm run build`，然后强制刷新（Ctrl+F5）
   - 线上的话还要跑 `node scripts/stamp-static.js` 加版本号，否则 `.js` / `.css` 会被 Cloudflare 缓存 4 小时
 - 改的是 **知识库文档**：要重跑入库（见下一条）并重启服务

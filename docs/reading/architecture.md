@@ -27,18 +27,16 @@ ctOS2.0/
 │       ├── presence.py    ← /presence/*（在线人数）
 │       ├── feedback.py    ← /feedback
 │       └── system.py      ← /notice /health /（首页）
-├── common/                ← 公共层：跨模块共用（并集）
-│   ├── llm.py             ← 唯一的 get_llm()
-│   ├── sse.py             ← sse() 打包 + stream_from_thread()
-│   ├── auth.py            ← 密码哈希 + JWT
-│   ├── db.py              ← 开连接 + 建库转发
-│   └── checkpoints.py     ← 出行的暂停现场（路线和攻略共用一个）
+├── common/                ← 公共层：只有全局依赖（所有模块都必须用）
+│   └── llm.py             ← 唯一的 get_llm()
 ├── tools/                 ← 工具层：两个以上模块在用的外部数据工具
 │   ├── search.py          ← web_search（chat 角色扮演 + trip 攻略）
 │   └── imagesproduct.py   ← imageProduct（chat 对话 + trip 出行）
-├── databases/             ← 数据库层：公共 / 各模块 / 运维工具
-│   ├── common/            ← 公共部分
-│   │   ├── db.py          ← 连接 + 通用操作 + 建表总入口 create_all_tables()
+├── databases/             ← 数据库层：连接 / 建库 / 各模块的表 / 运维工具
+│   ├── conn.py            ← 连接 + 通用操作（query / execute / transaction）
+│   ├── schema.sql         ← 13 张表的建表语句
+│   ├── schema.py          ← 建库入口 python -m databases.schema
+│   ├── common/            
 │   │   └── db_tenant.py   ← 全局身份表 tenants（谁都不依赖它，它也不依赖谁）
 │   ├── modules/           ← 各模块独立的表
 │   │   ├── db_auth.py     ← 账号 users
@@ -75,7 +73,7 @@ ctOS2.0/
 ### 启动方式
 
 ```bash
-python -X utf8 -m api.main      # 拉起服务，默认监听 127.0.0.1:8080
+python -X utf8 app.py      # 拉起服务，默认监听 127.0.0.1:8080
 ```
 
 ### 请求流向
@@ -368,7 +366,7 @@ POST /trip/chat
   把选中的地点塞进起点/终点，直接查天气、跑图。**不重新解析、不重新判断、不改写**。
 - 候选路线出来后，图停在 `ask_user`，后端发 `ASK`，前端显示候选卡片。
 - 用户点一条后 POST `/trip/route/choose`，后端用 `Command(resume=choice_id)` 接着跑。
-- 暂停状态存在 `databases/checkpoints/route_checkpoints.sqlite`（`common/checkpoints.py` 管，全进程一个实例）。
+- 暂停状态存在 `databases/checkpoints/route_checkpoints.sqlite`（`modules/trip/checkpoints.py` 管，全进程一个实例）。
   文件打不开时自动退回 `MemorySaver`，不影响其他模块。
 - 恢复时会校验 `tenant_id`，拿别人的暂停现场续不上。
 - **什么时候不弹地点候选**：只查到一条（没得选）、或后续候选只是同名变体
@@ -498,9 +496,9 @@ POST /customer/chat
 |---|---|---|
 | 模型客户端 | `common/llm.py` 的 `get_llm()` | 四个模块全部 |
 | `.env` 加载 | `common/llm.py`（全项目唯一一处；其他文件再调 `load_dotenv` 只是幂等兜底） | 全部 |
-| SSE 打包 | `common/sse.py` 的 `sse()` | 出行 + 客服 |
-| 同步转线程 | `common/sse.py` 的 `stream_from_thread()` | 出行 + 客服 |
-| 数据库连接 | `common/db.py` 的 `get_conn()` / `query()` / `execute()` / `transaction()` | 全部 |
+| SSE 打包 | `modules/trip/sse.py` 的 `sse()` | 出行 + 客服 |
+| 同步转线程 | `modules/trip/sse.py` 的 `stream_from_thread()` | 出行 + 客服 |
+| 数据库连接 | `databases/conn.py` 的 `get_conn()` / `query()` / `execute()` / `transaction()` | 全部 |
 | 会话读写 | `modules/chat/sessions.py` | 闲聊 + 角色扮演 |
 | 联网搜索工具 | `tools/search.py` 的 `web_search()` | 路线 + 攻略 + 角色扮演（AI 帮我查） |
 | 检查点 | `modules/trip/route/graph.py`（路线 + 攻略共用一份） | 出行 |
@@ -545,13 +543,11 @@ modules/weather/
 
 1. **建目录** `modules/weather/`，加 `__init__.py`
 2. **写出口函数** `weather_stream(query)` → yield SSE 字符串
-   （用 `from common.sse import sse`，别自己写一份）
+   （从 `modules/trip/sse.py` 或 `modules/customer/sse.py` 复制一份 `sse()`，别跨模块 import）
 3. **拿模型** 用 `from common.llm import get_llm`，按需要传 `temperature` / `thinking`
 4. **图放** `graph.py`，节点放 `node.py`，提示词放 `prompts.py`
-5. **要用数据库的话**：在 `databases/modules/db_weather.py` 写建表 + 增删改查，
-   然后把 `create_weather_tables()` 加进 **`common/db.py`** 的 `create_all_tables()`
-   里的 `module_builders` 列表（写成 `("databases.modules.db_weather", "create_weather_tables")`）。
-   注意 `tenants` 必须最先建，新表如果要外键引用它，写进 `module_builders` 就自动排在后面
+5. **要用数据库的话**：在 `databases/modules/db_weather.py` 写增删改查，
+   再把建表语句加进 **`databases/schema.sql`**，然后跑 `python -m databases.schema`
 6. **加路由**：新建 `api/routes/weather.py` 写好路由，再到 `api/main.py` 里
    `from api.routes import weather` + `app.include_router(weather.router)`。
    记得补一个 `GET /weather/ping` 存活检测

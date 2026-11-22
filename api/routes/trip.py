@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from api.deps import resolve_images, sse_headers, tenant_of
-from common.sse import stream_from_thread
+from modules.trip.sse import stream_from_thread
 from databases.modules.db_trip import delete_trip, delete_trips, get_trip, list_trips
 from modules.chat.sessions import build_user_message
 from modules.trip.route.stream import resume_with_place, route_choose_stream

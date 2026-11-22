@@ -17,7 +17,7 @@ from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from common.auth import create_token, decode_token, hash_password, verify_password
+from api.security import create_token, decode_token, hash_password, verify_password
 from databases.modules.db_auth import (
     create_user,
     get_user_by_email,

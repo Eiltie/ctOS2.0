@@ -11,7 +11,7 @@ import uuid
 
 from langgraph.types import Command
 
-from common.db import query
+from databases.conn import query
 from modules.trip.guide.stream import GUIDE_SECTION_KEYS, guide_graph
 
 

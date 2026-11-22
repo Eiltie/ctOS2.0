@@ -226,9 +226,9 @@ ctOS2.0/
 - `role_play_memories.rounds`：这个角色聊了几轮，每满 6 轮整理一次记忆
 - `feedback.rating`：存中文原文（很满意 / 满意 / 一般 / 不太满意），不存数字
 
-连接层 `common/db.py` 的 `get_conn()` 每个操作开一个短连接，用完自动关，
+连接层 `databases/conn.py` 的 `get_conn()` 每个操作开一个短连接，用完自动关，
 出错自动回滚；`transaction()` 把多条写入包成一个事务。
-**不要另写第二份开连接的代码**，所有 SQL 都走 `common/db.py` 提供的 `query` / `query_one` / `execute`。
+**不要另写第二份开连接的代码**，所有 SQL 都走 `databases/conn.py` 提供的 `query` / `query_one` / `execute`。
 
 查看数据库内容（不用装任何工具）：
 
@@ -346,7 +346,7 @@ python -X utf8 -m modules.customer.rag_ingest
 ### 5. 启动服务
 
 ```bash
-python -X utf8 -m api.main
+python -X utf8 app.py
 ```
 
 打开 <http://127.0.0.1:8080/> 即为前端页面。线上对应的是 <https://ctos2.cn/>。
@@ -431,7 +431,7 @@ python -X utf8 -m modules.customer.rag_eval
 - **存储**：PostgreSQL 17（会话与出行记录，多租户）；Chroma 存 RAG 向量
 - **检索**：jieba + rank-bm25 与向量混合
 - **认证**：JWT + bcrypt
-- **部署**：uvicorn 直接拉起服务（`python -m api.main`），线上 <https://ctos2.cn> 由 Cloudflare 提供域名和 HTTPS
+- **部署**：uvicorn 直接拉起服务（`python app.py`），线上 <https://ctos2.cn> 由 Cloudflare 提供域名和 HTTPS
 - **配置**：python-dotenv
 
 ## 常见问题

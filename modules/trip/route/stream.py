@@ -2,7 +2,7 @@
 
 做什么：解析路线需求 → 查地点和天气 → 跑路线决策图 → 暂停等人选 → 继续写结论 → 存库。
 被谁用：modules/trip/agent.py（Agent 判断 action=route 后调）和 api/main.py（选完继续）。
-注意：这个文件里的函数都是同步生成器，统一交给 common.sse.stream_from_thread 跑。
+注意：这个文件里的函数都是同步生成器，统一交给 modules.trip.sse.stream_from_thread 跑。
 
 走到这里的前提：
   Agent 已经判断这一句是路线需求。所以这里不再做"是不是走错门"的判断，
@@ -15,7 +15,7 @@ from datetime import date
 from langchain_core.messages import AIMessageChunk
 from langgraph.types import Command
 
-from common.sse import sse, stream_from_thread
+from modules.trip.sse import sse, stream_from_thread
 from databases.modules.db_trip import save_trip_turn
 from modules.trip.route.need import (
     build_initial_state,

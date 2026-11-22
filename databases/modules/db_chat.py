@@ -7,13 +7,13 @@ PostgreSQL 版本，与 SQLite 版的主要差异：
   - 插入后拿 id 用 RETURNING id
   - 每张表都有 tenant_id，所有查询必须带上它（多租户隔离）
 
-多租户约定：tenant_id 由调用方传进来，默认走 common.db.DEFAULT_TENANT_ID。
+多租户约定：tenant_id 由调用方传进来，默认走 databases.conn.DEFAULT_TENANT_ID。
 生产路径上由 api 层从登录 token 取，不会走默认值。
 
 注意：tenants 表不在本文件创建，见 databases/common/db_tenant.py。
 """
 
-from common.db import DEFAULT_TENANT_ID, execute, execute_returning_id, query
+from databases.conn import DEFAULT_TENANT_ID, execute, execute_returning_id, query
 
 # 闲聊模块的表和增删改查
 

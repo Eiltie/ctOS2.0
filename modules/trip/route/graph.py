@@ -12,7 +12,7 @@ from typing import Annotated, NotRequired, TypedDict
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
-from common.checkpoints import get_checkpointer
+from modules.trip.checkpoints import get_checkpointer
 from common.llm import get_llm
 from modules.trip.route.prompts import (
     ROUTE_COMPARE_PROMPT,
@@ -317,11 +317,11 @@ def force_line_prefix(text, prefix):
     return "\n".join(lines)
 
 
-# 暂停现场交给 common.checkpoints 管（文件和"打不开退回内存"都在那边）。
+# 暂停现场交给 modules/trip/checkpoints.py 管（文件和"打不开退回内存"都在那边）。
 # 路线和攻略共用同一个 saver，靠线程号区分（攻略的线程号以 guide- 开头）。
 route_checkpointer = get_checkpointer()
 route_graph = build_route_graph(route_checkpointer)
 
 # 过渡用：攻略图现在还从这里拿检查点。等攻略独立成 modules/guide 之后，
-# 它自己调 common.checkpoints.get_checkpointer()，这一行就删掉。
+# 它自己调 modules.trip.checkpoints.get_checkpointer()，这一行就删掉。
 guide_checkpointer = route_checkpointer

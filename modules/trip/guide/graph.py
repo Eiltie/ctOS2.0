@@ -12,7 +12,7 @@
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 
-from common.checkpoints import get_checkpointer
+from modules.trip.checkpoints import get_checkpointer
 from tools.search import web_search
 from modules.trip.guide.ask import ask_spots_node
 from modules.trip.guide.conditions import should_continue
@@ -26,7 +26,7 @@ tools_node = ToolNode([web_search], handle_tool_errors=True)
 def build_graph(checkpointer=None):
     """组装并编译攻略图：天气 → 景点(搜) → 选景点 → 行程 → 建议。
 
-    不传 checkpointer 就用全进程共用的那个（common.checkpoints）。
+    不传 checkpointer 就用全进程共用的那个（modules/trip/checkpoints.py）。
     """
     graph = StateGraph(GuideState)
 

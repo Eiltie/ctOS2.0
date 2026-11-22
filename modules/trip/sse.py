@@ -1,8 +1,11 @@
-"""SSE 事件的统一打包，以及“同步代码放进工作线程再吐 SSE”的小工具。
+"""出行的 SSE 事件打包，以及“同步代码放进工作线程”的小工具。
 
-原来出行和客服各写了一份一模一样的 sse()，改动时容易只改一边。
-出行模块的图是同步的，不能直接放在事件循环里跑，所以也把线程包装放在这里，
-让 /trip/chat 和 /trip/route/choose 共用同一套逻辑。
+出行模块的图是同步的，不能直接放在事件循环里跑（会卡住事件循环，
+期间已经 yield 的数据发不出去，浏览器白屏到整个流程结束）。
+所以这里把线程包装也一并放着，让 /trip/chat 和 /trip/route/choose 共用。
+
+注意：客服模块有一份自己的 sse.py，两边内容相同但各自独立。
+     改事件格式时要两边一起改。
 """
 
 import asyncio
@@ -17,12 +20,7 @@ def sse(event: dict) -> str:
 
 
 async def stream_from_thread(worker_generator, heartbeat_seconds=8):
-    """把一个同步生成器放到工作线程里跑，边跑边把 SSE 字符串取回来。
-
-    为什么要这样：
-      同步的 LangGraph、数据库、高德请求都会卡住事件循环，
-      期间已经 yield 的数据发不出去，浏览器会白屏到整个流程结束。
-    """
+    """把一个同步生成器放到工作线程里跑，边跑边把 SSE 字符串取回来。"""
     loop = asyncio.get_running_loop()
     queue: asyncio.Queue = asyncio.Queue()
     done = object()

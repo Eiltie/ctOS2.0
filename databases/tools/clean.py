@@ -14,7 +14,7 @@
 import os
 import sys
 
-# --port NNNN：临时指定数据库端口，必须在 import common.db 之前设置，
+# --port NNNN：临时指定数据库端口，必须在 import databases.conn 之前设置，
 # 保证 load_dotenv 不覆盖它。用来连 config/.env 之外的另一套库。
 if "--port" in sys.argv:
     _i = sys.argv.index("--port")
@@ -22,7 +22,7 @@ if "--port" in sys.argv:
         os.environ["PG_HOST"] = "127.0.0.1"
         os.environ["PG_PORT"] = sys.argv[_i + 1]
 
-from common.db import query, query_one, transaction
+from databases.conn import query, query_one, transaction
 
 GUEST_EMAIL_LIKE = "trial_%@ctos-trial.local"
 

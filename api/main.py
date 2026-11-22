@@ -1,21 +1,13 @@
-"""后端唯一入口：建 app、挂静态文件、把所有路由装进来。
-
-原来它叫什么、为什么这么拆：
-  最初 main.py 有近千行，路由、请求模型、业务判断、后台线程全在一起。
-  后来按「每个模块一个文件」拆到 api/routes/ 下面，这里只剩装配工作。
+"""接口层的装配文件：建 app、挂静态文件、把所有路由装进来。
 
 职责划分：
-    api/deps.py         租户解析、图片校验、SSE 响应头（路由们共用）
-    api/routes/*.py     各模块的对外接口
     api/main.py         建 app + 挂静态 + include_router（本文件）
+    api/deps.py         租户解析、图片校验、SSE 响应头（路由们共用）
+    api/security.py     密码哈希 + JWT（只有接口层用）
+    api/routes/*.py     各模块的对外接口
 
-启动方式（直接手跑这个文件就行）：
-    python -X utf8 -m api.main
-
-认证说明：
-  除了 /auth/* 和静态资源，所有接口都需要登录。
-  登录状态通过请求头 Authorization: Bearer <token> 判断。
-  每个请求解析出 tenant_id，传给下层做数据隔离。
+启动方式：
+    python -X utf8 app.py        ← 项目总入口在根目录的 app.py
 """
 
 from pathlib import Path
@@ -91,12 +83,12 @@ app.include_router(system.router)      # /notice、/health、/（首页）
 
 
 if __name__ == "__main__":
-    import os
-    import uvicorn
+    # 启动入口统一放在项目根目录的 app.py，这里直接转过去，
+    # 免得两份启动代码各改各的。
+    import sys
+    from pathlib import Path
 
-    # 监听地址：默认 127.0.0.1，只有本机能访问。
-    # 想让同一 WiFi 下的手机也能打开，用环境变量改成 HOST=0.0.0.0
-    host = os.getenv("HOST", "127.0.0.1")
-    port = int(os.getenv("PORT", "8080"))
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from app import main
 
-    uvicorn.run(app, host=host, port=port)
+    main()

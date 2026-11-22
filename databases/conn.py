@@ -128,7 +128,7 @@ def create_all_tables():
     """建好所有表；表已存在就跳过，不动已有数据。
 
     建表语句统一在 databases/schema.sql，这里只是转发一下，
-    保留这个函数名是给老调用方（和 `python -m common.db`）用的。
+    保留这个函数名是给老调用方（和 `python -m databases.schema`）用的。
     真正的入口是 `python -X utf8 -m databases.schema`。
     """
     from databases.schema import apply_schema
