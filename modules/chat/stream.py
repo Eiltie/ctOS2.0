@@ -22,7 +22,7 @@
 
 import re
 
-from modules.chat.graph import create_graph
+from modules.chat.create_graph import create_graph
 from modules.chat.image_intent import clean_image_reply, is_image_request
 from modules.chat.sessions import text_of
 

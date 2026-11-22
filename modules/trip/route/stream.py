@@ -24,7 +24,7 @@ from modules.trip.route.need import (
     get_weather_text,
     parse_route_need,
 )
-from modules.trip.route.graph import (
+from modules.trip.route.create_graph import (
     ROUTE_SECTION_KEYS,
     ROUTE_TOKEN_KEYS,
     route_checkpointer,
