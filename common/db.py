@@ -20,7 +20,6 @@
   标识符      `col`          →  col（小写名不用引号）
 """
 
-import importlib
 import os
 from contextlib import contextmanager
 from pathlib import Path
@@ -128,30 +127,13 @@ def execute_returning_id(sql: str, params: tuple = ()) -> int:
 def create_all_tables():
     """建好所有表；表已存在就跳过，不动已有数据。
 
-    顺序有讲究：tenants 是全局身份表，users / sessions / trip_* 都外键引用它，
-    所以必须最先建（定义在 databases/common/db_tenant.py）。
-
-    各业务模块的表由各自模块负责：新加模块时，把 (模块路径, 建表函数名)
-    加进下面的列表即可。某个模块被删掉时这一项会自动跳过，不影响其他表。
+    建表语句统一在 databases/schema.sql，这里只是转发一下，
+    保留这个函数名是给老调用方（和 `python -m common.db`）用的。
+    真正的入口是 `python -X utf8 -m databases.schema`。
     """
-    from databases.common.db_tenant import create_tenant_tables
+    from databases.schema import apply_schema
 
-    create_tenant_tables()
-
-    module_builders = (
-        ("databases.modules.db_chat", "create_chat_tables"),
-        ("databases.modules.db_auth", "create_user_tables"),
-        ("databases.modules.db_trip", "create_trip_tables"),
-        ("databases.modules.db_feedback", "create_feedback_tables"),
-        ("databases.modules.db_roleplay", "create_roleplay_tables"),
-    )
-    for module_path, func_name in module_builders:
-        try:
-            module = importlib.import_module(module_path)
-        except ImportError as e:
-            print(f"[建表] 跳过 {module_path}：{e}")
-            continue
-        getattr(module, func_name)()
+    apply_schema()
 
 
 def check_connection() -> dict:

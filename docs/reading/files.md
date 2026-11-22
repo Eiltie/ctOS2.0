@@ -94,18 +94,28 @@
 
 | 文件 | 行数 | 对应的表 | 职责 |
 | --- | --- | --- | --- |
-| `db.py` | 170 | — | 连接 + 通用操作 + 建表总入口 `create_all_tables()` |
-| `db_tenant.py` | 56 | `tenants` | **全局身份表**：建表 + 确保默认租户存在。不属于任何业务模块，users / sessions / trip_* 都外键引用它 |
+| `db.py` | 160 | — | 连接 + 通用操作（`query` / `execute` / `transaction`）。建表已移到 schema.sql，`create_all_tables()` 只做转发 |
+| `db_tenant.py` | 40 | `tenants` | **全局身份表**：查询租户。不属于任何业务模块，users / sessions / trip_* 都外键引用它 |
 
 ### `modules/` —— 各模块独立的表
 
 | 文件 | 行数 | 对应的表 | 职责 |
 | --- | --- | --- | --- |
-| `db_auth.py` | 128 | `users` | 用户注册（同一事务里建租户 + 用户）、按邮箱/ID 查人、记录最后登录时间 |
-| `db_chat.py` | 195 | `sessions` `messages` `message_images` | 闲聊会话、消息、图片附件 |
-| `db_trip.py` | 289 | `trip_chats` `trip_sessions` `trip_user_inputs` `trip_ai_outputs` | 出行会话、每一轮、用户原话、AI 四段产出 |
-| `db_roleplay.py` | 243 | `role_play_sessions` `role_play_memories` `role_play_roles` | 记录「哪个聊天会话用的是哪个角色」、每个角色记住的事，以及用户自己写的角色 |
-| `db_feedback.py` | 105 | `feedback` | 存用户反馈 + 统计（按评价 / 按模块 / 按日期） |
+| `db_auth.py` | 110 | `users` | 用户注册（同一事务里建租户 + 用户）、按邮箱/ID 查人、记录最后登录时间 |
+| `db_chat.py` | 170 | `sessions` `messages` `message_images` | 闲聊会话、消息、图片附件 |
+| `db_trip.py` | 195 | `trip_chats` `trip_sessions` `trip_user_inputs` `trip_ai_outputs` | 出行会话、每一轮、用户原话、AI 四段产出 |
+| `db_roleplay.py` | 190 | `role_play_sessions` `role_play_memories` `role_play_roles` | 记录「哪个聊天会话用的是哪个角色」、每个角色记住的事，以及用户自己写的角色 |
+| `db_feedback.py` | 90 | `feedback` | 存用户反馈 + 统计（按评价 / 按模块 / 按日期） |
+
+### 建库
+
+| 文件 | 职责 |
+| --- | --- |
+| `schema.sql` | **所有建表 / 补列 / 索引语句**。13 张表都在这里，全是 `IF NOT EXISTS`，跑在已有数据的库上安全 |
+| `schema.py` | 建库入口：`python -X utf8 -m databases.schema` 执行 schema.sql；也可以直接 `psql -f databases/schema.sql` |
+
+**表结构都在 `databases/schema.sql`。** `db_*.py` 只负责增删改查，不再有 `CREATE_*_TABLE` 常量。
+加一张表：往 `schema.sql` 加建表语句，再新建 `databases/modules/db_xxx.py` 写增删改查。
 
 ### `tools/` —— 运维 CLI（不参与 Web 服务）
 
@@ -114,9 +124,6 @@
 | `view.py` | 279 | **查看数据**：用户、会话、出行、搜索、统计 |
 | `clean.py` | 302 | **清理数据**：访客账号、某个账号的数据、全部闲聊/出行/反馈 |
 | `feedback_view.py` | 79 | **查看反馈**（列表 / `stats`），不对外开接口 |
-
-**表结构在哪**：每个文件顶部有 `CREATE_*_TABLE` 常量，建表语句就在那儿。
-**一共 13 张表**，建表顺序由 `common/db.py` 的 `create_all_tables()` 决定（`tenants` 必须最先）。
 
 **运行产物（不入 git）**：
 
@@ -442,7 +449,7 @@ static/
 | 换模型 / 调温度 | `common/llm.py` |
 | 改提示词 | 对应模块的 `prompts.py` |
 | 加一个新接口 | 新建 `api/routes/xxx.py`，再到 `api/main.py` 加一行 `include_router` |
-| 加一张表 | 新建 `databases/modules/db_xxx.py`，并在 `common/db.py` 的 `create_all_tables()` 里加一行 `("databases.modules.db_xxx", "create_xxx_tables")` |
+| 加一张表 | 往 `databases/schema.sql` 加建表语句，跑 `python -X utf8 -m databases.schema`；再新建 `databases/modules/db_xxx.py` 写增删改查 |
 | 改流式事件格式 | 对应模块的 `stream.py`（打包函数在 `common/sse.py`） |
 | 加外部工具 | `common/tools/`（搜索 / 天气 / 地图各一个文件） |
 | 改预设角色 | `modules/chat/roleplay/presets.py`（重启生效） |

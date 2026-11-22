@@ -11,35 +11,7 @@
 
 from common.db import execute, query_one, transaction
 
-# users 表：邮箱唯一，密码存 bcrypt 哈希
-CREATE_USERS_TABLE = """
-CREATE TABLE IF NOT EXISTS users (
-    id             INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id      INTEGER     NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    email          TEXT        NOT NULL UNIQUE,
-    password_hash  TEXT        NOT NULL,
-    display_name   TEXT        NOT NULL DEFAULT '',
-    created_at     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    last_login_at  TIMESTAMPTZ
-)
-"""
-
-CREATE_USERS_INDEX = (
-    "CREATE INDEX IF NOT EXISTS ix_users_tenant ON users (tenant_id)",
-)
-
-
-def create_user_tables():
-    """建 users 表和索引，已存在就跳过。"""
-    execute(CREATE_USERS_TABLE)
-    for create_index in CREATE_USERS_INDEX:
-        execute(create_index)
-    # 老库补列：CREATE TABLE IF NOT EXISTS 不会给已存在的表加字段，
-    # 所以「在线用户」需要的 last_seen_at 单独补一次（幂等）
-    try:
-        execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ")
-    except Exception as e:
-        print(f"[users] last_seen_at 补列失败（不影响使用）：{e}")
+# users 表建表语句在 databases/schema.sql
 
 
 def touch_last_seen(tenant_id: int) -> None:
@@ -154,8 +126,3 @@ def count_users() -> int:
     """用户总数，用于判断是不是第一个用户。"""
     row = query_one("SELECT COUNT(*) AS n FROM users")
     return row["n"] if row else 0
-
-
-if __name__ == "__main__":
-    create_user_tables()
-    print("users 表建好了")

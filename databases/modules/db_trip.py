@@ -19,140 +19,7 @@ from common.db import (
 
 ALLOWED_TURN_KINDS = ("TRAVEL", "CHAT", "ROUTE")
 
-# 老库可能还没加路线 / 攻略建议这些列。第一次存之前查一下，查过就记住，避免每次存都查
-_route_columns_ready = None
-_advice_column_ready = None
-
-
-def _column_exists(column_name):
-    """trip_ai_outputs 里有没有这一列。"""
-    try:
-        row = query_one(
-            "SELECT COUNT(*) AS n FROM information_schema.columns "
-            "WHERE table_name = 'trip_ai_outputs' AND column_name = %s",
-            (column_name,),
-        )
-    except Exception as e:
-        print(f"[数据库] 检查 {column_name} 字段失败：{e}")
-        return False
-
-    return bool(row and row["n"] > 0)
-
-
-def route_columns_ready():
-    """trip_ai_outputs 有没有 route_need 这些列。"""
-    global _route_columns_ready
-
-    # 只有确认存在才缓存；没有或连不上就下次再查，方便补完表不用重启
-    if _route_columns_ready:
-        return True
-
-    if _column_exists("route_need"):
-        _route_columns_ready = True
-        return True
-
-    return False
-
-
-def advice_column_ready():
-    """trip_ai_outputs 有没有 advice 列（攻略的第四段）。"""
-    global _advice_column_ready
-
-    if _advice_column_ready:
-        return True
-
-    if _column_exists("advice"):
-        _advice_column_ready = True
-        return True
-
-    return False
-
-CREATE_TRIP_CHATS_TABLE = """
-CREATE TABLE IF NOT EXISTS trip_chats (
-    id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id   INTEGER     NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    title       TEXT        NOT NULL,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-)
-"""
-
-CREATE_TRIP_SESSIONS_TABLE = """
-CREATE TABLE IF NOT EXISTS trip_sessions (
-    id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id   INTEGER     NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    chat_id     INTEGER     REFERENCES trip_chats(id) ON DELETE CASCADE,
-    title       TEXT        NOT NULL,
-    turn_kind   TEXT        NOT NULL DEFAULT 'TRAVEL',
-    destination TEXT        NOT NULL DEFAULT '',
-    days        INTEGER     NOT NULL DEFAULT 0,
-    start_date  TEXT        NOT NULL DEFAULT '',
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-)
-"""
-
-CREATE_TRIP_USER_INPUTS_TABLE = """
-CREATE TABLE IF NOT EXISTS trip_user_inputs (
-    id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id   INTEGER     NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    trip_id     INTEGER     NOT NULL REFERENCES trip_sessions(id) ON DELETE CASCADE,
-    content     TEXT        NOT NULL,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-)
-"""
-
-CREATE_TRIP_AI_OUTPUTS_TABLE = """
-CREATE TABLE IF NOT EXISTS trip_ai_outputs (
-    id             INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id      INTEGER     NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    trip_id        INTEGER     NOT NULL REFERENCES trip_sessions(id) ON DELETE CASCADE,
-    weather        TEXT        NOT NULL DEFAULT '',
-    spots          TEXT        NOT NULL DEFAULT '',
-    itinerary      TEXT        NOT NULL DEFAULT '',
-    advice         TEXT        NOT NULL DEFAULT '',
-    route_plan     TEXT        NOT NULL DEFAULT '',
-    route_need     TEXT        NOT NULL DEFAULT '',
-    route_compare  TEXT        NOT NULL DEFAULT '',
-    route_decision TEXT        NOT NULL DEFAULT '',
-    route_tips     TEXT        NOT NULL DEFAULT '',
-    chat_reply     TEXT        NOT NULL DEFAULT '',
-    created_at     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-)
-"""
-
-# 老库升级用：表已经存在时，CREATE TABLE 不会补新列，只能一列一列加
-ADD_TRIP_ROUTE_COLUMNS = (
-    "ALTER TABLE trip_ai_outputs ADD COLUMN IF NOT EXISTS route_need TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE trip_ai_outputs ADD COLUMN IF NOT EXISTS route_compare TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE trip_ai_outputs ADD COLUMN IF NOT EXISTS route_decision TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE trip_ai_outputs ADD COLUMN IF NOT EXISTS route_tips TEXT NOT NULL DEFAULT ''",
-)
-
-# 攻略的第四段从"详细路线"改成"游玩建议"，单独一列；老的 route_plan 保留只读
-ADD_TRIP_ADVICE_COLUMN = (
-    "ALTER TABLE trip_ai_outputs ADD COLUMN IF NOT EXISTS advice TEXT NOT NULL DEFAULT ''",
-)
-
-CREATE_TRIP_INDEXES = (
-    "CREATE INDEX IF NOT EXISTS ix_trip_chats_tenant ON trip_chats (tenant_id, updated_at DESC)",
-    "CREATE INDEX IF NOT EXISTS ix_trip_sessions_chat ON trip_sessions (chat_id)",
-    "CREATE INDEX IF NOT EXISTS ix_trip_user_inputs_trip ON trip_user_inputs (trip_id)",
-    "CREATE INDEX IF NOT EXISTS ix_trip_ai_outputs_trip ON trip_ai_outputs (trip_id)",
-)
-
-
-def create_trip_tables():
-    """建出行的四张表和索引，已存在就跳过；老库顺便补上路线和攻略建议的新列。"""
-    execute(CREATE_TRIP_CHATS_TABLE)
-    execute(CREATE_TRIP_SESSIONS_TABLE)
-    execute(CREATE_TRIP_USER_INPUTS_TABLE)
-    execute(CREATE_TRIP_AI_OUTPUTS_TABLE)
-    for add_column in ADD_TRIP_ROUTE_COLUMNS:
-        execute(add_column)
-    for add_column in ADD_TRIP_ADVICE_COLUMN:
-        execute(add_column)
-    for create_index in CREATE_TRIP_INDEXES:
-        execute(create_index)
+# trip_* 四张表的建表语句在 databases/schema.sql
 
 
 def _ensure_chat(cur, chat_id, title, tenant_id):
@@ -184,29 +51,20 @@ def save_trip_turn(user_query, ai_output, turn_kind="TRAVEL", chat_id=None,
     destination = (ai_output.get("destination") or "").strip()
     title = (ai_output.get("title") or destination or user_query or "")[:14]
 
-    # 还没升级表的时候，路线轮次先不存，至少别让旧模块的保存也一起坏掉
-    if turn_kind == "ROUTE" and not route_columns_ready():
-        print("[数据库] 还没有路线字段，先运行 python -X utf8 -m common.db；这次路线结果不存历史。")
-        return chat_id
-
-    # 一轮对话要写进 trip_ai_outputs 的列。哪些列存在就写哪些，
-    # 这样老库不用等补列也能继续存，不用维护好几种 INSERT
+    # 一轮对话要写进 trip_ai_outputs 的列。
+    # 列全部由 databases/schema.sql 建好，这里直接写，不用再判断列在不在。
     columns = {
         "weather": ai_output.get("weather") or "",
         "spots": ai_output.get("spots") or "",
         "itinerary": ai_output.get("itinerary") or "",
+        "advice": ai_output.get("advice") or "",
         "route_plan": ai_output.get("route_plan") or "",
+        "route_need": ai_output.get("route_need") or "",
+        "route_compare": ai_output.get("route_compare") or "",
+        "route_decision": ai_output.get("route_decision") or "",
+        "route_tips": ai_output.get("route_tips") or "",
         "chat_reply": ai_output.get("chat_reply") or "",
     }
-
-    if advice_column_ready():
-        columns["advice"] = ai_output.get("advice") or ""
-
-    if route_columns_ready():
-        columns["route_need"] = ai_output.get("route_need") or ""
-        columns["route_compare"] = ai_output.get("route_compare") or ""
-        columns["route_decision"] = ai_output.get("route_decision") or ""
-        columns["route_tips"] = ai_output.get("route_tips") or ""
 
     # 一次事务：中途报错整体回滚，不会留下没有子表数据的轮次
     with transaction() as cur:
@@ -343,8 +201,3 @@ def delete_trips(chat_ids, tenant_id=DEFAULT_TENANT_ID):
             print(f"[数据库] 删除出行会话 {chat_id} 失败：{e}")
 
     return deleted
-
-
-if __name__ == "__main__":
-    create_trip_tables()
-    print("出行表建好了")

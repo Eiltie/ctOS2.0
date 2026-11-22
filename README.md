@@ -146,10 +146,13 @@ pip install -r config/requirements.txt
 cp config/YOUR_config.env config/.env
 # 编辑 config/.env
 
-# 4. 建表 + 启动
-python -X utf8 -m common.db      # 首次建表，之后改了表结构再跑一次
-python -X utf8 -m api.main       # 拉起服务，浏览器打开 http://127.0.0.1:8080/
+# 4. 建库 + 启动
+python -X utf8 -m databases.schema   # 执行 databases/schema.sql，首次必跑；改了表结构再跑一次
+python -X utf8 -m api.main           # 拉起服务，浏览器打开 http://127.0.0.1:8080/
 ```
+
+> 建表语句都在 `databases/schema.sql`，也可以直接用 `psql -U ctos_app -d ctos2 -f databases/schema.sql` 跑。
+> 里面全是 `IF NOT EXISTS`，跑在已有数据的库上是安全的。
 
 > 改 Python 代码重启服务即可；改前端 `cd web && npm run build`，产物直接落到 `static/dist/`。
 
@@ -292,7 +295,7 @@ ctOS2.0/
 **改了 Python 代码后**，跑一次建表命令可以补上新增的表和字段（`CREATE ... IF NOT EXISTS` / `ALTER ... IF NOT EXISTS`，不动已有数据）：
 
 ```bash
-python -X utf8 -m common.db
+python -X utf8 -m databases.schema
 ```
 
 ### 查看数据

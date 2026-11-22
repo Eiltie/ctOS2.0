@@ -9,72 +9,7 @@
 
 from common.db import execute, query, query_one, transaction
 
-CREATE_ROLE_SESSIONS_TABLE = """
-CREATE TABLE IF NOT EXISTS role_play_sessions (
-    session_id  INTEGER     PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
-    tenant_id   INTEGER     NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    role_id     TEXT        NOT NULL,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-)
-"""
-
-CREATE_ROLE_MEMORIES_TABLE = """
-CREATE TABLE IF NOT EXISTS role_play_memories (
-    tenant_id   INTEGER     NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    role_id     TEXT        NOT NULL,
-    summary     TEXT        NOT NULL DEFAULT '',
-    rounds      INTEGER     NOT NULL DEFAULT 0,
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (tenant_id, role_id)
-)
-"""
-
-CREATE_CUSTOM_ROLES_TABLE = """
-CREATE TABLE IF NOT EXISTS role_play_roles (
-    id           INTEGER     GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id    INTEGER     NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    name         TEXT        NOT NULL,
-    emoji        TEXT        NOT NULL DEFAULT '🙂',
-    tagline      TEXT        NOT NULL DEFAULT '',
-    age          TEXT        NOT NULL DEFAULT '',
-    gender       TEXT        NOT NULL DEFAULT '',
-    personality  TEXT        NOT NULL DEFAULT '',
-    deeds        TEXT        NOT NULL DEFAULT '',
-    background   TEXT        NOT NULL DEFAULT '',
-    extra        TEXT        NOT NULL DEFAULT '',
-    speaking     TEXT        NOT NULL DEFAULT '',
-    boundaries   TEXT        NOT NULL DEFAULT '',
-    opening      TEXT        NOT NULL DEFAULT '',
-    source       TEXT        NOT NULL DEFAULT 'custom',
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-)
-"""
-
-# 老库已经有 role_play_roles 了，补新字段用
-ALTER_ROLE_COLUMNS = (
-    "ALTER TABLE role_play_roles ADD COLUMN IF NOT EXISTS age TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE role_play_roles ADD COLUMN IF NOT EXISTS gender TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE role_play_roles ADD COLUMN IF NOT EXISTS deeds TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE role_play_roles ADD COLUMN IF NOT EXISTS background TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE role_play_roles ADD COLUMN IF NOT EXISTS extra TEXT NOT NULL DEFAULT ''",
-)
-
-CREATE_ROLE_INDEXES = (
-    "CREATE INDEX IF NOT EXISTS ix_role_sessions_tenant ON role_play_sessions (tenant_id)",
-    "CREATE INDEX IF NOT EXISTS ix_role_memories_tenant ON role_play_memories (tenant_id)",
-    "CREATE INDEX IF NOT EXISTS ix_role_roles_tenant ON role_play_roles (tenant_id)",
-)
-
-
-def create_roleplay_tables():
-    """建角色扮演的表，已存在就跳过。"""
-    execute(CREATE_ROLE_SESSIONS_TABLE)
-    execute(CREATE_ROLE_MEMORIES_TABLE)
-    execute(CREATE_CUSTOM_ROLES_TABLE)
-    for sql in ALTER_ROLE_COLUMNS:
-        execute(sql)
-    for sql in CREATE_ROLE_INDEXES:
-        execute(sql)
+# role_play_* 三张表的建表语句在 databases/schema.sql
 
 
 def link_role_session(session_id, tenant_id, role_id):

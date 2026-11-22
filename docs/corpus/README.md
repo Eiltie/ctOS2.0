@@ -313,7 +313,7 @@ JWT_SECRET_KEY=
 ### 3. 初始化数据库
 
 ```bash
-python -X utf8 -m common.db
+python -X utf8 -m databases.schema
 ```
 
 会建好全部 13 张表（`tenants` / `users` / `sessions` / `messages` / `trip_chats` /

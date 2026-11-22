@@ -24,39 +24,13 @@ from common.db import execute, execute_returning_id, query, query_one
 #     统计时直接看文字更直观，也不用维护一张「数字 → 含义」的映射
 #   - tenant_id 可以为空：没登录也能提交，登录了就顺带记下是谁
 #   - user_agent 留着排查问题用（手机还是电脑、什么浏览器）
-CREATE_FEEDBACK_TABLE = """
-CREATE TABLE IF NOT EXISTS feedback (
-    id          INTEGER     GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    content     TEXT        NOT NULL DEFAULT '',
-    contact     TEXT        NOT NULL DEFAULT '',
-    rating      TEXT,
-    page        TEXT        NOT NULL DEFAULT '',
-    tenant_id   INTEGER,
-    user_agent  TEXT        NOT NULL DEFAULT '',
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-)
-"""
-
-# 两个索引：
-#   created_at DESC —— 查看时永远按时间倒序
-#   page            —— 想看「出行模块的问题多不多」时按模块筛
-CREATE_FEEDBACK_INDEXES = (
-    "CREATE INDEX IF NOT EXISTS ix_feedback_created ON feedback (created_at DESC)",
-    "CREATE INDEX IF NOT EXISTS ix_feedback_page ON feedback (page)",
-)
+# feedback 表建表语句在 databases/schema.sql
 
 # 合法评价值。前端传上来的必须在这个集合里，否则当没填
 VALID_RATINGS = ("很满意", "满意", "一般", "不太满意")
 
 # 合法页面值，对应三个功能模块
 VALID_PAGES = ("chat", "trip", "customer", "login", "")
-
-
-def create_feedback_tables():
-    """建表和索引，已存在就跳过。"""
-    execute(CREATE_FEEDBACK_TABLE)
-    for sql in CREATE_FEEDBACK_INDEXES:
-        execute(sql)
 
 
 def add_feedback(content: str = "", contact: str = "", rating: str | None = None,
@@ -128,8 +102,3 @@ def count_feedback() -> int:
     """反馈总数，排查用。"""
     row = query_one("SELECT COUNT(*) AS n FROM feedback")
     return row["n"] if row else 0
-
-
-if __name__ == "__main__":
-    create_feedback_tables()
-    print(f"feedback 表建好了，当前反馈数：{count_feedback()}")

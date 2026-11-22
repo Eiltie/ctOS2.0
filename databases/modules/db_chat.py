@@ -22,66 +22,7 @@ ALLOWED_ROLES = ("user", "assistant")
 # 注意：tenants 表不在这里建。它是全局身份表，见 databases/common/db_tenant.py。
 # 以前放在这里，导致删掉闲聊模块会连带坏掉认证和出行。
 
-CREATE_SESSIONS_TABLE = """
-CREATE TABLE IF NOT EXISTS sessions (
-    id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id   INTEGER     NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    title       TEXT        NOT NULL,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-)
-"""
-
-CREATE_MESSAGES_TABLE = """
-CREATE TABLE IF NOT EXISTS messages (
-    id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id   INTEGER     NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    session_id  INTEGER     NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-    role        TEXT        NOT NULL,
-    content     TEXT        NOT NULL,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-)
-"""
-
-# 图片附件：消息正文只存纯文字，图单独记在这里
-# 为什么不塞进 messages.content：
-#   历史回放是 HumanMessage(content=正文)。正文里若混着图片块，
-#   读出来是 "..." 这种字符串，模型会当成用户在念代码。
-#   存纯文字 + 另表记图，回放逻辑一行不用改，老数据也不受影响。
-CREATE_MESSAGE_IMAGES_TABLE = """
-CREATE TABLE IF NOT EXISTS message_images (
-    id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id   INTEGER     NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    session_id  INTEGER     REFERENCES sessions(id) ON DELETE CASCADE,
-    message_id  INTEGER     REFERENCES messages(id) ON DELETE CASCADE,
-    rel_path    TEXT        NOT NULL,
-    mime        TEXT        NOT NULL,
-    byte_size   INTEGER     NOT NULL DEFAULT 0,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-)
-"""
-
-CREATE_INDEXES = (
-    "CREATE INDEX IF NOT EXISTS ix_sessions_tenant ON sessions (tenant_id, updated_at DESC)",
-    "CREATE INDEX IF NOT EXISTS ix_messages_session ON messages (session_id)",
-    "CREATE INDEX IF NOT EXISTS ix_messages_tenant ON messages (tenant_id)",
-    "CREATE INDEX IF NOT EXISTS ix_message_images_message ON message_images (message_id)",
-    "CREATE INDEX IF NOT EXISTS ix_message_images_tenant ON message_images (tenant_id)",
-)
-
-
-def create_chat_tables():
-    """建闲聊的表和索引，已存在就跳过。
-
-    前置条件：tenants 表必须先存在（sessions / messages 都外键引用它）。
-    正常由 common.db.create_all_tables() 保证顺序；单独跑本文件时见 __main__。
-    """
-    execute(CREATE_SESSIONS_TABLE)
-    execute(CREATE_MESSAGES_TABLE)
-    execute(CREATE_MESSAGE_IMAGES_TABLE)
-    for create_index in CREATE_INDEXES:
-        execute(create_index)
-
+# sessions / messages / message_images 的建表语句在 databases/schema.sql
 
 def create_session(title, tenant_id=DEFAULT_TENANT_ID):
     """新建一个会话，返回它的 id。"""
@@ -233,12 +174,3 @@ def delete_message_images(message_id, tenant_id=DEFAULT_TENANT_ID):
             (message_id, tenant_id),
         )
     return rows
-
-
-if __name__ == "__main__":
-    # 单独跑本文件时手动保证顺序：先建全局身份表
-    from databases.common.db_tenant import create_tenant_tables
-
-    create_tenant_tables()
-    create_chat_tables()
-    print("闲聊表建好了")

@@ -100,7 +100,7 @@ ZHIPU_API_KEY=         # 智谱密钥（历史配置项，现在客服向量化�
 ### 第三步：初始化数据库
 
 ```bash
-python -X utf8 -m common.db
+python -X utf8 -m databases.schema
 ```
 
 会建好全部 13 张表：`tenants`、`users`、`sessions`、`messages`、`trip_chats`、
@@ -158,7 +158,7 @@ cp config/YOUR_config.env config/.env
 ### 3. 初始化数据库
 
 ```bash
-python -X utf8 -m common.db
+python -X utf8 -m databases.schema
 ```
 
 ### 4. 智能客服入库（第一次用才需要）
@@ -206,7 +206,7 @@ uvicorn.run(app, host=host, port=port)
 
 | 用途 | 命令 |
 | --- | --- |
-| 建表 | `python -X utf8 -m common.db` |
+| 建表 | `python -X utf8 -m databases.schema` |
 | 客服入库 | `python -X utf8 -m modules.customer.rag_ingest` |
 | 查知识库是否就绪 | `python -X utf8 -m modules.customer.rag_store` |
 | 检索测评（40 题） | `python -X utf8 -m modules.customer.rag_eval` |
@@ -581,7 +581,7 @@ A：因为这个项目**不含任何 API 密钥**，必须自己申请并填进 
 
 **Q：怎么启动这个项目？**
 A：三步。① 装依赖 `pip install -r config/requirements.txt`；
-② 建表 `python -X utf8 -m common.db`；
+② 建表 `python -X utf8 -m databases.schema`；
 ③ 启动服务 `python -X utf8 -m api.main`，然后在浏览器打开 <http://127.0.0.1:8080/>。
 如果是第一次用智能客服，中间还要多跑一次入库脚本 `python -X utf8 -m modules.customer.rag_ingest`。
 **不想自己装的话，直接用线上的 <https://ctos2.cn> 就行，注册后就能用。**
@@ -764,7 +764,7 @@ bcrypt
 ### 6.3 启动顺序
 
 1. 确认 `config/.env` 已填好所有密钥（含 `ZHIPU_API_KEY`、`PG_*`、`JWT_SECRET_KEY`）
-2. 建表：`python -X utf8 -m common.db`
+2. 建表：`python -X utf8 -m databases.schema`
 3. 智能客服要用的话，先跑一次入库脚本
 4. 启动 Web 服务：`python -X utf8 -m api.main`
 

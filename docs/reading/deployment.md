@@ -45,7 +45,7 @@ D:\PostgreSQL\pgsql\bin\pg_ctl.exe -D D:\PostgreSQL\data -l D:\PostgreSQL\server
 
 # 2. 建表（第一次，或改了表结构）
 cd D:\ctOS2.0
-venv\Scripts\python.exe -X utf8 -m common.db
+venv\Scripts\python.exe -X utf8 -m databases.schema
 
 # 3. 启动应用（这条就把服务拉起来了）
 venv\Scripts\python.exe -X utf8 -m api.main
@@ -173,7 +173,7 @@ venv\Scripts\python.exe -X utf8 -m modules.customer.rag_ingest
 
 ```powershell
 venv\Scripts\python.exe -X utf8 -m databases.tools.clean   # 菜单里选清理项
-venv\Scripts\python.exe -X utf8 -m common.db                # 重建表
+venv\Scripts\python.exe -X utf8 -m databases.schema                # 重建表
 ```
 
 ---
@@ -195,6 +195,6 @@ curl http://127.0.0.1:8080/health
 # 期望：{"ok":true,"database":"ctos2","user":"ctos_app"}
 
 # 5. 第一次上线或改了表结构时：
-python -X utf8 -m common.db
+python -X utf8 -m databases.schema
 python -X utf8 -m modules.customer.rag_ingest   # 只有改了知识库文档才需要
 ```

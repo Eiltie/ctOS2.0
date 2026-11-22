@@ -423,7 +423,7 @@ save_trip_turn()        databases/modules/db_trip.py
                     CHAT / SAVED / ERROR
 ```
 
-**老库升级**：跑一次 `python -X utf8 -m common.db`。
+**老库升级**：跑一次 `python -X utf8 -m databases.schema`。
 `db_trip.py` 里的 `route_columns_ready()` / `advice_column_ready()` 会在第一次存库前检查列在不在，
 不在时跳过那几列，不会拖垮其他模块。
 
