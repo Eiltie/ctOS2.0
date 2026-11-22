@@ -54,7 +54,7 @@ venv\Scripts\python.exe -X utf8 -m api.main
 # http://127.0.0.1:8080/
 ```
 
-改 Python 代码重启这一步即可；改前端要 `cd web && npm run build`，产物落到 `static/dist/`。
+改 Python 代码重启这一步即可；改前端要 `cd web && npm run build`，产物落到 `web/dist/`。
 
 ### 停止
 
@@ -73,7 +73,7 @@ D:\PostgreSQL\pgsql\bin\pg_ctl.exe -D D:\PostgreSQL\data stop
 | 业务数据（用户、会话、消息） | PostgreSQL 的数据库 `ctos2` |
 | 客服向量库 | `modules/customer/data/chroma/` |
 | 人工确认的暂停现场 | `databases/checkpoints/route_checkpoints.sqlite` |
-| 前端构建产物 | `static/dist/` |
+| 前端构建产物 | `web/dist/` |
 
 数据库备份：
 

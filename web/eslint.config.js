@@ -15,7 +15,7 @@ import pluginVue from 'eslint-plugin-vue'
  */
 export default [
   {
-    ignores: ['dist/**', '../static/**', 'node_modules/**', 'design-preview/**'],
+    ignores: ['dist/**', 'node_modules/**'],
   },
 
   js.configs.recommended,

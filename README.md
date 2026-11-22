@@ -154,7 +154,7 @@ python -X utf8 -m common.main           # 拉起服务，浏览器打开 http://
 > 建表语句都在 `databases/schema.sql`，也可以直接用 `psql -U ctos_app -d ctos2 -f databases/schema.sql` 跑。
 > 里面全是 `IF NOT EXISTS`，跑在已有数据的库上是安全的。
 
-> 改 Python 代码重启服务即可；改前端 `cd web && npm run build`，产物直接落到 `static/dist/`。
+> 改 Python 代码重启服务即可；改前端 `cd web && npm run build`，产物落到 `web/dist/`。
 
 ### 必需的配置
 
@@ -261,12 +261,14 @@ ctOS2.0/
 │   │   ├── AppShell.vue
 │   │   └── router.ts
 │   ├── scripts/        前端构建前的检查脚本（接口契约等）
-│   └── design-preview/ 定稿截图
-├── static/dist/    前端构建产物（`npm run build` 生成，别手改）
+│   └── dist/           构建产物（npm run build 生成，不进 git）
 ├── docs/           文档
+│   ├── design-preview/ 界面定稿截图
+│   └── corpus/         客服知识库源文件
 ├── scripts/        运维脚本
 │   ├── 清理数据库-本机.bat    双击清本机 5432
-│   └── check_online.ps1      检查线上是否可访问
+│   ├── check_online.ps1      检查线上是否可访问
+│   └── stamp-static.js       给产物加版本号（防 CF 缓存）
 └── config/         配置
 ```
 

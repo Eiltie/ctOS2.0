@@ -21,15 +21,15 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 const router = createRouter({
   /**
-   * 基路径是 `/`，不是 `/static/dist/`。
+   * 基路径是 `/`，不是 `/static/`。
    *
    * 这两件事容易混：
-   *   Vite 的 base（/static/dist/）只决定**静态资源**从哪取
-   *   — 那是由 /static/dist/index.html 里的 script 标签决定的
+   *   Vite 的 base（/static/）只决定**静态资源**从哪取
+   *   — 那是由产物 index.html 里的 script 标签决定的
    *   浏览器的地址栏起始位置是 `/`，因为用户访问的是 http://站点/
    *   （后端 api/routes/system.py 的 index() 把 / 指向了产物里的 index.html）
    *
-   * 所以页面内的路由是 /chat、/trip，不是 /static/dist/chat。
+   * 所以页面内的路由是 /chat、/trip，不是 /static/chat。
    */
   history: createWebHistory('/'),
 

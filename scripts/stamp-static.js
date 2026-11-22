@@ -21,10 +21,12 @@ const fs = require('fs');
 const path = require('path');
 
 const root = path.resolve(__dirname, '..');
-const staticDir = path.join(root, 'static');
+// 前端全在 web/ 下：产物在 web/dist/，入口是 web/dist/index.html
+const distDir = path.join(root, 'web', 'dist');
 
-if (!fs.existsSync(staticDir)) {
-  console.error('找不到 static 目录：' + staticDir);
+if (!fs.existsSync(distDir)) {
+  console.error('找不到前端产物目录：' + distDir);
+  console.error('先在 web/ 下执行 npm run build');
   process.exit(1);
 }
 
@@ -51,7 +53,7 @@ function walk(dir, out) {
   return out;
 }
 
-const files = walk(staticDir, []);
+const files = walk(distDir, []);
 let changed = 0;
 
 for (const file of files) {
@@ -65,7 +67,7 @@ for (const file of files) {
   if (next !== text) {
     fs.writeFileSync(file, next, 'utf8');
     const n = (next.match(/\?v=/g) || []).length;
-    console.log(`  ${path.relative(staticDir, file)}  (${n} 处)`);
+    console.log(`  ${path.relative(distDir, file)}  (${n} 处)`);
     changed++;
   }
 }

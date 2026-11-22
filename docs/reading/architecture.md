@@ -64,7 +64,7 @@ ctOS2.0/
 │   │   └── guide/         ← 子集：旅游攻略（graph/stream/node/prompts/state/
 │   │                        conditions/ask/quick）
 │   └── customer/          ← 独立：客服（graph/node/state/prompts/stream + rag_* + data/）
-├── static/                ← 前端（无构建步骤）
+├── web/                   ← 前端：Vue 3 源码（src/）+ 产物（dist/）
 ├── docs/                  ← 本文档
 ├── eval/                  ← 端到端测评
 ├── config/                ← .env、requirements.txt、notice.json
@@ -80,7 +80,7 @@ python -X utf8 -m common.main      # 拉起服务，默认监听 127.0.0.1:8080
 ### 请求流向
 
 ```
-浏览器 static/index.html   （本地 127.0.0.1:8080 / 线上 https://ctos2.cn）
+浏览器 web/dist/index.html（本地 127.0.0.1:8080 / 线上 https://ctos2.cn）
         │
         ▼
 api/main.py          ← 只做装配；每个模块的路由在 api/routes/<模块>.py
@@ -139,7 +139,7 @@ api/main.py          ← 只做装配；每个模块的路由在 api/routes/<模
 
 **图片的几条硬规则**：
 
-- 图片不放 `static/`：那是公开挂载的，放进去等于全站可见；存 `databases/images/`，只走带鉴权的接口
+- 图片不放 `web/dist/`：那是公开挂载的，放进去等于全站可见；存 `databases/images/`，只走带鉴权的接口
 - 格式按**文件真实内容**判断，不看扩展名
 - 单张上限 8 MiB，单次最多 3 张
 - 消息正文只存纯文字，图走 `message_images` —— 历史回放逻辑一行不用改

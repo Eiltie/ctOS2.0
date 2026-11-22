@@ -78,7 +78,7 @@
 | `POST` | `/feedback` | 反馈 | 提交评价 + 文字反馈，同一 IP 每分钟最多 3 条，不强制登录 |
 | `GET` | `/notice` | —— | 更新公告，内容来自 `config/notice.json` |
 | `GET` | `/health` | —— | 健康检查，返回数据库名和连接用户 |
-| `GET` | `/` | —— | 前端页面 `static/index.html` |
+| `GET` | `/` | —— | 前端页面 `web/dist/index.html` |
 
 SSE 事件名统一是：`SAY`、`START`、`STEP`、`TOKEN`、`DONE`、`CHAT`、`ERROR`，出行结束时还会发一条 `SAVED`（带 `chat_id`）。
 出行模块还会发几个“等你操作”的事件：`ASK_PLACE`（地名有歧义，先挑一个）、`ASK`（选路线方案）、
@@ -174,11 +174,9 @@ ctOS2.0/
 │   ├── planning/               # 规划稿与排查记录
 │   └── corpus/                 # RAG 语料（本文就在这里）
 ├── config/                     # ⑦ 配置层：.env、配置模板、requirements.txt、公告
-├── static/                     # 前端（无构建步骤）
-│   ├── index.html              # 入口页：读偏好 + 判断屏幕宽度，跳到 themeA 或 themeB
-│   ├── themeA/                 # 经典版：左侧栏 + 顶栏 tab + 气泡对话（3 种风格）
-│   ├── themeB/                 # 指挥台版：图标导轨 + 右侧控制台（仅宽屏，2 种风格）
-│   └── shared/                 # 两套共用
+├── web/                        # 前端（Vue 3 + TypeScript + Vite）
+│   ├── src/                    # 源码：features（chat/trip/customer）、shared
+│   └── dist/                   # 构建产物（npm run build 生成）
 ├── scripts/                    # 构建与运维脚本
 └── screenshot/                 # README 用的界面截图
 ```
@@ -359,32 +357,44 @@ python -X utf8 -m common.main
 
 ## 前端开发
 
-前端**没有任何构建步骤**：改代码保存后刷新浏览器即可生效。
+前端是 **Vue 3 + TypeScript + Vite**，**有构建步骤**。改了 `web/src/` 下的代码要重新构建：
 
-| 文件 | 负责 |
+```bash
+cd web
+npm run build
+```
+
+产物输出到 `web/dist/`，后端把它挂到 `/static` 前缀。
+
+| 目录 | 负责 |
 | --- | --- |
-| `static/index.html` | 入口页：读主题偏好 + 判断屏幕宽度，分流到 themeA / themeB |
-| `static/shared/js/common/` | 两套共用：偏好、在线人数、配置、工具、认证、公告、反馈、SSE、打字机 |
-| `static/themeA/js/app.js` | 经典版核心：状态、侧边栏、闲聊、角色扮演、模块切换 |
-| `static/themeA/js/trip.js` | 智能出行（四段卡片、出行历史、人工确认面板） |
-| `static/themeA/js/customer.js` | 智能客服（问答渲染） |
-| `static/themeA/css/style.css` | 模板原样式 |
-| `static/themeA/css/modules.css` | 出行卡片、客服气泡、登录页等新增样式 |
-| `static/themeA/css/theme.css` | 三套风格的颜色和组件覆盖 |
-| `static/themeB/js/console.js` | 指挥台版右侧控制台（目录、操作日志、系统负载） |
+| `web/src/features/chat/` | 对话 + 角色扮演 |
+| `web/src/features/trip/` | 智能出行（四段卡片、方案/景点面板、历史） |
+| `web/src/features/customer/` | 智能客服 |
+| `web/src/shared/api/` | HTTP 请求 + SSE 流 |
+| `web/src/shared/auth/` | 登录状态 + 弹层 |
+| `web/src/shared/attachments/` | 图片上传 / 显示 / 生成的图 |
+| `web/src/shared/components/` | 顶栏、侧栏、输入框等通用组件 |
+| `web/src/shared/lib/` | 导航定义、打字机效果 |
+| `web/src/shared/styles/` | 配色和间距变量（tokens.css） |
+| `web/src/shared/types/` | 和后端接口一一对应的类型 |
 
-前端分成两套独立主题：`themeA`（经典版，手机端只用它）和 `themeB`（指挥台版，仅宽屏）。
-两套之间不互相引用，只有 `shared/` 是共用的。
+开发时用 `cd web && npm run dev` 起热更新服务器（端口 5174），接口请求会转发给后端。
 
-`common/` 里的文件最先加载，然后 `app.js`，最后 `trip.js` / `customer.js`。
-后加载的依赖先加载的全局变量，**调整加载顺序会导致报错**。详见 `docs/themes.md`。
+线上走 Cloudflare，`.js` / `.css` 被缓存 4 小时，改完前端要跑 `node scripts/stamp-static.js`。
+
 
 ## 单独调试各模块
 
-出行模块可以脱离 Web 服务在终端直接跑：
+每个能独立跑完的 agent 都有终端入口，不用起 Web 服务：
 
 ```bash
-python -X utf8 -m cli.guide
+python -X utf8 -m cli.chat       # 对话
+python -X utf8 -m cli.trip       # 出行（能看到 Agent 自己判断走哪条路）
+python -X utf8 -m cli.route      # 路线规划子图
+python -X utf8 -m cli.guide      # 旅游攻略子图
+python -X utf8 -m cli.customer   # 智能客服
+python -X utf8 -m cli.prompts    # 提示词生成
 ```
 
 > Windows 控制台默认 GBK，不加 `-X utf8` 中文可能乱码。

@@ -8,7 +8,7 @@
   2. databases/feedback_view.py     （命令行查看工具）
   3. api/main.py 里「# ===== 反馈 =====」到文件末尾的那一段
   4. core/db.py 的 module_builders 里那一行（不删也会自动跳过）
-  5. 前端：static/js/common/feedback.js、index.html 里的按钮块、modules.css 里的样式
+  5. 前端：web/src/shared/components/FeedbackDialog.vue、web/src/shared/api/http.ts
 
 数据表 feedback 独立存在，不影响其他任何表。
 ============================================================================

@@ -1,4 +1,4 @@
-﻿# ============ 密钥 / 配置（绝不入库）============
+# ============ 密钥 / 配置（绝不入库）============
 # config/.env 里有真实的 DEEPSEEK / TAVILY / AMAP 密钥和 MySQL 密码。
 # 需要配置时，复制 config/.env.example 为 config/.env 再填自己的值。
 config/.env
@@ -79,10 +79,10 @@ modules/customer/eval/runs/
 *.ipynb
 
 # ============ 前端（Vue 3 + Vite，构建产物不入库）============
-# 构建：cd web && npm run build    → 输出到 static/dist/
-# docker-compose 挂载 ./static，所以部署机上要自己构建一次
+# 前端全在 web/ 下：源码 web/src/，产物 web/dist/（npm run build 生成）
+# 产物在磁盘上必须有（页面才能打开），但不进版本控制
 node_modules/
-static/dist/
+web/dist/
 .vite/
 
 # ============ 密钥 / 证书的常见扩展名 ============

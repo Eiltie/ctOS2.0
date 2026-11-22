@@ -6,16 +6,17 @@ import vue from '@vitejs/plugin-vue'
 // 本地跑 python -X utf8 -m api.main 后就是 127.0.0.1:8080。
 const BACKEND = process.env.CTOS_BACKEND || 'http://127.0.0.1:8080'
 
-// 构建产物输出到 ../static/dist：
-//   - 后端 api/main.py 已经把 /static 挂出来了
-//   - 产物放这里，后端直接就能提供，不用改任何启动配置
-const OUT_DIR = fileURLToPath(new URL('../static/dist', import.meta.url))
+// 构建产物输出到 web/dist：
+//   - 前端的东西全在这一个目录里（源码 src/ + 产物 dist/）
+//   - 后端 api/main.py 只挂 web/dist，不会把 src 暴露出去
+const OUT_DIR = fileURLToPath(new URL('./dist', import.meta.url))
 
 export default defineConfig({
   plugins: [vue()],
 
-  // 产物通过 /static/dist/ 访问，所以静态资源的地址前缀要跟着改
-  base: '/static/dist/',
+  // 产物通过 /static/ 访问（URL 前缀保持 /static 不变，
+  // 前端代码里写死的 /static/... 路径都不用动）
+  base: '/static/',
 
   resolve: {
     alias: {

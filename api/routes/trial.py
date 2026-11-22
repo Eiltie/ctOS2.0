@@ -8,8 +8,8 @@
 
 以后不想要了，删掉这个文件，再把下面几处引用一起删掉即可：
   1. api/main.py                 import 那一行 + include_router 那一行
-  2. static/js/common/auth.js    guestLogin() / ensureSession() 里的访客分支
-  3. static/index.html           「不登录，直接以访客身份使用」按钮
+  2. web/src/shared/auth/authStore.ts   guestLogin() / ensureSession() 里的访客分支
+  3. web/src/shared/auth/AuthDialog.vue 「不登录，直接以访客身份使用」按钮
 删完之后项目行为和加这个文件之前完全一样，不留任何残渣。
 
 不做的事（刻意简化）：

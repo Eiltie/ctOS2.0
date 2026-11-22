@@ -4,23 +4,24 @@
 
 ---
 
-## 一、两处位置
+## 一、两个位置，都在 web/ 里
 
 | 目录 | 是什么 | 谁用 |
 | --- | --- | --- |
-| `web/` | 源码，你写代码的地方 | 只有开发时 |
-| `static/dist/` | 打包产物（自动生成，不要手改） | 浏览器 / 后端 |
+| `web/src/` | 源码，你写代码的地方 | 只有开发时 |
+| `web/dist/` | 打包产物（自动生成，不要手改） | 浏览器 / 后端 |
 
 **改完代码要构建**，否则浏览器看到的还是旧的：
 
 ```bash
 cd web
 npm install        # 第一次
-npm run build      # 生成 static/dist
+npm run build      # 生成 web/dist
 ```
 
-后端 `api/routes/system.py` 的 `/` 会返回 `static/dist/index.html`。
-WSL / 容器里挂载的是 `static/`，所以产物放这里不用改任何部署配置。
+后端 `api/main.py` 把 `web/dist` 挂到 `/static` 前缀，
+`api/routes/system.py` 的 `/` 返回 `web/dist/index.html`。
+产物目录不进 git（用户自己构建即可）。
 
 ---
 

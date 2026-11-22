@@ -895,36 +895,37 @@ ctOS2.0/
 │   ├── .env                    # 真实密钥（已 gitignore，不入库）
 │   ├── notice.json             # 更新公告
 │   └── requirements.txt
-├── static/                     # 前端（无构建步骤）
-│   ├── index.html              # 入口页：按屏幕宽度和偏好分流
-│   ├── themeA/                 # 经典版（手机端只用它）
-│   ├── themeB/                 # 指挥台版（仅宽屏）
-│   └── shared/                 # 两套共用
+├── web/                        # 前端（Vue 3 + TypeScript）
+│   ├── src/                    # 源码：features / shared / App.vue / router.ts
+│   │   ├── features/           # 按业务分：chat（含 roleplay）/ trip / customer
+│   │   └── shared/             # 共用：api / auth / attachments / components / lib / styles / types
+│   ├── dist/                   # 构建产物（npm run build 生成，不进 git）
+│   ├── index.html              # 页面骨架
+│   └── vite.config.ts          # 构建配置
 ├── scripts/                    # 构建与运维脚本
 └── screenshot/                 # README 用的界面截图
 ```
 
 ### 关于前端
 
-前端**没有任何构建步骤**。改 `static/themeA/` 或 `static/themeB/` 下的文件，
-保存后刷新浏览器就能生效，不需要执行任何编译或打包命令。
+前端是 **Vue 3 + TypeScript + Vite**，**有构建步骤**。改了 `web/src/` 下的代码必须重新构建，
+否则浏览器看到的还是旧产物：
 
-前端分成两套独立主题：`static/themeA/`（经典版，手机端只用它）和
-`static/themeB/`（指挥台版，仅宽屏），共用部分在 `static/shared/`。
-访问 `/` 时由 `static/index.html` 按屏幕宽度和偏好分流。
-
-每套主题内部的加载顺序是 `common/*.js` → `app.js` → `trip.js` / `customer.js`，
-后面加载的依赖前面定义的全局变量（`$`、`esc`、`md`、`API`、`state` 等），**调整加载顺序会导致报错**。
-详见 `docs/themes.md`。
-
-后端为了提供静态资源，在 `api/main.py` 里挂载了静态目录：
-
-```python
-STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+```bash
+cd web
+npm run build
 ```
 
-挂载在 `/static` 前缀下，不会和已有的 `/chat`、`/sessions`、`/trip/...`、`/customer/...` 等路由冲突。
+构建产物输出到 `web/dist/`，后端 `api/main.py` 把这个目录挂到 `/static` 前缀，
+`api/routes/system.py` 的 `/` 返回 `web/dist/index.html`。
+
+前端按业务分目录：`features/chat`、`features/trip`、`features/customer`，
+跨模块共用的组件和工具在 `shared/`。开发时可以 `npm run dev` 起热更新服务器（端口 5174），
+接口请求会自动转发给后端。
+
+线上走 Cloudflare，`.js` / `.css` 会被缓存 4 小时，所以改完前端还要跑
+`node scripts/stamp-static.js` 给资源引用加版本号，否则用户要等 4 小时才看到改动。
+
 线上直接访问 <https://ctos2.cn/> 就是同一份页面。
 
 ---
@@ -1062,8 +1063,8 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 2. 在图里定义状态、节点，然后组装成一张图
 3. 在模块内写一个流式封装文件，对外只暴露一个生成器（参照 `modules/trip/stream.py` 里的 `trip_stream` / `modules/customer/stream.py` 里的 `customer_stream`）
 4. 在 `api/main.py` 里加一个路由，把生成器塞进 `StreamingResponse`；**记得像别的业务路由一样调 `tenant_of(authorization)`**，否则新接口会绕过登录和数据隔离
-5. 在前端加一个面板和请求逻辑（参照 `static/themeA/js/trip.js` / `customer.js`，指挥台版对应 `static/themeB/js/`），并把新视图加进 `static/shared/js/common/config.js` 的 `VIEW_ORDER`
-6. 要存数据的话，在 `databases/` 下加一个 `db_xxx.py`（命名参照现有的 `db_chat.py` / `db_trip.py`），表里带上 `tenant_id`，并把它的建表函数加进 `databases/conn.py` 的 `create_all_tables()`
+5. 要存数据的话，在 `databases/modules/` 下加一个 `db_xxx.py`（命名参照现有的 `db_chat.py` / `db_trip.py`），表里带上 `tenant_id`，建表语句加进 `databases/schema.sql`
+6. 改完前端要 `cd web && npm run build`；前端页面加在 `web/src/features/` 下
 7. 上线：把代码同步到服务器，重启 `python -X utf8 -m common.main`
 
 模块之间应该保持独立：各自的图、各自的提示词、各自的配置读取。

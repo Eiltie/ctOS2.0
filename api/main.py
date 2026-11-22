@@ -31,7 +31,7 @@ from api.routes import (
 
 app = FastAPI(title="ctOS 2.0")
 
-STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+STATIC_DIR = Path(__file__).resolve().parent.parent / "web" / "dist"
 
 
 class NoCacheStaticFiles(StaticFiles):

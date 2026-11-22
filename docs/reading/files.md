@@ -57,8 +57,8 @@
 
 1. `api/routes/trial.py`：整个文件
 2. `api/main.py`：`from api.routes import (...)` 里去掉 `trial`，并删掉 `app.include_router(trial.router)` 那一行
-3. `static/shared/js/common/auth.js`：`guestLogin()` 和 `ensureSession()` 里的访客分支
-4. `static/index.html`：登录弹层里的「不登录，直接以访客身份使用」按钮
+3. `web/src/shared/auth/authStore.ts`：`guestLogin()` 和 `ensureSession()` 里的访客分支
+4. `web/src/shared/auth/AuthDialog.vue`：登录弹层里的「不登录，直接以访客身份使用」按钮
 
 删完项目行为和加这个文件之前完全一样。访客账号以后要清理的话：
 `DELETE FROM users WHERE email LIKE '%@ctos-trial.local'`（或跑 `databases.tools.clean`）。
@@ -336,87 +336,41 @@ modules/<模块名>/
 
 ---
 
-## 六、`static/` —— 前端
+## 六、前端
 
-**没有构建步骤，改完刷新浏览器就生效。**
-但线上走 Cloudflare，改完要跑 `node scripts/stamp-static.js` 加版本号。
-主题结构细节见 `docs/themes.md`。
+**前端全在 `web/` 下，源码是 Vue 3 + TypeScript。**
 
 ```
-static/
-├── index.html      入口页：读偏好 + 判断屏幕宽度 → 跳 themeA 或 themeB
-├── themeA/         经典版（左侧栏 + 气泡对话）
-├── themeB/         指挥台版（图标导轨 + 右侧控制台），仅宽屏
-└── shared/         两套共用：prefs / presence / config / auth / sse / 图片
+web/
+├── src/              源码（53 个文件，全部手写）
+│   ├── features/     按业务分：chat（含 roleplay）/ trip / customer
+│   ├── shared/       共用：api / auth / attachments / components / lib / styles / types
+│   ├── App.vue       根组件
+│   ├── AppShell.vue  布局骨架（顶栏 + 侧栏）
+│   ├── main.ts       挂载 app
+│   └── router.ts     路由表
+├── dist/             构建产物（npm run build 生成，不进 git）
+├── public/           favicon
+├── scripts/          接口契约检查 + 假后端
+├── index.html        页面骨架
+├── vite.config.ts    构建配置（产物输出到 dist/，base 是 /static/）
+└── package.json      依赖清单
 ```
 
-### 入口页
+**改完前端必须构建**，否则浏览器看到的还是旧产物：
 
-| 文件 | 职责 |
-| --- | --- |
-| `index.html` | 只做分流：读 `ctos_layout` 偏好 + 判断屏幕宽度，用 `location.replace()` 跳转。**手机端强制 themeA** |
+```powershell
+cd web
+npm run build        # 输出到 web/dist/
+```
 
-### `themeA/` —— 经典版（3 种风格）
+**后端怎么提供**：`api/main.py` 把 `web/dist` 挂到 `/static` 前缀，
+`api/routes/system.py` 的 `/` 返回 `web/dist/index.html`。
 
-| 文件 | 行数 | 职责 |
-| --- | --- | --- |
-| `index.html` | — | 页面结构（登录弹层 + 主界面 + 手机端汉堡按钮 + 主题/风格菜单 + 公告 + 反馈） |
-| `css/style.css` | 168 | 模板原样式：光标光晕、呼吸滚动条、全息光幕 |
-| `css/modules.css` | 3843 | 模板之外新增的全部组件样式 |
-| `css/theme.css` | 1973 | 三套风格的变量定义与组件覆盖 |
-| `css/ui.css` | 3237 | 视觉层：圆角、阴影、气泡、排版细化 |
-| `css/theme-ui.css` | — | 「主题 / 风格」两个菜单 |
-| `css/presence.css` | — | 侧栏底部在线人数 |
-| `css/mobile.css` | — | **手机端适配**，最后加载，≤768px 生效 |
+> 线上走 Cloudflare，`.js`/`.css` 会被缓存 4 小时。
+> 改完前端要跑 `node scripts/stamp-static.js` 给引用加版本号。
 
-脚本见下方 `themeA/js/`。
-
-### `themeB/` —— 指挥台版（2 种风格）
-
-| 文件 | 行数 | 职责 |
-| --- | --- | --- |
-| `index.html` | — | 页面结构；窄屏会自检并送回 themeA |
-| `css/base.css` | 168 | 复用旧版布局骨架（自 themeA 复制） |
-| `css/components.css` | — | 复用旧版弹窗/组件类（自 themeA 复制） |
-| `css/style.css` | 2449 | 指挥台版自己的版式 |
-| `css/theme-light.css` | 1038 | 两套风格的配色令牌 |
-| `js/console.js` | 833 | 右侧控制台：目录、操作日志、系统负载 |
-| `js/theme-ui.js` | — | 浮动面板形式的主题/风格切换 |
-
-其余脚本与 themeA 同名同源（各一份副本）。
-
-### `shared/js/common/` —— 两套共用
-
-| 文件 | 职责 |
-| --- | --- |
-| `prefs.js` | **主题/风格偏好**：读写、`isDesktop()` 屏幕判断、手机端锁定经典版 |
-| `presence.js` | **在线人数**：心跳 `POST /presence/ping` + 拉取 `GET /presence/online` |
-| `config.js` | API 地址、视图顺序、状态文案 |
-| `utils.js` | `$`、`esc`、`now`、`scrollDown`、`getJson`、`bindEnter` |
-| `announcement.js` | 更新公告：从 `GET /notice` 拉内容，记录本浏览器看过的版本 |
-| `auth.js` | token 存取、访客会话引导、登录弹层逻辑、带认证的 fetch |
-| `abort.js` | 请求中断控制（同一时刻只跑一个流） |
-| `sse.js` | SSE 事件解析器 |
-| `typer.js` | 打字机渲染 |
-
-### `themeA/js/` —— 三个页面标签
-
-两套主题各有一份同名副本；下表以 themeA 为准。
-
-| 文件 | 行数 | 职责 |
-| --- | --- | --- |
-| `app.js` | 1745 | **闲聊 + 角色扮演 + 视图切换 + 启动**。全局 `state` 也定义在这里 |
-| `trip.js` | 7 | 出行入口占位（只剩加载顺序说明，没有逻辑） |
-| `trip/base.js` | 1721 | 出行壳子 + 全部界面逻辑：进度条、SSE、四段卡片、计时、记录列表、三种等待面板 |
-| `trip/route.js` | 464 | 路线那两个等待面板：地点歧义、候选路线 |
-| `trip/guide.js` | — | 攻略的景点卡片墙和勾景点面板 |
-| `customer.js` | — | 客服：一问一答，本地维护最近 3 轮上下文 |
-| `common/theme-ui.js` | — | 「主题 / 风格」菜单渲染与切换 |
-| `common/presence-ui.js` | — | 侧栏底部在线人数 |
-| `common/aura.js` / `sticky.js` / `selection.js` / `feedback.js` | — | 光晕特效 / 吸顶同步 / 列表多选 / 反馈弹窗 |
-
-> 出行前端**没有"模式"了**：界面按每一轮实际返回了什么来画
-> （收到 `START` 的 `mode` 才切进度条，收到 `STEP/DONE` 的 `key` 才建段落）。
+**详细说明见 `docs/frontend.md`。**
 
 ---
 
@@ -449,40 +403,42 @@ static/
 | 加外部工具 | 两个以上模块用 → `tools/`；只有单个模块用 → 放那个模块里 |
 | 改预设角色 | `modules/chat/roleplay/presets.py`（重启生效） |
 | 改记忆规则 | `modules/chat/roleplay/memory.py`（每 6 轮、200 字上限） |
-| 改前端样式 | `static/themeA/css/modules.css`（颜色改 `theme.css`）；指挥台版改 `static/themeB/css/style.css` |
-| 改前端逻辑 | `static/themeA/js/app.js` / `trip.js` / `customer.js`（两套各一份） |
+| 改前端样式 | 对应组件的 `<style scoped>`；配色改 `web/src/shared/styles/tokens.css` |
+| 改前端逻辑 | `web/src/features/<模块>/`，共用组件在 `web/src/shared/` |
 | 改更新公告 | `config/notice.json` |
 | 看用户反馈 | `python -X utf8 -m databases.tools.feedback_view` |
 | 检查线上是否可访问 | `scripts/check_online.ps1` |
-| 加公用前端函数 | `static/shared/js/common/` 下新建文件，并在两套的 `index.html` 里按顺序引入 |
-| 改主题 / 风格 | 见 `docs/themes.md` |
-| **改完前端（线上）** | **必须跑 `node scripts/stamp-static.js`**，否则 Cloudflare 的 4 小时缓存会让用户看不到改动 |
-| 改端口 | 环境变量 `PORT`（容器/线上）/ `api/main.py` 底部（本地） |
+| 加公用前端组件 | `web/src/shared/components/` |
+| 改完前端（线上） | `cd web && npm run build`，再跑 `node scripts/stamp-static.js`（防 Cloudflare 4 小时缓存） |
+| 改端口 | 环境变量 `PORT` |
 | 改数据库连接 | `config/.env` 的 `PG_*` 变量 |
-| 上线 / 更新线上 | 见 `deployment.md` 第九节 |
+| 上线 / 更新线上 | 见 `deployment.md` 第六节 |
 
 ---
 
 ## 九、文件行数排行（找最大的文件）
 
+**前端最大的几个**（`.vue` 文件包含模板 + 脚本 + 样式三部分）：
+
 | 文件 | 行数 |
 | --- | --- |
-| `static/themeA/css/modules.css` | 3309 |
-| `static/themeB/css/components.css` | 3309 |
-| `static/themeA/css/ui.css` | 2729 |
-| `static/themeB/css/style.css` | 2108 |
-| `static/themeA/css/theme.css` | 1651 |
-| `static/themeA/js/app.js` | 1462 |
-| `static/themeB/js/app.js` | 1462 |
-| `static/themeA/js/trip/base.js` | 1428 |
-| `static/themeB/js/trip/base.js` | 1425 |
-| `static/themeB/css/theme-light.css` | 831 |
-| `static/themeB/js/console.js` | 677 |
-| `modules/trip/amap.py` | 429 |
-| `modules/trip/route/stream.py` | 368 |
+| `web/src/features/chat/SessionList.vue` | 613 |
+| `web/src/features/chat/roleplay/RoleFormPanel.vue` | 552 |
+| `web/src/features/trip/TripList.vue` | 551 |
+| `web/src/features/chat/ChatView.vue` | 495 |
+| `web/src/features/trip/TripView.vue` | 473 |
 
-**如果一个文件超过 500 行，考虑拆分。** 现在超标的只剩样式表和前端大文件；
-后端最大的业务文件是 `modules/trip/route/stream.py`（368 行）。
+**后端最大的几个**：
 
-> 注：这里的行数是按物理行统计的，和早先按逻辑行记的数字会差一截。
+| 文件 | 行数 |
+| --- | --- |
+| `modules/trip/amap.py` | 600 |
+| `modules/trip/route/stream.py` | 505 |
+| `modules/trip/route/tools.py` | 379 |
+| `databases/tools/clean.py` | 368 |
+
+**如果一个文件超过 500 行，考虑拆分。**
+注意 `.vue` 文件的行数包含 HTML 和 CSS，不是纯逻辑量。
+
+> 注：这里的行数是按物理行统计的。
 > 想重新算：`Get-ChildItem -Recurse -Include *.py | ... Measure-Object -Line`。

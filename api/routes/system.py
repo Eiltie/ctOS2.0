@@ -17,7 +17,7 @@ router = APIRouter(tags=["系统"])
 # 项目根：本文件在 api/routes/ 下，往上三级
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
-STATIC_DIR = _PROJECT_ROOT / "static"
+STATIC_DIR = _PROJECT_ROOT / "web" / "dist"
 
 # 公告内容放在 config/notice.json，改完保存、刷新页面就生效，不用改前端代码
 NOTICE_FILE = _PROJECT_ROOT / "config" / "notice.json"
@@ -94,7 +94,7 @@ async def health():
 async def index():
     """返回前端入口页。
 
-    前端源码在 web/，构建产物在 static/dist/（npm run build 生成）。
+    前端全在 web/ 下：源码 web/src/，构建产物 web/dist/（npm run build 生成）。
     这里直接返回产物里的 index.html。
 
     加 no-cache：HTML 一旦被 CDN 缓存，改版后用户看到的还是旧页面，
@@ -122,7 +122,7 @@ SPA_ROUTES = ("chat", "chat/roles", "trip", "customer")
 
 def _index_response():
     """读产物里的 index.html；还没构建时给出明确提示。"""
-    dist_index = STATIC_DIR / "dist" / "index.html"
+    dist_index = STATIC_DIR / "index.html"
 
     if not dist_index.is_file():
         raise HTTPException(
