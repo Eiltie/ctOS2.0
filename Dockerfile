@@ -26,9 +26,9 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV HOST=0.0.0.0
 ENV PORT=8080
 
-# pip 源：阿里云
-RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ \
-    && pip config set global.trusted-host mirrors.aliyun.com \
+# pip 源：清华
+RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple \
+    && pip config set global.trusted-host pypi.tuna.tsinghua.edu.cn \
     && pip config set global.timeout 120 \
     && pip config set global.retries 5
 

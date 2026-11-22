@@ -67,6 +67,8 @@ services:
       DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL}
       DEEPSEEK_MODEL: ${DEEPSEEK_MODEL}
       AMAP_KEY: ${AMAP_KEY}
+      # 生图：火山方舟（common/llm.py 的 get_vlm 读它）
+      SEEDREAM_API_KEY: ${SEEDREAM_API_KEY}
 
       # ---- 向量化：用宿主机上跑的 Ollama ----
       #
@@ -109,6 +111,20 @@ services:
       - ./databases/images:/app/databases/images
     ports:
       - "8080:8080"
+    networks:
+      - ctos2-net
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: ctos2-tunnel
+    restart: unless-stopped
+    # 隧道是「出站」连接：由 cloudflared 主动连 Cloudflare，
+    # 所以不需要映射任何端口，也不用在路由器上开端口。
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN:?未设置 TUNNEL_TOKEN，请改用 docker compose --env-file config/.env up -d}
+    depends_on:
+      app:
+        # 等应用健康后再连隧道，避免隧道先连上、用户访问时短暂 502
+        condition: service_healthy
     networks:
       - ctos2-net
 

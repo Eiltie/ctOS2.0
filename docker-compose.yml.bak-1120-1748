@@ -1,0 +1,127 @@
+# ctOS 2.0 —— 一条命令启动全部服务
+#
+# ⚠ 所有 docker compose 命令都必须带 --env-file config/.env
+#   因为配置只有一份（config/.env），代码和容器都读它，根目录不再放副本。
+#
+# 用法：
+#   docker compose --env-file config/.env up -d        启动（后台）
+#   docker compose --env-file config/.env logs -f app  看应用日志
+#   docker compose --env-file config/.env down         停止（数据保留）
+#   docker compose --env-file config/.env down -v      停止并删除数据（⚠ 慎用）
+#
+# 两个容器：
+#   db    PostgreSQL 17，数据存在 named volume 里
+#   app   你的应用，连 db 容器
+
+services:
+
+  db:
+    image: postgres:17
+    container_name: ctos2-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PG_DBNAME:-ctos2}
+      POSTGRES_USER: ${PG_USER:-ctos_app}
+      # 故意用 :? 强制校验：没带 --env-file 时直接报错并提示正确命令，
+      # 而不是拿空密码起一个连不上的数据库（那种失败很难排查）
+      POSTGRES_PASSWORD: ${PG_PASSWORD:?未设置 PG_PASSWORD，请改用 docker compose --env-file config/.env up -d}
+      # 时区，让数据库时间和日志对得上
+      TZ: Asia/Shanghai
+    volumes:
+      # 命名卷：删容器不丢数据
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      # 映射到本机 5433，避免和本机已装的 PostgreSQL（5432）冲突
+      - "5433:5432"
+    healthcheck:
+      # 等数据库真正就绪，app 才启动
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER:-ctos_app} -d ${PG_DBNAME:-ctos2}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - ctos2-net
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ctos2:latest
+    container_name: ctos2-app
+    restart: unless-stopped
+    # 等 db 健康检查通过再启动
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # ---- 数据库：主机名是服务名 db，不是 127.0.0.1 ----
+      PG_HOST: db
+      PG_PORT: 5432
+      PG_DBNAME: ${PG_DBNAME:-ctos2}
+      PG_USER: ${PG_USER:-ctos_app}
+      PG_PASSWORD: ${PG_PASSWORD}
+
+      # ---- AI 服务的密钥（从宿主机 .env 读，不写进镜像）----
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL}
+      AMAP_KEY: ${AMAP_KEY}
+      # 生图：火山方舟（common/llm.py 的 get_vlm 读它）
+      SEEDREAM_API_KEY: ${SEEDREAM_API_KEY}
+
+      # ---- 向量化：用宿主机上跑的 Ollama ----
+      #
+      # 为什么地址不是 127.0.0.1：
+      #   容器里的 127.0.0.1 指的是「容器自己」，不是你的电脑。
+      #   宿主机上的 Ollama 要用 host.docker.internal 这个域名才能访问到。
+      #   所以这里显式指定，覆盖 .env 里给本机用的那个地址。
+      OLLAMA_HOST: http://host.docker.internal:11434
+      OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL:-qwen3-embedding:0.6b}
+
+      # ---- 认证 ----
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+
+      TZ: Asia/Shanghai
+    # Linux 上要显式加上这一行，容器才能用 host.docker.internal 找到宿主机。
+    # Docker Desktop（Windows / macOS）默认就支持，加上也没有副作用。
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # 前端文件直接挂进来：改完刷新页面就生效，不用重建镜像
+      - ./static:/app/static
+      # 公告单独挂进来：改 config/notice.json 后刷新页面就生效
+      - ./config/notice.json:/app/config/notice.json
+      # Chroma 向量库挂进来，容器重建不用重新入库
+      - ./modules/customer/data/chroma:/app/modules/customer/data/chroma
+      # 人工确认的暂停现场：容器重建后，没选完的方案还能接着选。
+      #
+      # 为什么用命名卷而不是挂宿主目录：
+      #   这是 SQLite 文件。SQLite 靠文件锁保证并发安全，
+      #   而 Windows 上 Docker 是通过 WSL 的 9p 协议访问宿主目录，
+      #   文件锁不可靠 —— 长期读写会把 WAL 文件撑大并损坏，
+      #   然后容器里报 "disk I/O error"，攻略和路线整个用不了（踩过一次）。
+      #   放到命名卷里，文件在 Linux 文件系统上，锁正常。
+      #
+      # 代价：docker compose down -v 会连它一起删。
+      #   但那只是「没选完的方案」这种临时状态，用户重新问一次就行。
+      - ctos-checkpoints:/app/databases/checkpoints
+      # 用户上传的图片：容器重建后，历史消息里的图还在
+      # （必须在宿主机上也有一份，否则镜像重建会丢）
+      - ./databases/images:/app/databases/images
+    ports:
+      - "8080:8080"
+    networks:
+      - ctos2-net
+
+volumes:
+  # PG 数据卷，名字带项目前缀，避免和其他项目冲突
+  pgdata:
+    name: ctos2-pgdata
+  # 出行检查点（SQLite）放的命名卷，见上面 app 服务里的说明
+  ctos-checkpoints:
+    name: ctos2-checkpoints
+
+networks:
+  ctos2-net:
+    name: ctos2-net
