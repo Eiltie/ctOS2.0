@@ -262,15 +262,13 @@ ctOS2.0/
 │   │   │   └── types/      api.ts（和后端接口一一对应）
 │   │   ├── AppShell.vue
 │   │   └── router.ts
-│   ├── scripts/        前端构建前的检查脚本（接口契约等）
+│   ├── scripts/        前端脚本：接口契约检查、假后端、加版本号
 │   └── dist/           构建产物（npm run build 生成，不进 git）
 ├── docs/           文档
 │   ├── design-preview/ 界面定稿截图
 │   └── corpus/         客服知识库源文件
 ├── scripts/        运维脚本
-│   ├── 清理数据库-本机.bat    双击清本机 5432
-│   ├── check_online.ps1      检查线上是否可访问
-│   └── stamp-static.js       给产物加版本号（防 CF 缓存）
+│   └── check_online.ps1      检查线上是否可访问
 └── config/         配置
     ├── .env.example          配置模板（复制成根目录的 .env 再填值）
     └── notice.json           更新公告
@@ -335,7 +333,7 @@ python -X utf8 -m databases.tools.clean --port 5433  # 清 127.0.0.1:5433 那套
 菜单里可以选：查看现状、清理访客账号、清理某个账号的聊天/出行、删除某个账号、
 清理全部闲聊/出行/反馈。删除前会显示条数，并要求输入确认词。
 
-**不想敲命令，直接双击 `scripts\清理数据库-本机.bat`。**
+**不想敲命令，直接双击 `databases\tools\清理数据库-本机.bat`。**
 
 双击后**先选「1. 查看数据库现状」**确认连对了库，再选清理项。
 

@@ -370,7 +370,7 @@ npm run build        # 输出到 web/dist/
 `api/routes/system.py` 的 `/` 返回 `web/dist/index.html`。
 
 > 线上走 Cloudflare，`.js`/`.css` 会被缓存 4 小时。
-> 改完前端要跑 `node scripts/stamp-static.js` 给引用加版本号。
+> 改完前端要跑 `node web/scripts/stamp-static.cjs` 给引用加版本号。
 
 **详细说明见 `docs/frontend.md`。**
 
@@ -394,9 +394,7 @@ npm run build        # 输出到 web/dist/
 | `.env.example` | 配置模板。复制成根目录的 `.env` 再填自己的值 |
 | `notice.json` | **更新公告**：id、标题、日期、正文、条目；改完刷新页面生效 |
 
-### `docs/` `scripts/`
-
-| 文件 | 职责 |
+### `docs/` `scripts/`| 文件 | 职责 |
 | --- | --- |
 | `docs/architecture.md` | 请求地图：用户点一下，代码经过哪些文件 |
 | `docs/files.md` | **本文档**：每个文件做什么 |
@@ -406,7 +404,10 @@ npm run build        # 输出到 web/dist/
 | `docs/design-preview/` | 界面定稿截图 |
 | `docs/corpus/` | 客服知识库源文件（RAG 语料） |
 | `scripts/check_online.ps1` | 连续访问线上关键资源，判断是否间歇性超时 |
-| `scripts/stamp-static.js` | 给构建产物加版本号（防 Cloudflare 4 小时缓存） |
+| `web/scripts/stamp-static.cjs` | 给构建产物加版本号（防 Cloudflare 4 小时缓存） |
+| `web/scripts/check-api-contract.mjs` | 前后端接口契约检查 |
+| `web/scripts/fake_backend.mjs` | 假后端，前端脱离真后端独立开发用 |
+| `databases/tools/清理数据库-本机.bat` | 双击清库（调 `python -m databases.tools.clean`） |
 
 ---
 
@@ -428,7 +429,7 @@ npm run build        # 输出到 web/dist/
 | 看用户反馈 | `python -X utf8 -m databases.tools.feedback_view` |
 | 检查线上是否可访问 | `scripts/check_online.ps1` |
 | 加公用前端组件 | `web/src/shared/components/` |
-| 改完前端（线上） | `cd web && npm run build`，再跑 `node scripts/stamp-static.js`（防 Cloudflare 4 小时缓存） |
+| 改完前端（线上） | `cd web && npm run build`，再跑 `node web/scripts/stamp-static.cjs`（防 Cloudflare 4 小时缓存） |
 | 改端口 | 环境变量 `PORT` |
 | 改数据库连接 | `.env` 的 `PG_*` 变量 |
 | 上线 / 更新线上 | 见 `deployment.md` 第六节 |

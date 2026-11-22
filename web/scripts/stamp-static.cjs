@@ -13,15 +13,16 @@
  *   版本一变，CF 和浏览器都当成新资源，立刻拿最新的。
  *
  * 用法：
- *   node scripts/stamp-static.js              # 用当前时间做版本号
- *   node scripts/stamp-static.js 20261117b    # 指定版本号
+ *   node web/scripts/stamp-static.cjs              # 用当前时间做版本号
+ *   node web/scripts/stamp-static.cjs 20261117b    # 指定版本号
  */
 
 const fs = require('fs');
 const path = require('path');
 
-const root = path.resolve(__dirname, '..');
-// 前端全在 web/ 下：产物在 web/dist/，入口是 web/dist/index.html
+// 本文件在 web/scripts/ 下，往上两级是项目根
+const root = path.resolve(__dirname, '..', '..');
+// 产物在 web/dist/，入口是 web/dist/index.html
 const distDir = path.join(root, 'web', 'dist');
 
 if (!fs.existsSync(distDir)) {

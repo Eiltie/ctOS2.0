@@ -381,7 +381,7 @@ npm run build
 
 开发时用 `cd web && npm run dev` 起热更新服务器（端口 5174），接口请求会转发给后端。
 
-线上走 Cloudflare，`.js` / `.css` 被缓存 4 小时，改完前端要跑 `node scripts/stamp-static.js`。
+线上走 Cloudflare，`.js` / `.css` 被缓存 4 小时，改完前端要跑 `node web/scripts/stamp-static.cjs`。
 
 
 ## 单独调试各模块

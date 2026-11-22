@@ -19,7 +19,7 @@
 >
 > ⚠️ **但 `.js` / `.css` 会被 Cloudflare 缓存 4 小时**（响应头被 CF 覆盖成
 > `max-age=14400`，后端设的 `no-cache` 不起作用）。所以改完前端必须跑
-> `node scripts/stamp-static.js` 给资源加版本号，否则线上用户要等 4 小时才看到改动。
+> `node web/scripts/stamp-static.cjs` 给资源加版本号，否则线上用户要等 4 小时才看到改动。
 
 **线上和本地唯一的区别是域名和 TLS**：应用代码完全一样，
 进程监听同一个端口，HTTPS 由 Cloudflare 那一层负责。
@@ -159,7 +159,7 @@ Get-NetTCPConnection -LocalPort 8080 -State Listen
 
 - 改的是 **后端**：重启 `python -m common.main` 那个进程
 - 改的是 **前端**：`cd web && npm run build`，然后强制刷新（Ctrl+F5）
-  - 线上的话还要跑 `node scripts/stamp-static.js` 加版本号，否则 `.js` / `.css` 会被 Cloudflare 缓存 4 小时
+  - 线上的话还要跑 `node web/scripts/stamp-static.cjs` 加版本号，否则 `.js` / `.css` 会被 Cloudflare 缓存 4 小时
 - 改的是 **知识库文档**：要重跑入库（见下一条）并重启服务
 
 ### 更新客服知识库

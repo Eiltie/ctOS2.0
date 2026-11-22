@@ -924,7 +924,7 @@ npm run build
 接口请求会自动转发给后端。
 
 线上走 Cloudflare，`.js` / `.css` 会被缓存 4 小时，所以改完前端还要跑
-`node scripts/stamp-static.js` 给资源引用加版本号，否则用户要等 4 小时才看到改动。
+`node web/scripts/stamp-static.cjs` 给资源引用加版本号，否则用户要等 4 小时才看到改动。
 
 线上直接访问 <https://ctos2.cn/> 就是同一份页面。
 

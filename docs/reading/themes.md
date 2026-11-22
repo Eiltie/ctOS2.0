@@ -85,7 +85,7 @@ cd web
 npm run dev        # 打开 http://127.0.0.1:5174
 ```
 
-> 线上的话还要跑 `node scripts/stamp-static.js` 给资源加版本号，
+> 线上的话还要跑 `node web/scripts/stamp-static.cjs` 给资源加版本号，
 > 否则 Cloudflare 的 4 小时缓存会让用户看不到改动。
 
 ---
