@@ -1,18 +1,25 @@
-"""旅游攻略的终端调试入口（不需要 Web 服务）。
+"""旅游攻略的终端入口：跑这个文件就能在终端看攻略子图。
 
-    python -X utf8 -m modules.trip.guide.cli
+    python -X utf8 -m cli.guide
 
 做法：直接跑攻略图，把四段产出打印出来。
-注意：路线决策要在网页里用（中途要暂停让你选方案），终端里只支持攻略。
-      攻略本身也会在景点清单处暂停，终端里按"不改，直接排"继续。
+注意：攻略会在景点清单处暂停等你勾选，终端里替你选「不改，直接排」接着跑完。
+      想在「勾景点」这步真做选择，用网页。
 """
 
-import sys
 import uuid
 
 from langgraph.types import Command
 
+from common.db import query
 from modules.trip.guide.stream import GUIDE_SECTION_KEYS, guide_graph
+
+
+def _tenant_id():
+    """取库里第一个租户的 id（一人一户，本地调试固定用它）。"""
+    row = query("SELECT id FROM tenants ORDER BY id LIMIT 1")
+    return row[0]["id"] if row else None
+
 
 # 输入这些词退出
 EXIT_WORDS = {"exit", "quit", "q", "退出"}
@@ -65,49 +72,62 @@ def show(result: dict) -> None:
 
 
 def run_once(query, history):
-    """跑一次攻略；停在景点清单就替用户点"确认"，接着跑完。"""
+    """跑一次攻略。
+
+    攻略会在「景点清单」处暂停等用户勾选。终端里没有界面，
+    所以这里替用户点「不改，直接排」，一直恢复到跑完为止。
+    """
     config = {"configurable": {"thread_id": "cli-" + uuid.uuid4().hex}}
     result = {}
 
+    def drain(chunks):
+        """消费一段事件流；返回 True 表示这次停下来等用户。"""
+        paused = False
+        for chunk in chunks:
+            for node_name, update in chunk.items():
+                if node_name == "__interrupt__":
+                    paused = True
+                    continue
+                print(f"  √ {NODE_LABELS.get(node_name, node_name)}")
+                if isinstance(update, dict):
+                    result.update(update)
+        return paused
+
     chunks = guide_graph.stream(
-        {**INITIAL_STATE, "user_query": query, "history": list(history)},
+        {**INITIAL_STATE, "tenant_id": _tenant_id(), "user_query": query,
+         "history": list(history)},
         config,
         stream_mode="updates",
     )
+    paused = drain(chunks)
 
-    for chunk in chunks:
-        for node_name, update in chunk.items():
-            if node_name == "__interrupt__":
-                print("  √ 景点清单出来了，按「不改，直接排」继续")
-                continue
-            print(f"  √ {NODE_LABELS.get(node_name, node_name)}")
-            result.update(update)
+    # 每停一次就替用户确认一次，接着跑；直到不再暂停
+    while paused:
+        state = guide_graph.get_state(config)
+        if not state.next:
+            break
+        print("  √ 景点清单出来了，按「不改，直接排」继续")
+        paused = drain(
+            guide_graph.stream(Command(resume={"removed": [], "added": ""}), config,
+                               stream_mode="updates")
+        )
 
-    # 停在景点清单时，替用户确认，接着跑完
-    state = guide_graph.get_state(config)
-    if state.next:
-        print("  √ 继续排行程")
-        for chunk in guide_graph.stream(Command(resume={}), config, stream_mode="updates"):
-            for node_name, update in chunk.items():
-                print(f"  √ {NODE_LABELS.get(node_name, node_name)}")
-                result.update(update)
-
-        result.update(guide_graph.get_state(config).values)
-
+    result.update(guide_graph.get_state(config).values)
     return result
 
 
 def main() -> None:
     """终端主循环：读一句话 → 跑图 → 打印四段。"""
-    if "--mode=route" in sys.argv or "--route" in sys.argv:
-        print("路线决策需要在网页里用（中途要暂停让你选方案），终端只能跑旅游攻略。")
-        return
-
     history = []
-    print("ctOS2.0-旅游攻略（输入 exit 退出）")
+    print("旅游攻略（输入 exit 退出）")
+    print("（路线规划请用 python -X utf8 -m cli.route）")
 
     while True:
-        query = input("\n你：").strip()
+        try:
+            query = input("\n你：").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\n再见！")
+            break
         if query.lower() in EXIT_WORDS:
             print("再见！")
             break

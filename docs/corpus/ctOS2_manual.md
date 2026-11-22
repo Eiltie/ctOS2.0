@@ -211,8 +211,12 @@ uvicorn.run(app, host=host, port=port)
 | 查知识库是否就绪 | `python -X utf8 -m modules.customer.rag_store` |
 | 检索测评（40 题） | `python -X utf8 -m modules.customer.rag_eval` |
 | 看数据库内容 | `python -X utf8 -m databases.tools.view` |
-| 终端调试出行 | `python -X utf8 -m cli.guide` |
-| 验证客服流式封装 | `python -X utf8 -m modules.customer.stream` |
+| 终端跑对话 | `python -X utf8 -m cli.chat` |
+| 终端跑出行 | `python -X utf8 -m cli.trip` |
+| 终端跑路线 | `python -X utf8 -m cli.route` |
+| 终端跑攻略 | `python -X utf8 -m cli.guide` |
+| 终端跑客服 | `python -X utf8 -m cli.customer` |
+| 终端跑提示词 | `python -X utf8 -m cli.prompts` |
 
 > 线上服务器上同样直接跑这些命令（工作目录为项目根目录）。
 
@@ -805,9 +809,14 @@ python -X utf8 -m modules.customer.rag_ingest
 # 3. 重启服务，否则内存里还是旧知识库（Ctrl+C 再重新 python -m api.main）
 ```
 
-**单独调试出行模块**（不启动 Web 服务）：
+**单独调试某个模块**（不启动 Web 服务，每个 agent 一个入口）：
 ```bash
-python -X utf8 -m cli.guide
+python -X utf8 -m cli.chat       # 对话
+python -X utf8 -m cli.trip       # 出行（能看到 Agent 自己判断走哪条路）
+python -X utf8 -m cli.route      # 路线规划子图
+python -X utf8 -m cli.guide      # 旅游攻略子图
+python -X utf8 -m cli.customer   # 智能客服
+python -X utf8 -m cli.prompts    # 提示词生成
 ```
 
 **单独调试智能客服模块**：
@@ -842,9 +851,13 @@ ctOS2.0/
 │   ├── deps.py                 # 路由共用：取租户 / 校验图片 / SSE 响应头
 │   └── routes/                 # auth、trial、chat、trip、guide、roleplay、
 │                               # customer、sessions、presence、feedback、system
-├── cli/                        # ④ 本地层：终端入口
-│   ├── guide.py                # 旅游攻略终端版：python -m cli.guide
-│   └── imagegen.py             # 生图终端版：python -m cli.imagegen
+├── cli/                        # ④ 本地层：每个能独立跑完的 agent 一个终端入口
+│   ├── chat.py                 # 对话：python -m cli.chat
+│   ├── trip.py                 # 出行主 Agent（自己判断走哪条路）：python -m cli.trip
+│   ├── route.py                # 路线规划子 Agent：python -m cli.route
+│   ├── guide.py                # 旅游攻略子 Agent：python -m cli.guide
+│   ├── customer.py             # 智能客服：python -m cli.customer
+│   └── prompts.py              # 提示词生成：python -m cli.prompts
 ├── common/                     # ② 公共层：跨模块共用
 │   ├── llm.py                  # 唯一的模型客户端 get_llm()，也负责加载 .env
 │   ├── db.py                   # ★ PostgreSQL 连接 + 统一建表入口

@@ -238,7 +238,14 @@ ctOS2.0/
 │   │   ├── route/      路线规划
 │   │   └── guide/      旅游攻略
 │   ├── customer/       客服（含 data/docs 知识库）
-│   └── imagegen/       生图（Seedream）
+│   └── generatePrompts/ 提示词生成
+├── cli/            终端入口（每个 agent 一个，不用起 Web 服务）
+│   ├── chat.py         对话      python -m cli.chat
+│   ├── trip.py         出行      python -m cli.trip
+│   ├── route.py        路线      python -m cli.route
+│   ├── guide.py        攻略      python -m cli.guide
+│   ├── customer.py     客服      python -m cli.customer
+│   └── prompts.py      提示词    python -m cli.prompts
 ├── web/            前端（Vue 3 + TypeScript + Vite）
 │   ├── src/
 │   │   ├── features/   按业务分：chat / customer / trip

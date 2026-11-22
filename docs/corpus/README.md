@@ -118,9 +118,13 @@ ctOS2.0/
 │       ├── presence.py         # /presence/*：在线人数
 │       ├── feedback.py         # /feedback
 │       └── system.py           # /notice、/health、/
-├── cli/                        # ④ 本地层：终端入口
-│   ├── guide.py                # 旅游攻略终端版：python -m cli.guide
-│   └── imagegen.py             # 生图终端版：python -m cli.imagegen
+├── cli/                        # ④ 本地层：每个能独立跑完的 agent 一个终端入口
+│   ├── chat.py                 # 对话：python -m cli.chat
+│   ├── trip.py                 # 出行主 Agent（自己判断走哪条路）：python -m cli.trip
+│   ├── route.py                # 路线规划子 Agent：python -m cli.route
+│   ├── guide.py                # 旅游攻略子 Agent：python -m cli.guide
+│   ├── customer.py             # 智能客服：python -m cli.customer
+│   └── prompts.py              # 提示词生成：python -m cli.prompts
 ├── common/                     # ② 公共层：跨模块共用
 │   ├── llm.py                  # 唯一的模型客户端 get_llm()，也负责加载 .env
 │   ├── db.py                   # PostgreSQL 连接 + 建表总入口 create_all_tables()
