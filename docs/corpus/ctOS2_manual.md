@@ -113,7 +113,7 @@ python -X utf8 -m databases.schema
 智能客服依赖本地向量库，需要先把 `docs/corpus/` 里的文档切块、向量化、入库：
 
 ```bash
-python -X utf8 -m modules.customer.rag_ingest
+python -X utf8 -m modules.customer.rag.rag_ingest
 ```
 
 **改了 `docs/corpus/` 里的文档后要重新跑一次。**
@@ -164,7 +164,7 @@ python -X utf8 -m databases.schema
 ### 4. 智能客服入库（第一次用才需要）
 
 ```bash
-python -X utf8 -m modules.customer.rag_ingest
+python -X utf8 -m modules.customer.rag.rag_ingest
 ```
 
 ### 5. 启动服务
@@ -207,9 +207,9 @@ uvicorn.run(app, host=host, port=port)
 | 用途 | 命令 |
 | --- | --- |
 | 建表 | `python -X utf8 -m databases.schema` |
-| 客服入库 | `python -X utf8 -m modules.customer.rag_ingest` |
-| 查知识库是否就绪 | `python -X utf8 -m modules.customer.rag_store` |
-| 检索测评（40 题） | `python -X utf8 -m modules.customer.rag_eval` |
+| 客服入库 | `python -X utf8 -m modules.customer.rag.rag_ingest` |
+| 查知识库是否就绪 | `python -X utf8 -m modules.customer.rag.rag_store` |
+| 检索测评（40 题） | `python -X utf8 -m modules.customer.rag.rag_eval` |
 | 看数据库内容 | `python -X utf8 -m databases.tools.view` |
 | 终端跑对话 | `python -X utf8 -m cli.chat` |
 | 终端跑出行 | `python -X utf8 -m cli.trip` |
@@ -520,10 +520,10 @@ modules/customer/
 入库是**一次性操作**，执行：
 
 ```bash
-python -X utf8 -m modules.customer.rag_ingest
+python -X utf8 -m modules.customer.rag.rag_ingest
 ```
 
-线上服务器上同样直接跑：`python -X utf8 -m modules.customer.rag_ingest`。
+线上服务器上同样直接跑：`python -X utf8 -m modules.customer.rag.rag_ingest`。
 
 入库脚本做四件事：
 
@@ -587,7 +587,7 @@ A：因为这个项目**不含任何 API 密钥**，必须自己申请并填进 
 A：三步。① 装依赖 `pip install -r requirements.txt`；
 ② 建表 `python -X utf8 -m databases.schema`；
 ③ 启动服务 `python -X utf8 -m common.main`，然后在浏览器打开 <http://127.0.0.1:8080/>。
-如果是第一次用智能客服，中间还要多跑一次入库脚本 `python -X utf8 -m modules.customer.rag_ingest`。
+如果是第一次用智能客服，中间还要多跑一次入库脚本 `python -X utf8 -m modules.customer.rag.rag_ingest`。
 **不想自己装的话，直接用线上的 <https://ctos2.cn> 就行，注册后就能用。**
 
 **Q：怎么安装依赖？**
@@ -642,14 +642,14 @@ A：不会。闲聊会话存在 `sessions` / `messages`，出行记录存在 `tr
 
 **Q：怎么修改知识库内容？**
 A：两步。第一，改 `docs/corpus/` 下的 Markdown 文件（或新增文件）；
-第二，重新执行 `python -X utf8 -m modules.customer.rag_ingest`。
-只做第一步不生效。改完记得重启服务。线上服务器上同样是先跑 `python -X utf8 -m modules.customer.rag_ingest`，再重启服务。
+第二，重新执行 `python -X utf8 -m modules.customer.rag.rag_ingest`。
+只做第一步不生效。改完记得重启服务。线上服务器上同样是先跑 `python -X utf8 -m modules.customer.rag.rag_ingest`，再重启服务。
 
 **Q：检索返回几条可以调吗？**
 A：可以。关键词层和向量层共用一个候选数常量 `TOP_K`（`rag_search.py` 里，当前是 8）；
 混合层有 `MAX_HITS` 控制最终交给模型的上限（同一文件，当前是 4）；
 相关性门槛是 `MIN_VECTOR_SCORE` / `MIN_HYBRID_SCORE`，两层权重是 `KEYWORD_WEIGHT` / `VECTOR_WEIGHT`。
-**改这些值之前先跑 `python -X utf8 -m modules.customer.rag_eval` 对比**，别凭感觉调。
+**改这些值之前先跑 `python -X utf8 -m modules.customer.rag.rag_eval` 对比**，别凭感觉调。
 
 **Q：切块的大小可以调吗？**
 A：可以。`rag_ingest.py` 里的 `MAX_CHUNK_CHARS` 控制单块最大字符数，当前是 800。
@@ -705,7 +705,7 @@ ZHIPU_API_KEY=你的密钥
 **Q：智能客服启动时报「没找到向量数据库」/「没有这个集合」/「向量数据库是空的」？**
 A：说明还没入库，或者入库目录被删了。跑一次：
 ```bash
-python -X utf8 -m modules.customer.rag_ingest
+python -X utf8 -m modules.customer.rag.rag_ingest
 ```
 这几种情况的报错文本里也都会直接提示这条命令。
 
@@ -805,7 +805,7 @@ bcrypt
 ```bash
 # 1. 修改 docs/corpus/ 下的文档
 # 2. 重新入库
-python -X utf8 -m modules.customer.rag_ingest
+python -X utf8 -m modules.customer.rag.rag_ingest
 # 3. 重启服务，否则内存里还是旧知识库（Ctrl+C 再重新 python -m common.main）
 ```
 
@@ -1088,7 +1088,7 @@ npm run build
 
 这些改动都集中在 `rag_search.py`（检索三层）、`rag_ingest.py`（切块入库）
 和 `node.py`（改写与范围判断）里。改完用
-`python -X utf8 -m modules.customer.rag_eval` 跑一遍 40 题测评，对比改动前后的命中率。
+`python -X utf8 -m modules.customer.rag.rag_eval` 跑一遍 40 题测评，对比改动前后的命中率。
 
 ### 智能客服的多轮是怎么做的
 

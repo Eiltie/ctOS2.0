@@ -11,16 +11,16 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# 项目根：本文件在 modules/customer/ 下，往上三级
-_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+# 项目根：本文件在 modules/customer/rag/ 下，往上四级
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
-# 全项目统一由 core/llm.py 负责 load_dotenv。
+# 全项目统一由 common/llm.py 负责 load_dotenv。
 # 这里再调一次是幂等的（已加载过不会有副作用），
 # 保证「单独跑本文件」或「直接 import rag_config」时密钥也能读到。
 load_dotenv(_PROJECT_ROOT / ".env")
 
-# 客服模块自己的目录
-MODULE_DIR = Path(__file__).resolve().parent
+# 客服模块自己的目录（rag/ 的上一级是 customer/）
+MODULE_DIR = Path(__file__).resolve().parent.parent
 
 # 知识库源文档：放 .md 文件，按 ## 二级标题切块
 DOCS_DIR = MODULE_DIR / "data" / "docs"

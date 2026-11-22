@@ -1,7 +1,7 @@
 from langgraph.graph import END, START, StateGraph
 
-from modules.generatePrompts.node import prompt_node
-from modules.generatePrompts.state import AgentState
+from modules.generate_prompts.node import prompt_node
+from modules.generate_prompts.state import AgentState
 
 
 def create():

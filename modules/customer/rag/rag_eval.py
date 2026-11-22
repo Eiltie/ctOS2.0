@@ -1,15 +1,15 @@
 """客服｜检索测评脚本（手工跑，不属于测试套件）
 
 做什么：按 eval/golden.json 的 40 道题跑检索，按四个类别报命中率@1 和@4。
-怎么用：python -X utf8 -m modules.customer.rag_eval [--fails] [--save] [-v]
+怎么用：python -X utf8 -m modules.customer.rag.rag_eval [--fails] [--save] [-v]
 """
 
 import argparse
 import json
 from pathlib import Path
 
-from modules.customer.rag_search import MAX_HITS, hybrid_search
-from modules.customer.rag_store import load_store
+from modules.customer.rag.rag_search import MAX_HITS, hybrid_search
+from modules.customer.rag.rag_store import load_store
 
 # 检索测评脚本：按题库跑一遍，统计各层命中率
 # 题库与结果存放位置

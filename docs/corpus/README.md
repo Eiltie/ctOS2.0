@@ -326,7 +326,7 @@ python -X utf8 -m databases.schema
 智能客服依赖本地向量库，需要先把 `docs/corpus/` 里的文档切块、向量化、入库：
 
 ```bash
-python -X utf8 -m modules.customer.rag_ingest
+python -X utf8 -m modules.customer.rag.rag_ingest
 ```
 
 注意几点：
@@ -402,7 +402,7 @@ python -X utf8 -m cli.prompts    # 提示词生成
 单独检查知识库是否就绪（不启动对话）：
 
 ```bash
-python -X utf8 -m modules.customer.rag_store
+python -X utf8 -m modules.customer.rag.rag_store
 ```
 
 单独跑一遍客服的流式封装（用一条固定问题验证 SSE 事件能正常吐出）：
@@ -414,7 +414,7 @@ python -X utf8 -m modules.customer.stream
 检测检索质量（40 题题库，分原词 / 同义改写 / 跨章节 / 库外四类）：
 
 ```bash
-python -X utf8 -m modules.customer.rag_eval
+python -X utf8 -m modules.customer.rag.rag_eval
 ```
 
 ## 智能客服是怎么工作的

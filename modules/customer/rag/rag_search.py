@@ -14,7 +14,7 @@
 from dataclasses import dataclass
 
 from modules.customer.embedding import embed_one
-from modules.customer.rag_store import get_store, tokenize
+from modules.customer.rag.rag_store import get_store, tokenize
 
 # 每层各取前几段候选
 TOP_K = 8

@@ -235,10 +235,16 @@ ctOS2.0/
 │   │   ├── image_intent.py  生图意图判断（关键词 + 模型两层）
 │   │   └── roleplay/   角色扮演（闲聊的子集）
 │   ├── trip/           智能出行
-│   │   ├── route/      路线规划
+│   │   ├── amap.py     高德地图（只有出行用）
+│   │   ├── weather.py  天气（只有出行用）
+│   │   ├── checkpoints.py 人在回路的暂停现场
+│   │   ├── sse.py      SSE 打包
+│   │   ├── route/      路线规划（decide.py 是推荐打分规则）
 │   │   └── guide/      旅游攻略
-│   ├── customer/       客服（含 data/docs 知识库）
-│   └── generatePrompts/ 提示词生成
+│   ├── customer/       客服
+│   │   ├── rag/        检索系统（入库/检索/测评）
+│   │   └── data/docs/  知识库源文件
+│   └── generate_prompts/ 提示词生成
 ├── cli/            终端入口（每个 agent 一个，不用起 Web 服务）
 │   ├── chat.py         对话      python -m cli.chat
 │   ├── trip.py         出行      python -m cli.trip
@@ -346,7 +352,7 @@ python -X utf8 -m databases.tools.clean --port 5433  # 清 127.0.0.1:5433 那套
 **改了文档后必须重新入库**，否则客服用的还是旧内容：
 
 ```bash
-python -X utf8 -m modules.customer.rag_ingest
+python -X utf8 -m modules.customer.rag.rag_ingest
 ```
 
 然后重启服务。
@@ -354,8 +360,8 @@ python -X utf8 -m modules.customer.rag_ingest
 **检测检索质量：**
 
 ```bash
-python -X utf8 -m modules.customer.rag_eval            # 跑 40 题题库
-python -X utf8 -m modules.customer.rag_eval --fails    # 只看未命中
+python -X utf8 -m modules.customer.rag.rag_eval            # 跑 40 题题库
+python -X utf8 -m modules.customer.rag.rag_eval --fails    # 只看未命中
 ```
 
 题库在 `modules/customer/eval/golden.json`，分四类：原词 / 同义改写 / 跨章节 / 库外。
@@ -383,8 +389,8 @@ npm run check:api      # 前后端接口契约（要起后端）
 ---
 ```bash
 # 客服检索质量：跑 40 题题库
-python -X utf8 -m modules.customer.rag_eval
-python -X utf8 -m modules.customer.rag_eval --fails    # 只看未命中
+python -X utf8 -m modules.customer.rag.rag_eval
+python -X utf8 -m modules.customer.rag.rag_eval --fails    # 只看未命中
 
 # 检查线上是否可访问
 powershell -ExecutionPolicy Bypass -File scripts\check_online.ps1
@@ -451,7 +457,7 @@ curl -N -X POST http://127.0.0.1:8080/trip/chat \
 
 - 目前没有自动化测试。每个 agent 有独立的终端入口（`cli/` 下六个），
   改完代码跑一下对应用口就能验证流程通不通
-- `modules/customer/rag_eval.py` 是手工跑的检索测评，要真实服务 + 模型
+- `modules/customer/rag/rag_eval.py` 是手工跑的检索测评，要真实服务 + 模型
 - 没有登录限流，可以被暴力试密码
 - 生图没有限额，用户反复要图会一直花钱
 

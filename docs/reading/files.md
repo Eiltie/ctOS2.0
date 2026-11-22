@@ -273,12 +273,14 @@ modules/<模块名>/
 | `need.py` | 141 | **需求解析**：`parse_route_need(query, history)` 出 JSON、`check_need` 校验、`find_places` 查地点、拼需求确认文本 |
 | `graph.py` | 253 | 路线决策图：`collect → interrupt → compare → decide → tips` |
 | `stream.py` | 403 | 路线出口：SSE、暂停恢复、存库 |
-| `tools.py` | 302 | 推荐打分和排版（不调模型、不发网络请求） |
+| `decide.py` | 302 | **决策规则**：推荐打分和排版（不调模型、不发网络请求） |
 | `prompts.py` | 178 | 路线 4 个提示词：解析（含 history 合并）、对比、推荐、提醒 |
 
 **关键细节**：
 - 需求解析把 `history` 一起喂给模型，所以"改成8点出发"这类补充一次调用就能接上，不用先合并再解析
-- `tools.py` 只剩业务判断：跨城只查驾车、带老人不推荐走路、下雨不推荐骑车、按偏好打分
+- `decide.py` 只管业务判断：跨城只查驾车、带老人不推荐走路、下雨不推荐骑车、按偏好打分
+- **为什么不叫 `tools.py`**：它不调任何外部服务，做的是"哪条该过滤、哪条更值得推荐"这类业务决策。
+  真正的外部工具在 `modules/trip/amap.py`（高德）和 `weather.py`（天气）
 - 路线决策的 HITL：图停在 `ask_user`，用 `interrupt` 保存现场；用户选完走 `/trip/route/choose`，用 `Command(resume=...)` 继续
 - 暂停现场由 `modules/trip/checkpoints.py` 统一管（路线和攻略共用一个 sqlite 文件，靠线程号前缀区分）；文件打不开时自动退回内存
 
@@ -286,20 +288,18 @@ modules/<模块名>/
 
 | 文件 | 行数 | 职责 |
 | --- | --- | --- |
-| `graph.py` | 41 | 攻略图：`weather → spots_agent ⇄ tools → ask_spots → planner → advice` |
-| `stream.py` | 215 | 出口：开始、暂停、勾完继续、存库 |
-| `node.py` | 143 | 四个节点：天气、景点 ReAct 循环、排行程、写游玩建议 |
-| `prompts.py` | 231 | 攻略提示词（含"给几行简短介绍"的 DESCRIBE_PROMPT） |
-| `state.py` | 34 | 攻略状态：目的地、天数、四段产出、消息列表 |
-| `conditions.py` | 15 | 条件路由：景点搜够了就去 planner，没够就继续搜 |
-| `ask.py` | 23 | 景点清单的暂停节点 |
-| `quick.py` | 36 | 只问天气的快捷回答 + 简短介绍（给「自己答」用） |
+| `graph.py` | 57 | 攻略图：`weather → spots_agent ⇄ tools → ask_spots → planner → advice` |
+| `stream.py` | 266 | 出口：开始、暂停、勾完继续、存库 |
+| `node.py` | 284 | **四个节点**（天气、景点 ReAct 循环、排行程、写游玩建议）+ `ask_spots_node` 暂停节点 + `should_continue` 条件路由 + `answer_weather`/`describe_places` 快捷回答 |
+| `prompts.py` | 295 | 攻略提示词（含"给几行简短介绍"的 DESCRIBE_PROMPT） |
+| `state.py` | 47 | 攻略状态：目的地、天数、四段产出、消息列表 |
 
 **关键细节**：
 - 攻略**不碰地图**：没有查逐日路线那一段，需要精确路线时交给路线规划
 - 只有一个暂停点（勾景点），勾完一路跑到「游玩建议」再入库
 - `resume_guide()` 会校验 `tenant_id`，拿别人的暂停现场续不上
 - 进来就说明 Agent 已经判断过该做攻略，这里不再做"走错门"判断
+- 原来 `ask.py` / `conditions.py` / `quick.py` 三个小文件（合计 71 行）已并入 `node.py`
 
 ### `tools/` —— 外部数据工具（两个以上模块在用）
 
@@ -314,24 +314,37 @@ modules/<模块名>/
 
 ### `modules/customer/` —— RAG 智能客服
 
+主目录 7 个文件，检索系统收在 `rag/` 子目录。
+
 | 文件 | 行数 | 职责 |
 | --- | --- | --- |
-| `graph.py` | 58 | 图：`START ─┬→ greet / └→ rewrite → retrieve ─┬→ generate / └→ refuse` |
-| `node.py` | 196 | 四个节点：改写+范围判断、检索、生成、寒暄/拒答 |
-| `state.py` | 15 | 状态：原问题、历史、改写后的检索句、范围判断、命中、答案 |
-| `prompts.py` | 38 | 两份提示词：改写（含范围判断）、回答；外加拒答话术 |
-| `stream.py` | 100 | 对外出口 `customer_stream()`；固定话术会补发 TOKEN |
-| `rag_config.py` | 38 | **配置**：文档目录、向量库目录、集合名、向量模型与地址 |
-| `rag_store.py` | 85 | 知识库加载（全进程只加载一次）、jieba 分词、标题路径 |
-| `rag_search.py` | 103 | **三层检索**：关键词（BM25）、向量（Chroma cosine）、加权混合 |
-| `rag_ingest.py` | 197 | **入库脚本**：读 `data/docs/*.md` → 切块（带标题路径）→ 向量化 → 写 Chroma |
-| `rag_eval.py` | 190 | **检索测评**：跑 40 题题库，统计命中率 |
-| `embedding.py` | 87 | 向量化：调本机 Ollama（入库和检索共用这一份） |
-| `data/docs/` | — | 知识库源文件（3 个 .md：`README.md`、`ctOS2_manual.md`、`ctOS2_features.md`） |
-| `data/chroma/` | — | 向量库（运行产物，不进 git） |
-| `eval/golden.json` | — | 测评题库（40 题，四类） |
+| `graph.py` | 80 | 图：`START ─┬→ greet / └→ rewrite → retrieve ─┬→ generate / └→ refuse` |
+| `node.py` | 306 | 四个节点：改写+范围判断、检索、生成、寒暄/拒答 |
+| `state.py` | 30 | 状态：原问题、历史、改写后的检索句、范围判断、命中、答案 |
+| `prompts.py` | 92 | 两份提示词：改写（含范围判断）、回答；外加拒答话术 |
+| `stream.py` | 132 | 对外出口 `customer_stream()`；固定话术会补发 TOKEN |
+| `sse.py` | 16 | SSE 打包（客服自己一份，出行也有一份，两边独立） |
+| `embedding.py` | 132 | 向量化：调本机 Ollama（入库和检索共用这一份） |
 
-**改了文档要做什么**：重跑 `python -X utf8 -m modules.customer.rag_ingest`，然后重启服务。
+### `modules/customer/rag/` —— 检索系统
+
+| 文件 | 行数 | 职责 |
+| --- | --- | --- |
+| `rag_config.py` | 67 | **配置**：文档目录、向量库目录、集合名、向量模型与地址 |
+| `rag_store.py` | 116 | 知识库加载（全进程只加载一次）、jieba 分词、标题路径 |
+| `rag_search.py` | 164 | **三层检索**：关键词（BM25）、向量（Chroma cosine）、加权混合 |
+| `rag_ingest.py` | 285 | **入库脚本**：读 `docs/corpus/*.md` → 切块（带标题路径）→ 向量化 → 写 Chroma |
+| `rag_eval.py` | 233 | **检索测评**：跑 40 题题库，统计命中率 |
+
+**数据**：
+
+| 目录 | 说明 |
+| --- | --- |
+| `customer/data/docs/` | 知识库源文件（3 个 .md） |
+| `customer/data/chroma/` | 向量库（运行产物，不进 git） |
+| `customer/eval/golden.json` | 测评题库（40 题，四类） |
+
+**改了文档要做什么**：重跑 `python -X utf8 -m modules.customer.rag.rag_ingest`，然后重启服务。
 
 **调参前先测**：`MAX_CHUNK_CHARS`、混合权重、相关性阈值这几个数都是拿
 `rag_eval` 的 40 题扫出来的，改之前先跑一遍对比，别凭感觉调。
@@ -454,7 +467,7 @@ npm run build        # 输出到 web/dist/
 | --- | --- |
 | `modules/trip/amap.py` | 600 |
 | `modules/trip/route/stream.py` | 505 |
-| `modules/trip/route/tools.py` | 379 |
+| `modules/trip/route/decide.py` | 379 |
 | `databases/tools/clean.py` | 368 |
 
 **如果一个文件超过 500 行，考虑拆分。**

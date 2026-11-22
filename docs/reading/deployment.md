@@ -167,7 +167,7 @@ Get-NetTCPConnection -LocalPort 8080 -State Listen
 知识库文档在 `docs/corpus/*.md`，改了必须重新入库：
 
 ```powershell
-venv\Scripts\python.exe -X utf8 -m modules.customer.rag_ingest
+venv\Scripts\python.exe -X utf8 -m modules.customer.rag.rag_ingest
 ```
 
 然后重启服务。
@@ -199,5 +199,5 @@ curl http://127.0.0.1:8080/health
 
 # 5. 第一次上线或改了表结构时：
 python -X utf8 -m databases.schema
-python -X utf8 -m modules.customer.rag_ingest   # 只有改了知识库文档才需要
+python -X utf8 -m modules.customer.rag.rag_ingest   # 只有改了知识库文档才需要
 ```

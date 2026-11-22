@@ -24,7 +24,7 @@ from modules.customer.prompts import (
     NOT_FOUND_ANSWER,
     REWRITE_PROMPT,
 )
-from modules.customer.rag_search import hybrid_search
+from modules.customer.rag.rag_search import hybrid_search
 
 # 带进提示词的历史轮数（一问一答算一轮）
 HISTORY_TURNS = 3

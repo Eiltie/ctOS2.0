@@ -1,7 +1,7 @@
 """客服｜知识库入库脚本（改完文档必须重跑）
 
 做什么：把 data/docs/*.md 按 ## 切块 → 向量化 → 重建 Chroma 集合。
-怎么用：python -X utf8 -m modules.customer.rag_ingest，然后重启服务。
+怎么用：python -X utf8 -m modules.customer.rag.rag_ingest，然后重启服务。
 
 说明：向量化交给 modules/customer/embedding.py（本机 Ollama）。
 这个文件只管「读文档、切块、写库」这三件事。
@@ -20,7 +20,7 @@ import chromadb
 
 
 from modules.customer.embedding import embed_texts
-from modules.customer.rag_config import (
+from modules.customer.rag.rag_config import (
     CHROMA_DIR,
     COLLECTION_NAME,
     DOCS_DIR,

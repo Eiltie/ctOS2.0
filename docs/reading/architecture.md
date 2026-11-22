@@ -60,10 +60,9 @@ ctOS2.0/
 │   │   ├── graph/node/state/prompts/stream.py
 │   │   ├── amap.py        ← 高德地图（只有出行用）
 │   │   ├── weather.py     ← 天气（只有出行用）
-│   │   ├── route/         ← 子集：路线规划（need/graph/stream/tools/prompts）
-│   │   └── guide/         ← 子集：旅游攻略（graph/stream/node/prompts/state/
-│   │                        conditions/ask/quick）
-│   └── customer/          ← 独立：客服（graph/node/state/prompts/stream + rag_* + data/）
+│   │   ├── route/         ← 子集：路线规划（need/decide/graph/stream/prompts）
+│   │   └── guide/         ← 子集：旅游攻略（graph/stream/node/prompts/state）
+│   └── customer/          ← 独立：客服（graph/node/state/prompts/stream/sse + rag/ + data/）
 ├── web/                   ← 前端：Vue 3 源码（src/）+ 产物（dist/）
 ├── docs/                  ← 本文档
 ├── .env                   ← 密钥和连接配置（不进 git）
@@ -438,7 +437,7 @@ save_trip_turn()        databases/modules/db_trip.py
 1. `modules/trip/route/graph.py`（图：查候选 → 暂停 → 写对比/推荐/提醒）
 2. `modules/trip/route/stream.py`（SSE 出口、恢复）
 3. `modules/trip/route/need.py`（需求解析、校验、查地点）
-4. `modules/trip/route/tools.py`（推荐打分和排版，不调模型）
+4. `modules/trip/route/decide.py`（推荐打分和排版，不调模型）
 ## 五、客服链路（RAG）
 
 ```
@@ -484,7 +483,7 @@ POST /customer/chat
 **配置在哪**：`rag_config.py`（文档目录、向量库目录、集合名、向量模型与地址）
 
 **调参怎么验**：改 `MAX_CHUNK_CHARS` / 权重 / 阈值之前，
-先跑 `python -X utf8 -m modules.customer.rag_eval` 对比，别凭感觉调
+先跑 `python -X utf8 -m modules.customer.rag.rag_eval` 对比，别凭感觉调
 
 **知识库加载**：`rag_store.py` 的 `load_store()`，**全进程只加载一次**，三层检索共享
 
@@ -519,8 +518,8 @@ POST /customer/chat
 | 什么时候给用户报错 | `没跑通` | 几处，全在 stream 文件 |
 | 模型怎么调的 | `get_llm(` | 全指向 `common/llm.py` |
 | 数据库写在哪 | `save_` | 各模块的写入口 |
-| 检索三层怎么合并 | `hybrid_search` | 只有 `modules/customer/rag_search.py` 定义一次 |
-| 知识库配置在哪 | `CHROMA_DIR` | `modules/customer/rag_config.py` |
+| 检索三层怎么合并 | `hybrid_search` | 只有 `modules/customer/rag/rag_search.py` 定义一次 |
+| 知识库配置在哪 | `CHROMA_DIR` | `modules/customer/rag/rag_config.py` |
 | 谁在发 SSE 事件 | `"kind":` | 各模块的 stream 文件 |
 | 人工确认在哪暂停 | `interrupt(` | `modules/trip/guide/ask.py` + `route_decision_graph.py` |
 | 角色记忆规则 | `MEMORY_LIMIT` / `add_one_round` | `modules/chat/roleplay/memory.py` + `databases/modules/db_roleplay.py` |

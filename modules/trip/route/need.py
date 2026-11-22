@@ -17,7 +17,7 @@ from common.llm import get_llm
 from modules.trip.amap import find_place
 from modules.trip.weather import get_weather
 from modules.trip.route.prompts import PARSE_ROUTE_NEED_PROMPT
-from modules.trip.route.tools import normalize_preference, normalize_want_mode
+from modules.trip.route.decide import normalize_preference, normalize_want_mode
 
 # 这些词太笼统，直接查地图会认错地方，先反问用户
 VAGUE_PLACES = {

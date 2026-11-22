@@ -6,7 +6,7 @@
 输入 exit 退出。
 """
 
-from modules.generatePrompts.createGraph import create
+from modules.generate_prompts.create_graph import create
 
 # 图只建一次，循环里反复用
 app = create()

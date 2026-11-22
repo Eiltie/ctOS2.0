@@ -15,7 +15,7 @@ import jieba
 from rank_bm25 import BM25Okapi
 
 
-from modules.customer.rag_config import (
+from modules.customer.rag.rag_config import (
     CHROMA_DIR,
     COLLECTION_NAME,
 )
@@ -53,7 +53,7 @@ def load_store() -> KnowledgeStore:
         raise RuntimeError(
             f"没找到向量数据库：{CHROMA_DIR}\n"
             f"请先运行一次入库脚本：\n"
-            f"    python -X utf8 -m modules.customer.rag_ingest"
+            f"    python -X utf8 -m modules.customer.rag.rag_ingest"
         )
 
     client = chromadb.PersistentClient(path=str(CHROMA_DIR))
@@ -63,7 +63,7 @@ def load_store() -> KnowledgeStore:
         raise RuntimeError(
             f"向量数据库里没有「{COLLECTION_NAME}」这个集合。\n"
             f"请先运行一次入库脚本：\n"
-            f"    python -X utf8 -m modules.customer.rag_ingest"
+            f"    python -X utf8 -m modules.customer.rag.rag_ingest"
         )
 
     collection = client.get_collection(COLLECTION_NAME)
@@ -74,7 +74,7 @@ def load_store() -> KnowledgeStore:
         raise RuntimeError(
             "向量数据库是空的（一块内容都没有）。\n"
             "请先运行一次入库脚本：\n"
-            "    python -X utf8 -m modules.customer.rag_ingest"
+            "    python -X utf8 -m modules.customer.rag.rag_ingest"
         )
 
     metadatas = got.get("metadatas") or [{} for _ in chunks]

@@ -1,8 +1,8 @@
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from common.llm import get_llm
-from modules.generatePrompts.promtps import SYSTEM_PROMPTS
-from modules.generatePrompts.state import AgentState
+from modules.generate_prompts.prompts import SYSTEM_PROMPTS
+from modules.generate_prompts.state import AgentState
 
 
 def prompt_node(state: AgentState) -> dict:

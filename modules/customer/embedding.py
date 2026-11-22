@@ -20,7 +20,7 @@ import json
 import urllib.error
 import urllib.request
 
-from modules.customer.rag_config import EMBEDDING_MODEL, embedding_api_url
+from modules.customer.rag.rag_config import EMBEDDING_MODEL, embedding_api_url
 
 # 一次最多发几条给向量服务。
 #

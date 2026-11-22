@@ -8,7 +8,7 @@ import httpx
 
 from common.llm import get_vlm
 from modules.chat.attachments import save_image
-from modules.generatePrompts.createGraph import create
+from modules.generate_prompts.create_graph import create
 
 MODEL = "doubao-seedream-4-0-20260415"
 
