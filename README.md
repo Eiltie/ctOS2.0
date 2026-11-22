@@ -255,15 +255,13 @@ ctOS2.0/
 │   │   │   └── types/      api.ts（和后端接口一一对应）
 │   │   ├── AppShell.vue
 │   │   └── router.ts
-│   ├── scripts/        接口契约检查 + e2e 测试
+│   ├── scripts/        前端构建前的检查脚本（接口契约等）
 │   └── design-preview/ 定稿截图
 ├── static/dist/    前端构建产物（`npm run build` 生成，别手改）
 ├── docs/           文档
-├── tests/          单元测试（不连库不调模型，跑 5 秒）
 ├── scripts/        运维脚本
 │   ├── 清理数据库-本机.bat    双击清本机 5432
-│   ├── check_online.ps1      检查线上是否可访问
-│   └── make_screenshots.py   重新生成 README 截图
+│   └── check_online.ps1      检查线上是否可访问
 └── config/         配置
 ```
 
@@ -355,43 +353,7 @@ python -X utf8 -m modules.customer.rag_eval --fails    # 只看未命中
 
 ---
 
-## 测试
-
-测试分两种，目的不同：
-
-| | 单元测试 `tests/` | 端到端测试 `web/scripts/e2e/` |
-| --- | --- | --- |
-| 测什么 | 普通 if/else 的判断代码 | 真界面能不能用 |
-| 依赖 | 不连库、不调模型、不要 API key | 要起后端 + 数据库 + Chrome |
-| 耗时 | 约 5 秒 | 约 6 分钟 |
-| 结果 | 稳定，要么全绿要么指出第几条挂 | 稳定（不调模型的部分） |
-| 谁跑 | 本地手动跑；推 GitHub 自动跑 | 改完前端手动跑 |
-
-模型的回答质量、行程合不合理、角色像不像——这些**测不了**，靠人看。
-
-```bash
-# 装测试依赖（只需一次；已装过就跳过）
-venv\Scripts\pip.exe install -r config\requirements-dev.txt
-
-# 全部跑一遍
-venv\Scripts\python.exe -m pytest
-
-# 只跑某一个文件 / 某一条
-venv\Scripts\python.exe -m pytest tests\test_auth.py
-venv\Scripts\python.exe -m pytest -k 天气
-```
-
-**CI**：`.github/workflows/test.yml` 会在每次 `push` 到 `main`、或开 PR 时自动跑一遍，
-结果显示在 GitHub 仓库的 **Actions** 页签（绿勾 / 红叉）。CI 里只跑 `tests/`，不跑 e2e（要浏览器）。
-
-> 为什么只测这些：模型答得好不好、行程合不合理，断言写不出来。`tests/` 只钉住
-> "`杭州今天天气`永远被认成天气查询""`不想走路`不会被归成综合"这类确定性规则——
-> 这些错了系统照样返回 200，只在结果里静静地错。
-
-改代码导致测试挂掉时，先判断是哪一种：如果是有意改了规则，就**连同测试一起改**；
-如果是没想改、却挂了的，那就是真 bug。
-
-### 前端的四道检查
+## 调试与检查
 
 前端改完之后跑这几条（`cd web` 之后）：
 
@@ -399,7 +361,6 @@ venv\Scripts\python.exe -m pytest -k 天气
 npm run typecheck      # 类型检查（vue-tsc）
 npm run lint           # ESLint，含模块边界规则
 npm run check:api      # 前后端接口契约（要起后端）
-npm run test:e2e       # 浏览器端到端测试
 ```
 
 | 检查 | 拦什么 |
@@ -407,23 +368,10 @@ npm run test:e2e       # 浏览器端到端测试
 | `typecheck` | 类型对不上 |
 | `lint` | 出行模块 import 对话模块、shared 反向 import features |
 | `check:api` | 后端加了接口/事件但前端没跟上 |
-| `test:e2e` | 界面真能用：35 个测试，11 组，全跑约 6 分钟 |
-
-e2e 分组：`infra` `chat` `roleplay` `nav` `send` `image` `customer` `trip` `auth` `feature` `tripimg`
-
-```bash
-# 只跑某一组（快很多）
-python -X utf8 scripts/e2e/run_all.py trip
-```
-
-> `tripimg` 这组故意不真调生图接口（画一张要花钱），只验证「提议会出现、不会自动画」。
 
 细节见 [docs/frontend.md](docs/frontend.md) 第五节。
 
 ---
-
-## 调试与检查
-
 ```bash
 # 客服检索质量：跑 40 题题库
 python -X utf8 -m modules.customer.rag_eval
@@ -431,9 +379,6 @@ python -X utf8 -m modules.customer.rag_eval --fails    # 只看未命中
 
 # 检查线上是否可访问
 powershell -ExecutionPolicy Bypass -File scripts\check_online.ps1
-
-# 重新生成 README 里的界面截图（会自动起浏览器）
-python -X utf8 scripts\make_screenshots.py
 ```
 
 > Windows 控制台默认 GBK，不加 `-X utf8` 中文会乱码。

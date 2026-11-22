@@ -873,9 +873,6 @@ ctOS2.0/
 │   ├── customer/               # 智能客服（RAG）：graph / node / state /
 │   │                           # prompts / stream / rag_* / embedding / eval
 │   └── imagegen/               # ← 交集：生图（在建，尚未接入路由）
-├── tests/                      # ⑤ 测试层
-│   ├── test_*.py               # 单元测试
-│   └── e2e/                    # 端到端测评
 ├── docs/                       # ⑧ 文档层
 │   ├── reading/                # 给人读的技术文档
 │   ├── planning/               # 规划稿与排查记录

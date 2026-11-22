@@ -165,9 +165,6 @@ ctOS2.0/
 │   │   ├── eval/golden.json    # 检索测评题库
 │   │   └── data/chroma/        # 向量库落盘（运行产物，不入 git）
 │   └── imagegen/               # ← 交集：生图（在建，尚未接入路由）
-├── tests/                      # ⑤ 测试层
-│   ├── test_*.py               # 单元测试（不连库不调模型）
-│   └── e2e/                    # 端到端测评（要真模型，手动跑）
 ├── docs/                       # ⑧ 文档层
 │   ├── reading/                # 给人读：架构、文件清单、部署、主题、生图
 │   ├── planning/               # 规划稿与排查记录
@@ -404,12 +401,6 @@ python -X utf8 -m modules.customer.stream
 
 ```bash
 python -X utf8 -m modules.customer.rag_eval
-```
-
-端到端测评四个模块（36 条题库，需要服务已启动）：
-
-```bash
-python -X utf8 -m tests.e2e.run_eval
 ```
 
 ## 智能客服是怎么工作的

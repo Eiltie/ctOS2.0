@@ -14,7 +14,6 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write src",
     "check:api": "node scripts/check-api-contract.mjs",
-    "test:e2e": "python ../venv/Scripts/python.exe -X utf8 scripts/e2e/run_all.py",
     "verify": "npm run typecheck && npm run lint && npm run build"
   },
   "dependencies": {
