@@ -347,9 +347,9 @@
     {
       "id": 39,
       "category": "库外",
-      "question": "怎么用 Docker 部署",
+      "question": "怎么部署上线",
       "expect_keywords": [],
-      "should_answer": false
+      "should_answer": true
     },
     {
       "id": 40,

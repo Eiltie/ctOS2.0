@@ -2,12 +2,9 @@
 
 做什么：按菜单清理访客账号、某个账号的聊天/出行记录，或者全部记录。
 怎么用：
-    本机数据库（5432）：
-        python -X utf8 -m databases.tools.clean
-    Docker 数据库（5433）：
-        python -X utf8 -m databases.tools.clean --docker
-    直接在容器里（连的是容器自己的库）：
-        docker exec -it ctos2-app python -m databases.tools.clean
+    python -X utf8 -m databases.tools.clean
+
+    --port 5433 可以指定端口，连别的数据库实例（默认读 config/.env 里的 PG_PORT）。
 
 安全约定：
     删除前都会先显示有多少条，并要求输入确认词。
@@ -17,11 +14,13 @@
 import os
 import sys
 
-# --docker：从宿主机连 Docker 映射出来的 5433 端口。
-# 必须在 import common.db 之前设置，保证 load_dotenv 不覆盖它。
-if "--docker" in sys.argv:
-    os.environ["PG_HOST"] = "127.0.0.1"
-    os.environ["PG_PORT"] = "5433"
+# --port NNNN：临时指定数据库端口，必须在 import common.db 之前设置，
+# 保证 load_dotenv 不覆盖它。用来连 config/.env 之外的另一套库。
+if "--port" in sys.argv:
+    _i = sys.argv.index("--port")
+    if _i + 1 < len(sys.argv):
+        os.environ["PG_HOST"] = "127.0.0.1"
+        os.environ["PG_PORT"] = sys.argv[_i + 1]
 
 from common.db import query, query_one, transaction
 
@@ -83,11 +82,6 @@ def print_connection():
     dbname = os.getenv("PG_DBNAME", "ctos2")
     user = os.getenv("PG_USER", "ctos_app")
     print(f"当前数据库：{host}:{port}/{dbname}（用户 {user}）")
-
-    if port == "5433" or host == "db":
-        print("（这是 Docker 的数据库，8080 页面用的就是它）")
-    else:
-        print("（这是本机 5432 的数据库；8080 页面用的是 Docker 的 5433，要清那套请加 --docker）")
 
 
 def count_table(table, where="", params=()):
@@ -363,13 +357,12 @@ def main():
 if __name__ == "__main__":
     if "--help" in sys.argv:
         print("用法：")
-        print("  python -X utf8 -m databases.tools.clean            清理本机 5432")
-        print("  python -X utf8 -m databases.tools.clean --docker   清理 Docker 5433")
-        print("  docker exec -it ctos2-app python -m databases.tools.clean   在容器里清理")
+        print("  python -X utf8 -m databases.tools.clean             清理 config/.env 里配的那套库")
+        print("  python -X utf8 -m databases.tools.clean --port 5433  清理 127.0.0.1:5433 那套库")
         sys.exit(0)
 
     try:
         main()
     except Exception as e:
         print("\n出错了：", e)
-        print("检查 config/.env 里的 PG_* 配置，以及数据库/Docker 是否启动。")
+        print("检查 config/.env 里的 PG_* 配置，以及 PostgreSQL 是否启动。")

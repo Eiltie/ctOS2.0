@@ -8,7 +8,7 @@ const BACKEND = process.env.CTOS_BACKEND || 'http://127.0.0.1:8080'
 
 // 构建产物输出到 ../static/dist：
 //   - 后端 api/main.py 已经把 /static 挂出来了
-//   - Docker 也只挂载 static/，产物放这里不用改任何部署配置
+//   - 产物放这里，后端直接就能提供，不用改任何启动配置
 const OUT_DIR = fileURLToPath(new URL('../static/dist', import.meta.url))
 
 export default defineConfig({

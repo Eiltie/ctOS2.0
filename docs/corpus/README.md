@@ -179,9 +179,7 @@ ctOS2.0/
 │   ├── themeB/                 # 指挥台版：图标导轨 + 右侧控制台（仅宽屏，2 种风格）
 │   └── shared/                 # 两套共用
 ├── scripts/                    # 构建与运维脚本
-├── screenshot/                 # README 用的界面截图
-├── Dockerfile                  # 镜像构建
-└── docker-compose.yml          # 应用 + 数据库两个容器
+└── screenshot/                 # README 用的界面截图
 ```
 
 ## 数据存储
@@ -241,8 +239,8 @@ python -X utf8 -m databases.tools.view stats      # 统计
 python -X utf8 -m databases.feedback_view      # 用户反馈
 ```
 
-> `databases/tools/view.py` 用命令行查看闲聊的几张表。线上的数据在 `ctos2-db` 容器里：
-> `docker exec ctos2-db psql -U ctos_app ctos2` 可以直接进去查。
+> `databases/tools/view.py` 用命令行查看闲聊的几张表。线上服务器上的数据用
+> `psql -U ctos_app ctos2` 可以直接进去查。
 
 ## 快速开始
 
@@ -352,11 +350,11 @@ python -X utf8 -m api.main
 
 打开 <http://127.0.0.1:8080/> 即为前端页面。线上对应的是 <https://ctos2.cn/>。
 
-> 本地默认监听 `127.0.0.1:8080`，由 `api/main.py` 末尾 `uvicorn.run(app, host=..., port=...)` 决定，
+> 默认监听 `127.0.0.1:8080`，由 `api/main.py` 末尾 `uvicorn.run(app, host=..., port=...)` 决定，
 > `HOST` / `PORT` 两个环境变量可以覆盖。
 > 前端用相对路径请求后端（同源），所以换端口只改这一处即可。
 >
-> 容器（含线上）里必须监听 `0.0.0.0`，Dockerfile 已经设好 `HOST=0.0.0.0`。
+> 要让局域网内其它设备访问，把 `HOST` 设成 `0.0.0.0`。
 
 ## 前端开发
 
@@ -438,7 +436,7 @@ python -X utf8 -m tests.e2e.run_eval
 - **存储**：PostgreSQL 17（会话与出行记录，多租户）；Chroma 存 RAG 向量
 - **检索**：jieba + rank-bm25 与向量混合
 - **认证**：JWT + bcrypt
-- **部署**：Docker + Docker Compose，线上 <https://ctos2.cn> 由 Cloudflare 提供域名和 HTTPS
+- **部署**：uvicorn 直接拉起服务（`python -m api.main`），线上 <https://ctos2.cn> 由 Cloudflare 提供域名和 HTTPS
 - **配置**：python-dotenv
 
 ## 常见问题
@@ -464,12 +462,12 @@ python -X utf8 -m tests.e2e.run_eval
 <https://ctos2.cn>，`www.ctos2.cn` 也能访问，两个地址的页面完全一样。
 
 **端口可以改吗？**
-可以，用环境变量 `PORT`（容器和线上）或改 `api/main.py` 末尾 `uvicorn.run(...)` 里的端口（本地），前端不用动。
+可以，用环境变量 `PORT`，前端不用动。也可以直接改 `api/main.py` 末尾 `uvicorn.run(...)` 里的端口。
 
 ## 安全说明
 
 - 所有密钥均从 `config/.env` 读取，代码中不写死任何凭据。
-- 数据库是 PostgreSQL，密码同样在 `config/.env` 里；Docker 部署时数据库只在内网 `ctos2-net` 里，不直接暴露到公网。
+- 数据库是 PostgreSQL，密码同样在 `config/.env` 里；默认只监听本机，不对公网开放端口。
 - 接口都要登录：所有业务路由都从 `Authorization: Bearer <token>` 解析租户，未登录返回 401。
   例外是 `/auth/*`、`/health`、两个 `ping`、`/notice`、`/feedback` 和静态资源。
 - `.gitignore` 已排除 `config/.env`、`*.env`、`venv/`、`__pycache__/`、`*.sql`、`*.db`、向量库目录、测评结果等。

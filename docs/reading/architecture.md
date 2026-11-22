@@ -51,7 +51,7 @@ ctOS2.0/
 │       ├── view.py        ← 查看数据
 │       ├── clean.py       ← 清理数据
 │       └── feedback_view.py ← 查看反馈
-│   （数据在 PostgreSQL 里，不在仓库中；线上在 ctos2-db 容器的命名卷 ctos2-pgdata）
+│   （数据在 PostgreSQL 里，不在仓库中；服务端就是本机/服务器上装的那套 PG）
 │   （databases/checkpoints/ 是出行的暂停现场，databases/images/ 是上传的图，都是运行产物，不入 git）
 ├── modules/               ← 模块层
 │   ├── chat/              ← 闲聊（父）
@@ -69,8 +69,13 @@ ctOS2.0/
 ├── docs/                  ← 本文档
 ├── eval/                  ← 端到端测评
 ├── config/                ← .env、requirements.txt、notice.json
-├── Dockerfile             ← 镜像怎么打
-└── docker-compose.yml     ← app + db 两个容器怎么起来（线上就是这套）
+└── scripts/               ← 运维脚本（清理库、检查线上）
+```
+
+### 启动方式
+
+```bash
+python -X utf8 -m api.main      # 拉起服务，默认监听 127.0.0.1:8080
 ```
 
 ### 请求流向

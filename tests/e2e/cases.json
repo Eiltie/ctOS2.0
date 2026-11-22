@@ -136,9 +136,9 @@
       "module": "customer",
       "input": "启动这个项目要跑什么命令？",
       "must_have_any": [
-        "docker compose",
-        "docker-compose",
-        "api.main"
+        "api.main",
+        "uvicorn",
+        "python -X utf8"
       ],
       "max_seconds": 45
     },

@@ -12,15 +12,9 @@
 | --- | --- | --- |
 | `README.md` | 239 | 项目说明：线上地址、四个模块、怎么装、怎么跑、怎么用 |
 | `LICENSE` | 17 | MIT 协议 |
-| `Dockerfile` | 40 | 怎么把项目打包成镜像（Python 环境、装依赖、启动命令） |
-| `docker-compose.yml` | 97 | 怎么把「应用 + 数据库」两个容器组起来跑；挂载 static / notice / chroma / checkpoints |
-| `.dockerignore` | 43 | 构建镜像时排除哪些文件（venv、密钥、数据库） |
 | `.gitignore` | 76 | 哪些文件不进 git（密钥、数据库、向量库、检查点、缓存） |
-| `清理数据库-Docker.bat` | 14 | 双击清 Docker 库（5433） |
-| `清理数据库-本机.bat` | 14 | 双击清本机库（5432） |
 
-> **配置只有一份**：`config/.env`。根目录不放 `.env`，
-> Docker 用 `--env-file config/.env` 指定，代码用 `load_dotenv` 读同一份。
+> **配置只有一份**：`config/.env`。根目录不放 `.env`，代码用 `load_dotenv` 读这一份。
 
 ---
 
@@ -152,9 +146,8 @@ python -X utf8 -m databases.tools.feedback_view stats       # 统计
 
 **`tools/clean.py` 用法**：
 ```bash
-python -X utf8 -m databases.tools.clean            # 清理本机 5432
-python -X utf8 -m databases.tools.clean --docker   # 清理 Docker 5433（8080 页面用的库）
-docker exec -it ctos2-app python -m databases.tools.clean   # 在容器里清理
+python -X utf8 -m databases.tools.clean              # 清 config/.env 里配的那套库
+python -X utf8 -m databases.tools.clean --port 5433  # 清 127.0.0.1:5433 那套库
 ```
 
 菜单里可以选：查看现状、清理访客账号、清理某个账号的聊天/出行、删除某个账号、
@@ -426,10 +419,9 @@ static/
 | `.github/workflows/test.yml` | CI：push 到 main 或开 PR 时自动跑 `tests/` |
 | `docs/architecture.md` | 请求地图：用户点一下，代码经过哪些文件 |
 | `docs/files.md` | **本文档**：每个文件做什么 |
-| `docs/deployment.md` | 部署说明：线上实例、Docker、本地运行、上线流程 |
+| `docs/deployment.md` | 部署说明：线上实例、本地运行、环境变量、上线流程 |
 | `docs/themes.md` | 两套主题 / 五种风格的结构、手机端规则、加主题的做法 |
 | `docs/imagegen.md` | 生图模块（在建，尚未接入路由） |
-| `docs/tunnel-check.md` | 线上隧道副本排查、`scripts/check_online.ps1` 使用说明 |
 | `eval/cases.json` | 端到端测评题库：36 条，覆盖闲聊/角色/客服/出行/平台 |
 | `eval/run_eval.py` | 跑测评、自动检查、生成 JSON + Markdown 报告 |
 | `eval/results/` | 每次测评的报告，保留最新一版基线 |
@@ -462,7 +454,7 @@ static/
 | 跑单元测试 | `venv\Scripts\python.exe -m pytest`（约 5 秒，不连库不调模型） |
 | 改了规则导致测试红 | 补到 `tests/test_trip_rules.py` 或 `tests/test_auth.py` 的对应断言 |
 | 看用户反馈 | `python -X utf8 -m databases.tools.feedback_view` |
-| 检查线上隧道 | `scripts/check_online.ps1`，排查步骤见 `docs/tunnel-check.md` |
+| 检查线上是否可访问 | `scripts/check_online.ps1` |
 | 加公用前端函数 | `static/shared/js/common/` 下新建文件，并在两套的 `index.html` 里按顺序引入 |
 | 改主题 / 风格 | 见 `docs/themes.md` |
 | **改完前端（线上）** | **必须跑 `node scripts/stamp-static.js`**，否则 Cloudflare 的 4 小时缓存会让用户看不到改动 |

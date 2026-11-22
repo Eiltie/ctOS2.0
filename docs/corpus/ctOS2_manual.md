@@ -42,7 +42,7 @@ ctOS 2.0 是一个用 FastAPI 加 LangGraph 搭建的多模块 AI 应用。
 - **存储**：PostgreSQL 17 存会话、账号与出行记录（多租户）；Chroma 用于 RAG 向量库
 - **检索**：jieba + rank-bm25 与向量混合
 - **认证**：JWT + bcrypt
-- **部署**：Docker + Docker Compose，线上由 Cloudflare 托管域名与 HTTPS
+- **部署**：uvicorn 直接拉起服务（`python -m api.main`），线上由 Cloudflare 托管域名与 HTTPS
 - **配置**：python-dotenv
 
 ---
@@ -197,7 +197,7 @@ uvicorn.run(app, host=host, port=port)
 ```
 
 也就是说，**改端口用环境变量 `PORT`** 就够了，不用改代码。
-容器（含线上）里 Dockerfile 已经把 `HOST` 设成 `0.0.0.0`，否则端口映射转发不进来。
+默认只监听 `127.0.0.1`（本机可访问）；要让局域网内其它设备访问，把 `HOST` 设成 `0.0.0.0`。
 
 前端请求后端用的是**相对路径**（`API.base` 为空字符串），也就是同源访问，
 所以**换端口前端也不用动**，线上和本地用的是同一份前端代码。
@@ -214,8 +214,7 @@ uvicorn.run(app, host=host, port=port)
 | 终端调试出行 | `python -X utf8 -m cli.guide` |
 | 验证客服流式封装 | `python -X utf8 -m modules.customer.stream` |
 
-> 线上这些命令要在容器里跑，前面加 `docker exec ctos2-app`，例如
-> `docker exec ctos2-app python -m common.db`。
+> 线上服务器上同样直接跑这些命令（工作目录为项目根目录）。
 
 ---
 
@@ -400,7 +399,7 @@ START → rewrite → retrieve ─┬─(有资料)───→ generate → END
 
 **拒答的判定为什么放在检索之后**：改写节点顺带会判断「是不是在问 ctOS」，
 但模型对「像不像在问项目」和「知识库里有没有」经常分不清。
-实测「怎么用 Docker 部署」被判成库外，而文档里有一整章部署与运维。
+实测「怎么部署上线」被判成库外，而文档里有一整章部署与运维。
 所以改成让检索结果当第二道关——模型说库外、但检索到强结果时仍然作答；
 检索到的东西太弱、模型也说库外，才拒答。误拒比答得浅更难受。
 
@@ -520,7 +519,7 @@ modules/customer/
 python -X utf8 -m modules.customer.rag_ingest
 ```
 
-线上要在容器里跑：`docker exec ctos2-app python -m modules.customer.rag_ingest`。
+线上服务器上同样直接跑：`python -X utf8 -m modules.customer.rag_ingest`。
 
 入库脚本做四件事：
 
@@ -597,7 +596,7 @@ pip install -r config/requirements.txt
 ```
 
 依赖清单在 `config/requirements.txt` 里，分 Web、出行模块、客服模块、数据库、认证五组。
-如果不想装 Python，也可以直接用 Docker：`docker compose --env-file config/.env up -d`。
+装完依赖后跑 `python -X utf8 -m api.main` 就把服务拉起来了。
 
 **Q：服务在哪个端口上跑？启动后访问哪个地址？**
 A：本地默认端口是 **8080**（`PORT` 环境变量控制），地址是 <http://127.0.0.1:8080/>。
@@ -608,7 +607,7 @@ A：对话和图上的推理用的是 DeepSeek，通过 `config/.env` 里的 `DE
 向量化跑在本机 Ollama 上（默认 `qwen3-embedding:0.6b`），和对话用的 DeepSeek 是两个不同的模型，各司其职。
 
 **Q：端口可以改吗？**
-A：可以，设环境变量 `PORT` 即可（本地或容器都适用），不用改代码。
+A：可以，设环境变量 `PORT` 即可（本地和线上都适用），不用改代码。
 前端请求后端用的是相对路径（同源），不写死端口，所以不用改。
 
 **Q：需要注册才能用吗？**
@@ -640,7 +639,7 @@ A：不会。闲聊会话存在 `sessions` / `messages`，出行记录存在 `tr
 **Q：怎么修改知识库内容？**
 A：两步。第一，改 `docs/corpus/` 下的 Markdown 文件（或新增文件）；
 第二，重新执行 `python -X utf8 -m modules.customer.rag_ingest`。
-只做第一步不生效。改完记得重启服务。线上则是先 `docker exec ctos2-app python -m modules.customer.rag_ingest`，再重启容器。
+只做第一步不生效。改完记得重启服务。线上服务器上同样是先跑 `python -X utf8 -m modules.customer.rag_ingest`，再重启服务。
 
 **Q：检索返回几条可以调吗？**
 A：可以。关键词层和向量层共用一个候选数常量 `TOP_K`（`rag_search.py` 里，当前是 8）；
@@ -720,10 +719,10 @@ A：说明表达太模糊了。把话说具体一点，比如「下周想去杭�
 
 ### 6.1 环境要求
 
-- Python 3.14（开发环境实测版本：3.14.5）；或者只装 Docker，用镜像跑
-- PostgreSQL 17（本地开发自己装；Docker 部署时由 `db` 容器提供，不用另外装）
+- Python 3.14（开发环境实测版本：3.14.5）
+- PostgreSQL 17（本机安装并启动）
 - 能访问外网：需要调用 DeepSeek、高德、Open-Meteo 的接口；客服的向量化跑在本机，不占外网
-- 线上：一台能跑 Docker 的服务器 + 一个域名（本站用的是 `ctos2.cn`，DNS 和 HTTPS 托管在 Cloudflare）
+- 线上：一台装了 Python 和 PostgreSQL 的服务器 + 一个域名（本站用的是 `ctos2.cn`，DNS 和 HTTPS 托管在 Cloudflare）
 
 ### 6.2 依赖清单
 
@@ -769,8 +768,7 @@ bcrypt
 3. 智能客服要用的话，先跑一次入库脚本
 4. 启动 Web 服务：`python -X utf8 -m api.main`
 
-用 Docker 的话只有三步：`docker compose --env-file config/.env up -d` →
-`docker exec ctos2-app python -m common.db` → `docker exec ctos2-app python -m modules.customer.rag_ingest`。
+这样四个步骤跑完，服务就在 `127.0.0.1:8080` 上起来了。
 
 ### 6.4 数据存放位置
 
@@ -781,23 +779,18 @@ bcrypt
 | 角色扮演 | `role_play_sessions` / `role_play_memories` / `role_play_roles` | 会话用的是哪个角色、角色记得什么、自己写的角色 |
 | 出行记录 | `trip_chats` / `trip_sessions` / `trip_user_inputs` / `trip_ai_outputs` | 一轮出行 = 主表一行 + 子表各一行 |
 | 用户反馈 | PostgreSQL 表 `feedback` | 评价 + 文字，只给维护者看 |
-| 向量库 | `modules/customer/data/chroma/` | Chroma 落盘的向量数据，Docker 里是挂载进去的目录 |
+| 向量库 | `modules/customer/data/chroma/` | Chroma 落盘的向量数据 |
 | 知识库原文 | `docs/corpus/` | Markdown 文档 |
-| 人工确认的暂停现场 | `databases/checkpoints/` | 路线决策 / 旅游攻略停下来等你选择时的现场，Docker 里也是挂载进去的目录 |
+| 人工确认的暂停现场 | `databases/checkpoints/` | 路线决策 / 旅游攻略停下来等你选择时的现场 |
 
-Docker 部署时数据库数据在命名卷 `ctos2-pgdata` 里，删容器不丢；
-向量库目录和检查点目录被挂载出来，重建容器不用重新入库，**没选完的方案重建后也能接着选**。
+数据库数据在本机（或服务器）装的 PostgreSQL 里；向量库目录和检查点目录是运行产物，
+重启服务不会丢，**没选完的方案重启后也能接着选**。
 这两个目录都已被 `.gitignore` 排除，不会进代码仓库。
-
-> 在 Linux 服务器上用 Docker 时，如果容器内用户（uid 1000）写不了
-> `databases/checkpoints/`，执行一次 `sudo chown -R 1000:1000 databases/checkpoints` 即可。
-> Windows / Docker Desktop 不需要这一步。
 
 ### 6.5 备份与恢复
 
-- **数据库**（Docker）：`docker exec ctos2-db pg_dump -U ctos_app ctos2 > backup.sql`，
-  恢复用 `docker exec -i ctos2-db psql -U ctos_app ctos2 < backup.sql`
-- **数据库**（本地直连）：`pg_dump -U ctos_app ctos2 > backup.sql`
+- **数据库**：`pg_dump -U ctos_app ctos2 > backup.sql`，
+  恢复用 `psql -U ctos_app ctos2 < backup.sql`
 - **向量库**：可以直接复制整个 `data/chroma/` 目录；
   但因为向量库可以随时由入库脚本重建，更稳妥的做法是**备份 `docs/corpus/` 里的原始文档**，
   需要时重新跑一次入库脚本
@@ -809,10 +802,7 @@ Docker 部署时数据库数据在命名卷 `ctos2-pgdata` 里，删容器不丢
 # 1. 修改 docs/corpus/ 下的文档
 # 2. 重新入库
 python -X utf8 -m modules.customer.rag_ingest
-# 3. 重启服务，否则内存里还是旧知识库
-#    线上等价于：
-#    docker exec ctos2-app python -m modules.customer.rag_ingest
-#    docker compose --env-file config/.env restart app
+# 3. 重启服务，否则内存里还是旧知识库（Ctrl+C 再重新 python -m api.main）
 ```
 
 **单独调试出行模块**（不启动 Web 服务）：
@@ -836,7 +826,7 @@ python -X utf8 -m databases.tools.view show 3
 **线上健康检查与日志**：
 ```bash
 curl https://ctos2.cn/health
-docker compose --env-file config/.env logs -f app
+# 日志就是运行 python -m api.main 那个终端的输出；要在后台跑可以用 nohup 或计划任务
 ```
 
 ---
@@ -901,9 +891,7 @@ ctOS2.0/
 │   ├── themeB/                 # 指挥台版（仅宽屏）
 │   └── shared/                 # 两套共用
 ├── scripts/                    # 构建与运维脚本
-├── screenshot/                 # README 用的界面截图
-├── Dockerfile                  # 镜像构建（python:3.14-slim，非 root，带健康检查）
-└── docker-compose.yml          # 应用 + 数据库两个容器
+└── screenshot/                 # README 用的界面截图
 ```
 
 ### 关于前端
@@ -938,8 +926,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 - 只有配置模板 `config/YOUR_config.env` 会入库，里面有占位符，不含真实值
 - **所有业务接口都要登录**：请求头带 `Authorization: Bearer <token>`，未登录返回 401
 - 密码存 bcrypt 哈希；登录失败时不区分「邮箱不存在」和「密码错误」，避免被用来枚举账号
-- **数据库不直接暴露到公网**：Docker 部署时 PostgreSQL 只在内部网络 `ctos2-net` 里，
-  只有 `app` 容器能连
+- **数据库不暴露到公网**：PostgreSQL 默认只监听本机，不对公网开放端口
 - HTTPS 由 Cloudflare 提供，应用本身不处理证书
 - 如果不小心把密钥提交进了仓库，**必须立刻去对应平台轮换密钥**。
   删除文件并不能让已泄露的密钥失效，因为提交历史里还留着
@@ -1067,7 +1054,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 4. 在 `api/main.py` 里加一个路由，把生成器塞进 `StreamingResponse`；**记得像别的业务路由一样调 `tenant_of(authorization)`**，否则新接口会绕过登录和数据隔离
 5. 在前端加一个面板和请求逻辑（参照 `static/themeA/js/trip.js` / `customer.js`，指挥台版对应 `static/themeB/js/`），并把新视图加进 `static/shared/js/common/config.js` 的 `VIEW_ORDER`
 6. 要存数据的话，在 `databases/` 下加一个 `db_xxx.py`（命名参照现有的 `db_chat.py` / `db_trip.py`），表里带上 `tenant_id`，并把它的建表函数加进 `common/db.py` 的 `create_all_tables()`
-7. 上线：走 `docker compose build` + `up -d`（线上环境见部署文档）
+7. 上线：把代码同步到服务器，重启 `python -X utf8 -m api.main`
 
 模块之间应该保持独立：各自的图、各自的提示词、各自的配置读取。
 共享的只有 FastAPI 应用、端口、会话接口和数据库连接层。

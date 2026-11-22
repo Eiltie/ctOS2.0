@@ -20,7 +20,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 # 检查点文件：刷新页面不影响，服务重启也能接着选。
-# 放在单独的子目录里，Docker 部署时挂一个卷进去，容器重建也不会丢暂停中的流程。
+# 放在单独的子目录里，别和代码混在一起，也方便备份和清理。
 CHECKPOINT_PATH = (
     Path(__file__).resolve().parent.parent
     / "databases"

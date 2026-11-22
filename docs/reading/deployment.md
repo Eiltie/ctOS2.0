@@ -1,6 +1,6 @@
 # 部署说明
 
-> 三种跑法，按需要选。
+> 本地直接跑：装好 Python 和 PostgreSQL，一条命令拉起服务。
 
 ---
 
@@ -12,10 +12,8 @@
 | --- | --- |
 | 访问地址 | <https://ctos2.cn>（裸域和 `www.ctos2.cn` 都能访问，页面完全一致） |
 | 健康检查 | <https://ctos2.cn/health> → `{"ok":true,"database":"ctos2","user":"ctos_app"}` |
-| 链路 | 浏览器 → Cloudflare（TLS / CDN）→ 服务器上的 `ctos2-app` 容器（8080）→ `ctos2-db` 容器（PostgreSQL 17） |
+| 链路 | 浏览器 → Cloudflare（TLS / CDN）→ 服务器上的 uvicorn 进程（8080）→ PostgreSQL 17 |
 | 访问方式 | 打开页面先进访客空间（独立租户，记录只存在当前浏览器），也可注册账号（一人一户，数据按租户隔离），然后即可用四个能力 |
-
-> 手机间歇性一直加载时，先跑 `scripts/check_online.ps1`，再按 [tunnel-check.md](tunnel-check.md) 检查 Cloudflare 是否只保留了一个隧道副本。
 
 > **HTML 和 SSE 不被缓存**：`cf-cache-status` 是 `DYNAMIC`，流式输出不受影响。
 >
@@ -23,151 +21,16 @@
 > `max-age=14400`，后端设的 `no-cache` 不起作用）。所以改完前端必须跑
 > `node scripts/stamp-static.js` 给资源加版本号，否则线上用户要等 4 小时才看到改动。
 
-**线上和本地唯一的区别是域名和 TLS**：应用代码、Dockerfile、Compose 文件都完全一样，
-容器内部仍然监听 `0.0.0.0:8080`，HTTPS 由 Cloudflare 那一层负责。
+**线上和本地唯一的区别是域名和 TLS**：应用代码完全一样，
+进程监听同一个端口，HTTPS 由 Cloudflare 那一层负责。
 
-**线上体感的前提**：服务器上 `config/.env` 里的密钥必须有效（DeepSeek / 高德），
+**线上体感的前提**：`config/.env` 里的密钥必须有效（DeepSeek / 高德），
 且账户有余额。缺密钥或余额不足时，对应模块会返回「这次没跑通」。
-客服的向量化跑在本机 Ollama 上，不占外网、也不需要密钥。
+客服的向量化跑在 Ollama 上，不占外网、也不需要密钥。
 
 ---
 
-## 一、Docker 部署（推荐）
-
-### 前提
-
-装了 Docker Desktop。检查：
-
-```powershell
-docker --version
-```
-
-### 启动
-
-> **所有 `docker compose` 命令都要带 `--env-file config/.env`。**
-> 配置只有一份，放在 `config/.env`；根目录不再放副本。
-> 忘了带会直接报错，并在报错信息里告诉你正确命令。
-
-```powershell
-cd D:\ctOS2.0
-docker compose --env-file config/.env up -d
-```
-
-**它会做这些事：**
-
-1. 启动 `ctos2-db` 容器（PostgreSQL 17）
-2. 等数据库健康检查通过
-3. 启动 `ctos2-app` 容器（你的应用）
-4. 应用连上数据库，监听 8080
-
-### 验证
-
-```powershell
-# 看容器状态
-docker compose --env-file config/.env ps
-
-# 健康检查
-curl http://127.0.0.1:8080/health
-# 期望：{"ok":true,"database":"ctos2","user":"ctos_app"}
-```
-
-浏览器打开 <http://127.0.0.1:8080/>
-
-### 常用命令
-
-| 命令 | 作用 |
-| --- | --- |
-| `docker compose --env-file config/.env up -d` | 启动（后台） |
-| `docker compose --env-file config/.env ps` | 看状态 |
-| `docker compose --env-file config/.env logs -f app` | 跟看应用日志 |
-| `docker compose --env-file config/.env logs -f db` | 跟看数据库日志 |
-| `docker compose --env-file config/.env restart app` | 只重启应用 |
-| `docker compose --env-file config/.env down` | 停止（**数据保留**） |
-| `docker compose --env-file config/.env down -v` | 停止并删除数据（⚠️ 慎用） |
-| `docker compose --env-file config/.env build` | 改代码后重新构建 |
-
-### 改代码后怎么生效
-
-```powershell
-docker compose --env-file config/.env build
-docker compose --env-file config/.env up -d
-```
-
-### 第一次部署时要建表
-
-```powershell
-docker exec ctos2-app python -m common.db
-```
-
----
-
-## 二、容器结构和端口
-
-```
-┌────────────────────────────────────────┐
-│  宿主机（你的电脑）                     │
-│                                        │
-│  浏览器 ──→ localhost:8080             │
-│                  │                     │
-│           ┌──────▼──────┐              │
-│           │ ctos2-app   │              │
-│           │ 端口 8080   │              │
-│           └──────┬──────┘              │
-│                  │ 内部网络 ctos2-net   │
-│           ┌──────▼──────┐              │
-│           │ ctos2-db    │              │
-│           │ 端口 5432   │              │
-│           └─────────────┘              │
-│                  │                     │
-│        localhost:5433（外部可访问）      │
-└────────────────────────────────────────┘
-```
-
-**为什么数据库映射到 5433 而不是 5432：**
-
-你电脑上可能已经装了 PostgreSQL（用 5432），映射到 5433 避免冲突。
-
-**应用连数据库用的是容器名 `db`，不是 127.0.0.1。** 这是 Docker 的 DNS，容器之间用服务名互相访问。
-
----
-
-## 三、数据存在哪
-
-| 数据 | 位置 | 说明 |
-| --- | --- | --- |
-| PostgreSQL 数据 | Docker 卷 `ctos2-pgdata` | 删容器不丢 |
-| Chroma 向量库 | `./modules/customer/data/chroma`（挂载） | 改文档后要重跑入库 |
-| 出行暂停现场 | `./databases/checkpoints`（挂载） | 容器重建后，没选完的方案还能接着选 |
-| 前端文件 | `./static`（挂载） | 镜像里也 COPY 了一份，挂载后**以宿主机为准**：改完刷新页面就生效 |
-| 更新公告 | `./config/notice.json`（挂载） | 改完刷新页面就生效 |
-| 后端代码 | 镜像里 | 改 `common/` / `api/` / `modules/` / `databases/` 要 `docker compose build` |
-
-**挂载了 `databases/checkpoints` 很关键**：不挂的话，容器一重建，
-用户正在选的候选路线就没了（`/trip/route/choose` 会提示「这次路线决策已经失效」）。
-
-**查看卷在哪：**
-
-```powershell
-docker volume inspect ctos2-pgdata
-```
-
-**备份数据库：**
-
-```powershell
-docker exec ctos2-db pg_dump -U ctos_app ctos2 > backup.sql
-```
-
-**恢复：**
-
-```powershell
-docker exec -i ctos2-db psql -U ctos_app ctos2 < backup.sql
-```
-
----
-
-## 四、本地开发（不用 Docker）
-
-**适合改代码时用，改完刷新就生效（Docker 要重新 build）。**
+## 一、本地运行
 
 ### 前提
 
@@ -180,44 +43,65 @@ docker exec -i ctos2-db psql -U ctos_app ctos2 < backup.sql
 # 1. 启动 PostgreSQL
 D:\PostgreSQL\pgsql\bin\pg_ctl.exe -D D:\PostgreSQL\data -l D:\PostgreSQL\server.log -o "-p 5432" start
 
-# 2. 建表（第一次）
+# 2. 建表（第一次，或改了表结构）
 cd D:\ctOS2.0
 venv\Scripts\python.exe -X utf8 -m common.db
 
-# 3. 启动应用
+# 3. 启动应用（这条就把服务拉起来了）
 venv\Scripts\python.exe -X utf8 -m api.main
+
+# 4. 浏览器打开
+# http://127.0.0.1:8080/
 ```
+
+改 Python 代码重启这一步即可；改前端要 `cd web && npm run build`，产物落到 `static/dist/`。
 
 ### 停止
 
 ```powershell
+# 应用：在运行它的终端按 Ctrl+C
+# 数据库：
 D:\PostgreSQL\pgsql\bin\pg_ctl.exe -D D:\PostgreSQL\data stop
 ```
 
-### 重要：本地和 Docker 不能同时跑
+---
 
-两者都占 8080 端口，**同时只能跑一个**。
+## 二、数据存在哪
+
+| 东西 | 位置 |
+| --- | --- |
+| 业务数据（用户、会话、消息） | PostgreSQL 的数据库 `ctos2` |
+| 客服向量库 | `modules/customer/data/chroma/` |
+| 人工确认的暂停现场 | `databases/checkpoints/route_checkpoints.sqlite` |
+| 前端构建产物 | `static/dist/` |
+
+数据库备份：
+
+```powershell
+D:\PostgreSQL\pgsql\bin\pg_dump.exe -U ctos_app -d ctos2 -f backup.sql
+# 恢复
+D:\PostgreSQL\pgsql\bin\psql.exe -U ctos_app -d ctos2 -f backup.sql
+```
 
 ---
 
-## 五、环境变量
+## 三、环境变量
 
-所有配置只在 `config/.env` **一份**。代码和 Docker 都读它——Docker 通过 `--env-file config/.env` 指定，代码通过 `common/llm.py` 里的 `load_dotenv` 读取。
+所有配置只在 `config/.env` **一份**，代码通过 `common/llm.py` 里的 `load_dotenv` 读取。
 
 | 变量 | 必填 | 说明 |
 | --- | --- | --- |
 | `DEEPSEEK_API_KEY` | ✅ | 所有对话和推理 |
 | `DEEPSEEK_BASE_URL` | ✅ | `https://api.deepseek.com` |
 | `DEEPSEEK_MODEL` | ✅ | 模型名 |
-| `ZHIPU_API_KEY` | ✅ | 客服的向量化（缺了客服模块用不了） |
+| `SEEDREAM_API_KEY` | ✅ | 生图（火山方舟） |
+| `OLLAMA_HOST` | ✅ | 客服向量化，默认 `http://127.0.0.1:11434` |
 | `AMAP_KEY` | ✅ | 出行的路线计算；缺了路线决策不可用，攻略流程仍能跑 |
 | `JWT_SECRET_KEY` | ✅ | 登录 token 签名密钥（缺了启动就报错，没有默认值） |
 | `PG_HOST` / `PG_PORT` / `PG_DBNAME` / `PG_USER` / `PG_PASSWORD` | ✅ | 数据库连接 |
-| `HOST` / `PORT` | 可选 | 监听地址，默认 `127.0.0.1:8080`；Docker 里设 `0.0.0.0` |
+| `HOST` / `PORT` | 可选 | 监听地址，默认 `127.0.0.1:8080` |
 
 > 天气用的是 Open-Meteo，**免密钥**，不需要额外申请。
-> compose 文件会把上面这些变量逐个传给 `app` 容器；新增环境变量时记得在 `docker-compose.yml`
-> 的 `environment:` 里也加一行，否则容器里读不到。
 
 **生成 JWT 密钥：**
 
@@ -227,9 +111,14 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 ---
 
-## 六、局域网访问
+## 四、局域网访问
 
-Docker 默认监听 `0.0.0.0`，**同一 WiFi 下其他设备可以直接访问**。
+默认只监听 `127.0.0.1`，本机才能访问。想让同一 WiFi 下其他设备打开：
+
+```powershell
+$env:HOST="0.0.0.0"
+venv\Scripts\python.exe -X utf8 -m api.main
+```
 
 查你的内网 IP：
 
@@ -237,174 +126,75 @@ Docker 默认监听 `0.0.0.0`，**同一 WiFi 下其他设备可以直接访问*
 Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -match '^192\.168\.|^10\.' }
 ```
 
-假设是 `192.168.1.247`，其他设备访问：
-
-```
-http://192.168.1.247:8080/
-```
+假设是 `192.168.1.247`，其他设备访问 `http://192.168.1.247:8080/`。
 
 **Windows 防火墙可能要放行 8080 端口。**
 
 ---
 
-## 七、常见问题
+## 五、常见问题
 
-### 线上打不开 / 打开是旧页面
+### 服务起不来
 
-1. 先访问 <https://ctos2.cn/health>：有 `{"ok":true,...}` 说明应用本身活着，问题在域名或 CDN 层
-2. 没响应就看服务器上容器状态：`docker compose --env-file config/.env ps`
-3. Cloudflare 里确认 `ctos2.cn` 和 `www.ctos2.cn` 两条 DNS 记录都在，并且是**已代理**（橙云）
-4. 改了代码上线后看到的还是旧页面，先强制刷新（Ctrl+F5）；HTML 不被 CDN 缓存，一般刷新即可
-
-### 容器起不来
-
-```powershell
-docker compose --env-file config/.env logs app
-```
+看终端报错。最常见是 `JWT_SECRET_KEY` 没配，或 PostgreSQL 没启动。
 
 ### 健康检查失败
 
 ```powershell
-# 看是不是连不上数据库
-docker exec ctos2-app python -c "from common.db import check_connection; print(check_connection())"
+venv\Scripts\python.exe -c "from common.db import check_connection; print(check_connection())"
 ```
+
+连不上就是 `config/.env` 里的 `PG_*` 配置不对，或者数据库没起。
 
 ### 端口被占用
 
 ```powershell
-# 查谁占了 8080
 Get-NetTCPConnection -LocalPort 8080 -State Listen
 ```
 
 ### 改了代码但没生效
 
-- 改的是 **前端**（`static/`）或 **公告**（`config/notice.json`）：已经挂载进容器，刷新页面即可
-  - 但 `.js` / `.css` 会被 Cloudflare 缓存，改完先跑 `node scripts/stamp-static.js` 加版本号，否则线上看不到改动
-  - 确认是否已生效：`curl -s https://ctos2.cn/ | findstr "?v="` 看版本号有没有变
-- 改的是 **后端**（`common/` / `api/` / `modules/` / `databases/`）：代码打包在镜像里，**必须重新构建**：
+- 改的是 **后端**：重启 `python -m api.main` 那个进程
+- 改的是 **前端**：`cd web && npm run build`，然后强制刷新（Ctrl+F5）
+  - 线上的话还要跑 `node scripts/stamp-static.js` 加版本号，否则 `.js` / `.css` 会被 Cloudflare 缓存 4 小时
+- 改的是 **知识库文档**：要重跑入库（见下一条）并重启服务
+
+### 更新客服知识库
+
+知识库文档在 `docs/corpus/*.md`，改了必须重新入库：
 
 ```powershell
-docker compose --env-file config/.env build
-docker compose --env-file config/.env up -d
+venv\Scripts\python.exe -X utf8 -m modules.customer.rag_ingest
 ```
 
-- 改的是 **知识库文档**：还要重跑入库并重启应用容器（见第九节最后一条）
+然后重启服务。
 
 ### 想重置所有数据
 
 ```powershell
-docker compose --env-file config/.env down -v      # ⚠️ 删数据卷
-docker compose --env-file config/.env up -d
-docker exec ctos2-app python -m common.db
+venv\Scripts\python.exe -X utf8 -m databases.tools.clean   # 菜单里选清理项
+venv\Scripts\python.exe -X utf8 -m common.db                # 重建表
 ```
 
 ---
 
-## 八、构建镜像的耗时说明
-
-| 步骤 | 耗时 | 说明 |
-| --- | --- | --- |
-| 拉基础镜像 | 首次约 4 分钟 | 有缓存后 1 秒 |
-| 装 apt 包 | 约 2 分钟 | libpq5 + curl |
-| pip 装依赖 | 约 6 分钟 | 走阿里云源 |
-| 拷代码 | 几秒 | — |
-| **首次总计** | **约 8 分钟** | — |
-| **改代码后重建** | **约 20 秒** | 依赖层命中缓存 |
-
-**为什么用阿里云 pip 源：** 走 PyPI 官方源在国内要几十分钟。
-
----
-
-## 九、上线流程（线上 www.ctos2.cn 就是这样上线的）
-
-代码和配置都在本地改，**上线只做一件事：把改动同步到服务器再重建容器**。
+## 六、上线流程
 
 ```powershell
-# 1. 本地确认能跑（可选，但推荐）
-docker compose --env-file config/.env up -d
-#    浏览器打开 http://127.0.0.1:8080/ 自测三个模块
+# 1. 本地确认能跑
+#    浏览器打开 http://127.0.0.1:8080/ 自测四个模块
 
 # 2. 改完提交
 git add -A
-git commit -m "说明改了什么"
+git commit -m "..."
 
-# 3. 把代码同步到服务器（按你的实际方式二选一）
-#    git 方式：服务器上 git pull
-#    镜像方式：本地 docker compose build 后，把镜像推到仓库再在服务器 pull
-#    （.dockerignore 保证 venv/、config/.env、向量库、数据库文件都不会进镜像）
+# 3. 同步到服务器（git pull 或 rsync，按你的方式）
 
-# 4. 服务器上重建并重启
-docker compose --env-file config/.env build
-docker compose --env-file config/.env up -d
-
-# 5. 验证
-curl https://ctos2.cn/health
-# 期望：{"ok":true,"database":"ctos2","user":"ctos_app"}
-```
-
-**上线前必须检查的三件事：**
-
-| 检查 | 为什么 |
-| --- | --- |
-| 服务器上的 `config/.env` 是最新的 | 密钥只在服务器上有一份，本地改了不会自动同步过去 |
-| 服务器上的 `modules/customer/data/chroma/` 存在 | 向量库是目录挂载，**不进镜像**，服务器第一次部署必须先跑一次入库脚本 |
-| 服务器上跑过 `python -m common.db` | 建表是一次性的，没建表的话注册登录会直接报错 |
-
-**每次升级代码后**（不只是第一次）建议补做两件事：
-
-```bash
-docker exec ctos2-app python -m common.db                     # 补新增的表 / 字段（IF NOT EXISTS，不动数据）
-docker exec ctos2-app python -m modules.customer.rag_ingest # 只有改了知识库文档才需要
-```
-
-**线上第一次部署的完整步骤：**
-
-```bash
-# 1. 拉代码到服务器
-git clone <仓库地址> && cd ctOS2.0
-
-# 2. 准备配置
-cp config/YOUR_config.env config/.env    # 填好密钥
-
-# 3. 起容器
-docker compose --env-file config/.env up -d
-
-# 4. 建表（一次性）
-docker exec ctos2-app python -m common.db
-
-# 5. 知识库入库（一次性，结果落进挂载的 chroma 目录）
-docker exec ctos2-app python -m modules.customer.rag_ingest
-
-# 6. 验证
+# 4. 服务器上重启进程，并确认：
 curl http://127.0.0.1:8080/health
+# 期望：{"ok":true,"database":"ctos2","user":"ctos_app"}
+
+# 5. 第一次上线或改了表结构时：
+python -X utf8 -m common.db
+python -X utf8 -m modules.customer.rag_ingest   # 只有改了知识库文档才需要
 ```
-
-**要确认 12 张表都建好了**：`tenants` / `users` / `sessions` / `messages` /
-`trip_chats` / `trip_sessions` / `trip_user_inputs` / `trip_ai_outputs` /
-`role_play_sessions` / `role_play_memories` / `role_play_roles` / `feedback`。
-
-```bash
-docker exec ctos2-db psql -U ctos_app ctos2 -c "\dt"
-```
-
-**从"智能出行"升级到"路线规划 + 旅游攻略"要做的一次性迁移**：
-
-```bash
-# 补上 trip_ai_outputs.advice 列（攻略第四段从"详细路线"改成"游玩建议"）
-docker exec ctos2-app python -m common.db
-
-# 重启应用，让客服读到新的知识库
-docker restart ctos2-app
-```
-
-不补 `advice` 列也能跑：`db_trip.py` 会在存库前检查列在不在，
-不在时跳过那一列，攻略照样生成，只是「游玩建议」不进历史记录。老记录的
-`route_plan` 列不动，页面上显示成「详细路线（旧版）」。
-
-**域名和 TLS**：在域名商处把 `ctos2.cn` 和 `www.ctos2.cn` 都指向服务器 IP，
-这两条记录都在 Cloudflare 里托管（走代理），HTTPS 证书由 Cloudflare 自动签发和续期，
-应用本身**不需要**配任何证书或反向代理。
-
-**改知识库要重新入库**：线上改了 `modules/customer/data/docs/*.md` 之后，
-必须重跑 `docker exec ctos2-app python -m modules.customer.rag_ingest` 并**重启应用容器**，
-否则客服读到的还是内存里的旧知识库。

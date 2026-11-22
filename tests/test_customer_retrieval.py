@@ -159,10 +159,10 @@ def test_route_generates_when_in_scope():
 def test_route_generates_when_hits_are_strong_even_if_model_said_out_of_scope():
     """模型误判库外时，检索到强结果仍然要作答。
 
-    「怎么用 Docker 部署」实测被模型判成 in_scope=false，但文档里有整章部署，
+    「怎么部署上线」实测被模型判成 in_scope=false，但文档里有整章部署，
     得分 0.780。这类误拒比答得浅更难受。
     """
-    state = _state([("docker compose 部署", 0.78)], in_scope=False, query="怎么部署")
+    state = _state([("部署上线流程", 0.78)], in_scope=False, query="怎么部署")
     assert customer_node.route_after_retrieve(state) == "generate"
 
 

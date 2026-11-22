@@ -4,7 +4,7 @@
 
 **线上地址：<https://ctos2.cn>**（也可用 `www.ctos2.cn`）——打开页面会自动进入访客空间，注册账号后可跨设备保留记录。
 
-支持 Docker 一键部署，也可以在本地直接运行。
+直接在本地跑：装好 Python 和 PostgreSQL，一条命令拉起服务。
 
 ---
 
@@ -129,31 +129,7 @@
 
 自动建访客账号的实现见 `api/routes/trial.py`（独立文件，不要了可以整块删掉）。
 
-### 方式一：Docker（推荐）
-
-> **配置只有一份**：`config/.env`。代码和 Docker 都读它，根目录不放副本。
-> 所以所有 `docker compose` 命令都要带 `--env-file config/.env`
-> （忘了带会直接报错，并在报错里告诉你正确命令）。
-
-```bash
-# 1. 配置密钥
-cp config/YOUR_config.env config/.env
-# 编辑 config/.env，填入 API 密钥
-
-# 2. 启动
-docker compose --env-file config/.env up -d
-docker exec ctos2-app python -m common.db    # 首次要建表
-
-# 3. 打开浏览器
-# http://127.0.0.1:8080/
-```
-
-> `static/` 已挂载进容器：改前端文件后刷新页面即可生效；
-> 改 Python 代码（`common/`、`api/`、`modules/`、`databases/`）才需要重新构建：
-> `docker compose --env-file config/.env up -d --build app`。
-> 改前端只要 `cd web && npm run build`，产物直接落到 `static/dist/`。
-
-### 方式二：本地运行
+### 本地运行（唯一方式）
 
 **前提**：Python 3.14、PostgreSQL 17
 
@@ -166,14 +142,16 @@ python -m venv venv
 venv\Scripts\activate
 pip install -r config/requirements.txt
 
-# 3. 配置密钥
+# 3. 配置密钥（只有这一份：config/.env）
 cp config/YOUR_config.env config/.env
 # 编辑 config/.env
 
 # 4. 建表 + 启动
-python -X utf8 -m common.db
-python -X utf8 -m api.main
+python -X utf8 -m common.db      # 首次建表，之后改了表结构再跑一次
+python -X utf8 -m api.main       # 拉起服务，浏览器打开 http://127.0.0.1:8080/
 ```
+
+> 改 Python 代码重启服务即可；改前端 `cd web && npm run build`，产物直接落到 `static/dist/`。
 
 ### 必需的配置
 
@@ -283,7 +261,6 @@ ctOS2.0/
 ├── tests/          单元测试（不连库不调模型，跑 5 秒）
 ├── scripts/        运维脚本
 │   ├── 清理数据库-本机.bat    双击清本机 5432
-│   ├── 清理数据库-Docker.bat  双击清 Docker 5433
 │   ├── check_online.ps1      检查线上是否可访问
 │   └── make_screenshots.py   重新生成 README 截图
 └── config/         配置
@@ -336,29 +313,21 @@ python -X utf8 -m databases.tools.feedback_view stats  # 统计
 
 # 或者用 psql / VS Code 插件连
 # host=127.0.0.1  port=5432  db=ctos2  user=ctos_app
-# Docker 的话端口是 5433
 ```
 
 ### 清理数据
 
 ```bash
-python -X utf8 -m databases.tools.clean            # 本机 5432
-python -X utf8 -m databases.tools.clean --docker   # Docker 5433（8080 页面用的库）
-docker exec -it ctos2-app python -m databases.tools.clean   # 在容器里清理
+python -X utf8 -m databases.tools.clean              # 清 config/.env 里配的那套库
+python -X utf8 -m databases.tools.clean --port 5433  # 清 127.0.0.1:5433 那套库
 ```
 
 菜单里可以选：查看现状、清理访客账号、清理某个账号的聊天/出行、删除某个账号、
 清理全部闲聊/出行/反馈。删除前会显示条数，并要求输入确认词。
 
-**不想敲命令，直接双击 `scripts/` 下的两个文件：**
+**不想敲命令，直接双击 `scripts\清理数据库-本机.bat`。**
 
-| 文件 | 清哪个库 |
-| --- | --- |
-| `scripts\清理数据库-本机.bat` | 本机 5432（本地跑 `python -m api.main` 用的） |
-| `scripts\清理数据库-Docker.bat` | Docker 5433（`http://127.0.0.1:8080/` 页面用的） |
-
-双击后**先选「1. 查看数据库现状」**确认连对了库，再选清理项——
-两个库都在的时候很容易清错。Docker 版会先检查 5433 通不通，容器没起会提示你先起容器。
+双击后**先选「1. 查看数据库现状」**确认连对了库，再选清理项。
 
 ---
 
@@ -493,7 +462,7 @@ curl -N -X POST http://127.0.0.1:8080/trip/chat \
 | 地图 | 高德（路线决策） |
 | 天气 | Open-Meteo（免密钥） |
 | 认证 | JWT + bcrypt |
-| 部署 | Docker + Docker Compose，Cloudflare 托管域名与 TLS |
+| 部署 | uvicorn 直接拉起（`python -m api.main`），Cloudflare Tunnel 提供域名与 TLS |
 | 前端 | Vue 3 + TypeScript + Vite；无 UI 框架，样式用 CSS 变量集中在 `tokens.css`；SSE 流式渲染 |
 
 ---
