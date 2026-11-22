@@ -161,7 +161,7 @@ def _route_events(chunks, thread_id, context):
 
 def place_options(place_name, city):
     """把查到的地点整理成可以点的选项。"""
-    from common.tools.amap import find_place_candidates
+    from modules.trip.amap import find_place_candidates
 
     options = []
     for index, place in enumerate(find_place_candidates(place_name, city), start=1):

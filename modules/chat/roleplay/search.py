@@ -9,7 +9,7 @@ import json
 from common.llm import get_llm
 from modules.chat.roleplay.openings import make_opening
 from modules.chat.roleplay.roles import DEFAULT_ROLE_BOUNDARIES
-from common.tools.search import web_search
+from tools.search import web_search
 
 # 搜索和整理都要稳一点，不要自由发挥
 SEARCH_TEMPERATURE = 0.4

@@ -13,7 +13,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 
 from common.checkpoints import get_checkpointer
-from common.tools.search import web_search
+from tools.search import web_search
 from modules.trip.guide.ask import ask_spots_node
 from modules.trip.guide.conditions import should_continue
 from modules.trip.guide.node import advice_node, planner_node, spots_agent_node, weather_node

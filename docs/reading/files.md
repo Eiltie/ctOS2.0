@@ -76,7 +76,6 @@
 | `auth.py` | 72 | 密码哈希（bcrypt）、JWT 签发与校验 | 改 token 有效期、改密码规则 |
 | `sse.py` | 38 | SSE 事件打包（`data: {...}\n\n`）+ `stream_from_thread()` | 改流式输出格式 |
 | `checkpoints.py` | 40 | LangGraph 暂停现场（路线和攻略共用一个 sqlite） | 改暂停恢复逻辑 |
-| `tools/` | — | 外部数据工具：`amap.py` `weather.py` `search.py` | 加新的外部数据源 |
 
 **注意**：`db.py` 里的 `_conninfo()` 用 dict 传参而不是拼 DSN 字符串，因为密码里有反斜杠会出问题。
 
@@ -293,14 +292,16 @@ modules/<模块名>/
 - `resume_guide()` 会校验 `tenant_id`，拿别人的暂停现场续不上
 - 进来就说明 Agent 已经判断过该做攻略，这里不再做"走错门"判断
 
-### `common/tools/` —— 外部数据工具（谁都能用）
+### `tools/` —— 外部数据工具（两个以上模块在用）
 
 | 文件 | 行数 | 职责 |
 | --- | --- | --- |
 | `search.py` | 77 | `web_search`：DeepSeek Search，攻略搜景点、角色扮演 AI 帮我查 |
-| `weather.py` | 155 | `get_weather`：Open-Meteo，含城市名后缀变体（实测救回 22% 查不到的城市） |
-| `amap.py` | 468 | 高德：`find_place`、驾车/公交/步行/骑行候选、给模型用的 `get_directions` |
----
+| `imagesproduct.py` | 77 | `imageProduct`：需求 → 提示词 agent → 生图 → 存盘；chat 和 trip 共用 |
+
+> 只有单个模块用的工具不放这里，跟着模块走：
+> `modules/trip/amap.py`（高德）、`modules/trip/weather.py`（天气）。
+
 
 ### `modules/customer/` —— RAG 智能客服
 
@@ -438,7 +439,7 @@ static/
 | 加一个新接口 | 新建 `api/routes/xxx.py`，再到 `api/main.py` 加一行 `include_router` |
 | 加一张表 | 往 `databases/schema.sql` 加建表语句，跑 `python -X utf8 -m databases.schema`；再新建 `databases/modules/db_xxx.py` 写增删改查 |
 | 改流式事件格式 | 对应模块的 `stream.py`（打包函数在 `common/sse.py`） |
-| 加外部工具 | `common/tools/`（搜索 / 天气 / 地图各一个文件） |
+| 加外部工具 | 两个以上模块用 → `tools/`；只有单个模块用 → 放那个模块里 |
 | 改预设角色 | `modules/chat/roleplay/presets.py`（重启生效） |
 | 改记忆规则 | `modules/chat/roleplay/memory.py`（每 6 轮、200 字上限） |
 | 改前端样式 | `static/themeA/css/modules.css`（颜色改 `theme.css`）；指挥台版改 `static/themeB/css/style.css` |
@@ -470,7 +471,7 @@ static/
 | `static/themeB/js/trip/base.js` | 1425 |
 | `static/themeB/css/theme-light.css` | 831 |
 | `static/themeB/js/console.js` | 677 |
-| `common/tools/amap.py` | 429 |
+| `modules/trip/amap.py` | 429 |
 | `modules/trip/route/stream.py` | 368 |
 
 **如果一个文件超过 500 行，考虑拆分。** 现在超标的只剩样式表和前端大文件；

@@ -31,12 +31,11 @@ ctOS2.0/
 │   ├── llm.py             ← 唯一的 get_llm()
 │   ├── sse.py             ← sse() 打包 + stream_from_thread()
 │   ├── auth.py            ← 密码哈希 + JWT
-│   ├── db.py              ← 开连接 + 建表总入口
-│   ├── checkpoints.py     ← 出行的暂停现场（路线和攻略共用一个）
-│   └── tools/             ← 外部数据工具（谁都能用，不判断、不调模型）
-│       ├── search.py      ← web_search（攻略搜景点、角色扮演 AI 帮我查）
-│       ├── weather.py     ← get_weather（Open-Meteo）
-│       └── amap.py        ← 高德：地名查坐标、四种方式的候选路线
+│   ├── db.py              ← 开连接 + 建库转发
+│   └── checkpoints.py     ← 出行的暂停现场（路线和攻略共用一个）
+├── tools/                 ← 工具层：两个以上模块在用的外部数据工具
+│   ├── search.py          ← web_search（chat 角色扮演 + trip 攻略）
+│   └── imagesproduct.py   ← imageProduct（chat 对话 + trip 出行）
 ├── databases/             ← 数据库层：公共 / 各模块 / 运维工具
 │   ├── common/            ← 公共部分
 │   │   ├── db.py          ← 连接 + 通用操作 + 建表总入口 create_all_tables()
@@ -60,11 +59,12 @@ ctOS2.0/
 │   ├── trip/              ← 智能出行（父）
 │   │   ├── agent.py       ← 编排：判断 → 自己答 / 调能力
 │   │   ├── graph/node/state/prompts/stream.py
+│   │   ├── amap.py        ← 高德地图（只有出行用）
+│   │   ├── weather.py     ← 天气（只有出行用）
 │   │   ├── route/         ← 子集：路线规划（need/graph/stream/tools/prompts）
 │   │   └── guide/         ← 子集：旅游攻略（graph/stream/node/prompts/state/
-│   │                        conditions/ask/quick/cli）
-│   ├── customer/          ← 独立：客服（graph/node/state/prompts/stream + rag_* + data/）
-│   └── imagegen/          ← 交集：生图（在新，尚未接入路由）
+│   │                        conditions/ask/quick）
+│   └── customer/          ← 独立：客服（graph/node/state/prompts/stream + rag_* + data/）
 ├── static/                ← 前端（无构建步骤）
 ├── docs/                  ← 本文档
 ├── eval/                  ← 端到端测评
@@ -239,7 +239,7 @@ POST /chat（不带 role_id）
 
 ⑤ AI 帮我查  POST /roleplay/roles/search
    └─ search_role()   modules/chat/roleplay/search.py
-         ├─ web_search()    common/tools/search.py（和攻略共用）
+         ├─ web_search()    tools/search.py（和攻略共用）
          └─ 模型整理成档案草稿，**不存库**，用户确认后才走 ⑥
 
 ⑥ 保存角色  POST /roleplay/roles
@@ -349,8 +349,8 @@ POST /trip/chat
         ├─ 解析需求 parse_route_need(query, history)   trip/route/need.py
         │     history 一起喂进去，一次调用搞定"改成5天"这类补充
         ├─ 校验     check_need()      缺起点/终点/城市 → 反问
-        ├─ 查地点   find_place()      common/tools/amap.py
-        ├─ 查天气   get_weather()     common/tools/weather.py
+        ├─ 查地点   find_place()      modules/trip/amap.py
+        ├─ 查天气   get_weather()     modules/trip/weather.py
         ├─ 查候选   route_graph       trip/route/graph.py
         │     ├─ collect_routes   查驾车/公交/步行/骑行（tools.py）
         │     ├─ ask_user         interrupt() 暂停，等用户选方案
@@ -502,7 +502,7 @@ POST /customer/chat
 | 同步转线程 | `common/sse.py` 的 `stream_from_thread()` | 出行 + 客服 |
 | 数据库连接 | `common/db.py` 的 `get_conn()` / `query()` / `execute()` / `transaction()` | 全部 |
 | 会话读写 | `modules/chat/sessions.py` | 闲聊 + 角色扮演 |
-| 联网搜索工具 | `common/tools/search.py` 的 `web_search()` | 路线 + 攻略 + 角色扮演（AI 帮我查） |
+| 联网搜索工具 | `tools/search.py` 的 `web_search()` | 路线 + 攻略 + 角色扮演（AI 帮我查） |
 | 检查点 | `modules/trip/route/graph.py`（路线 + 攻略共用一份） | 出行 |
 
 **统一约定**：存库失败不拖垮主流程——各模块自己 `try/except`，打印后继续。

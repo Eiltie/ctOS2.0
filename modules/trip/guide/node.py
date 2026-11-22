@@ -11,8 +11,8 @@ from datetime import date, timedelta
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from common.llm import get_llm
-from common.tools.search import web_search
-from common.tools.weather import get_weather
+from tools.search import web_search
+from modules.trip.weather import get_weather
 from modules.trip.guide.prompts import (
     ADVICE_PROMPT,
     PARSE_QUERY_PROMPT,

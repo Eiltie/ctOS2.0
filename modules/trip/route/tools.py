@@ -7,7 +7,7 @@
 注意：本文件不再直接发网络请求，只做判断和文字，方便单独调规则。
 """
 
-from common.tools.amap import (
+from modules.trip.amap import (
     get_bike_choice,
     get_bus_choices,
     get_drive_choices,
@@ -355,7 +355,7 @@ def make_route_title(need):
 
 if __name__ == "__main__":
     # 手动测：杭州东站 → 灵隐寺
-    from common.tools.amap import find_place
+    from modules.trip.amap import find_place
 
     start = find_place("杭州东站", "杭州", allow_nationwide=True)
     end = find_place("灵隐寺", "杭州")

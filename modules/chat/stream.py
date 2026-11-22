@@ -103,7 +103,7 @@ def _last_user_text(query) -> str:
 def _generate_and_register(query, tenant_id, session_id, history_reply=""):
     """跑一次生图，把结果登记进 message_images，返回 image_id。
 
-    生图本身是 common/tools/imagesproduct 的事，这里只负责：
+    生图本身是 tools/imagesproduct 的事，这里只负责：
     拼需求、调用、登记。任何一步失败都返回 None —— 生图是锦上添花，不能拖垮这轮对话。
     """
     if tenant_id is None:
@@ -118,7 +118,7 @@ def _generate_and_register(query, tenant_id, session_id, history_reply=""):
     requirement = f"{query}\n\n{need}" if need else query
 
     try:
-        from common.tools.imagesproduct import imageProduct
+        from tools.imagesproduct import imageProduct
 
         saved = imageProduct(requirement, tenantId=tenant_id)
     except Exception as e:

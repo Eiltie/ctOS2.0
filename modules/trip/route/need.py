@@ -14,8 +14,8 @@ import json
 from datetime import date, datetime, timedelta
 
 from common.llm import get_llm
-from common.tools.amap import find_place
-from common.tools.weather import get_weather
+from modules.trip.amap import find_place
+from modules.trip.weather import get_weather
 from modules.trip.route.prompts import PARSE_ROUTE_NEED_PROMPT
 from modules.trip.route.tools import normalize_preference, normalize_want_mode
 
