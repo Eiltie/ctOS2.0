@@ -1,16 +1,9 @@
-"""闲聊模块的表和增删改查：sessions 存会话，messages 存消息（级联删除）。
+"""会话和消息的增删改查：sessions 存会话，messages 存消息（删会话时级联删）。
 
-PostgreSQL 版本，与 SQLite 版的主要差异：
-  - id 用 GENERATED ALWAYS AS IDENTITY（PG 标准写法，比 SERIAL 更规范）
-  - 时间用 TIMESTAMPTZ，默认 CURRENT_TIMESTAMP（带时区，不会有时差问题）
-  - 占位符用 %s
-  - 插入后拿 id 用 RETURNING id
-  - 每张表都有 tenant_id，所有查询必须带上它（多租户隔离）
+每张表都有 tenant_id，所有查询都要带上它做租户隔离。tenant_id 由调用方传进来，
+生产路径上由 api 层从登录 token 取出，只有本地调试才会用默认值。
 
-多租户约定：tenant_id 由调用方传进来，默认走 databases.conn.DEFAULT_TENANT_ID。
-生产路径上由 api 层从登录 token 取，不会走默认值。
-
-注意：tenants 表不在本文件创建，见 databases/common/db_tenant.py。
+tenants 表不在这个文件里建，见 databases/common/db_tenant.py。
 """
 
 from databases.conn import DEFAULT_TENANT_ID, execute, execute_returning_id, query

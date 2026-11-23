@@ -1,17 +1,9 @@
-"""反馈表：用户在页面上提交的意见与建议。
+"""反馈表：用户在页面上提交的意见和建议。
 
-================================ 关于这个文件 ================================
-独立功能，和主流程解耦。反馈内容只给项目维护者看，不对外展示。
+反馈只给维护者看，不对外展示。这张表独立存在，不影响其他表。
 
-不需要了这个功能，删掉下面这几处即可，其余代码不受影响：
-  1. databases/modules/db_feedback.py       （本文件）
-  2. databases/feedback_view.py     （命令行查看工具）
-  3. api/main.py 里「# ===== 反馈 =====」到文件末尾的那一段
-  4. core/db.py 的 module_builders 里那一行（不删也会自动跳过）
-  5. 前端：web/src/shared/components/FeedbackDialog.vue、web/src/shared/api/http.ts
-
-数据表 feedback 独立存在，不影响其他任何表。
-============================================================================
+不需要这个功能的话，删掉本文件，再去掉 api/routes/feedback.py 里的路由、
+api/main.py 里的 include_router，以及前端的 FeedbackDialog.vue。
 """
 
 from databases.conn import execute, execute_returning_id, query, query_one

@@ -1,15 +1,10 @@
-"""接口层的共用工具：租户解析、图片校验、SSE 响应头。
+"""接口层的共用工具：取租户、校验图片、SSE 响应头。
 
-为什么单独一个文件：
-  这些函数原来长在 api/main.py 里，被几乎所有路由共用。
-  路由拆到 api/routes/* 之后，谁都要 import 它们，
-  如果还留在 main.py，routes 就得反向 import main ——循环依赖。
+这些都是所有路由都要用的。如果留在 api/main.py 里，routes 就得反过来 import main，
+形成循环依赖，所以单独拆出来。
 
-  所以独立成 deps.py：main.py 和所有 routes 都只依赖它，它不依赖任何路由。
-
-和 api/routes/auth.py 的分工：
-  routes/auth.py 的 current_tenant() 是"认证"本身（解 token、查用户）。
-  这里的 tenant_of() 只是给业务路由用的薄壳，语义更直白："我要当前租户"。
+和 api/routes/auth.py 的分工：那边的 current_tenant() 是认证本身（解 token、查用户），
+这里的 tenant_of() 只是给业务路由用的薄壳，语义更直白——「我要当前租户」。
 """
 
 from fastapi import HTTPException

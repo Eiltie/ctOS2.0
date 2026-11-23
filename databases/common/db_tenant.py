@@ -1,15 +1,8 @@
-"""全局身份表：tenants（租户）。
+"""租户表 tenants 的查询。建表语句在 databases/schema.sql 里。
 
-建表语句在 databases/schema.sql（`python -X utf8 -m databases.schema` 执行）。
-这里只放增删改查。
-
-为什么单独一个文件：
-  这张表不属于任何一个业务模块——users / sessions / trip_chats / trip_sessions
-  全都外键引用它。以前它是由「闲聊」模块的建表函数顺带创建的，
-  结果是：删掉闲聊模块，认证和出行也跟着坏。
-
-  现在它独立出来当作共用底座的一部分：
-    - 谁都可以引用它，但它不反过来依赖任何业务模块
+这张表不属于任何业务模块，但 users / sessions / trip_chats 全都外键引用它。
+以前它是被对话模块的建表函数顺带创建的，结果删掉对话模块，认证和出行也跟着坏。
+现在独立出来：谁都能引用它，它不反过来依赖任何模块。
 """
 
 from databases.conn import execute, query, query_one

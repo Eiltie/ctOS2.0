@@ -1,12 +1,10 @@
-"""旅游攻略｜图节点和配套的判断函数
+"""旅游攻略的图节点和配套函数。
 
-做什么：
-  - 四个图节点：weather 解析需求+查天气、spots 搜景点、planner 排行程、advice 写游玩建议
-  - ask_spots_node：景点清单处暂停等用户勾选（人在回路）
-  - should_continue：spots 之后继续搜工具还是停下来
-  - answer_weather / describe_places：只问天气时的快捷回答（不跑整张图）
-被谁用：modules/trip/guide/graph.py 注册节点、modules/trip/agent.py 调快捷回答。
-注意：spots 的循环在图里（conditional_edges），其余节点都是一次模型调用。
+四个节点：weather 解析需求并查天气，spots 搜景点，planner 排行程，advice 写游玩建议。
+另外还有景点清单处的暂停节点、spots 之后的条件路由，以及只问天气时的快捷回答
+（那种情况不跑整张图）。
+
+spots 的循环由图里的 conditional_edges 控制，其余节点都是一次模型调用。
 """
 
 import json
@@ -202,11 +200,6 @@ def advice_node(state: GuideState) -> dict:
     return {"advice": text or "（本次没能生成游玩建议，请重试）", "node_path": ["advice"]}
 
 
-# ============================================================
-# 人在回路：景点清单处暂停
-# （原 modules/trip/guide/ask.py）
-# ============================================================
-
 def ask_spots_node(state: GuideState) -> dict:
     """停在这里，把景点清单交给用户过目。"""
     answer = interrupt({
@@ -229,11 +222,6 @@ def ask_spots_node(state: GuideState) -> dict:
     }
 
 
-# ============================================================
-# 条件路由：spots 之后继续搜，还是停下来
-# （原 modules/trip/guide/conditions.py）
-# ============================================================
-
 def should_continue(state) -> str:
     """景点节点这一轮之后去哪：继续搜工具，还是停下来让用户过目。"""
     messages = state["messages"]
@@ -243,11 +231,6 @@ def should_continue(state) -> str:
 
     return "tools" if messages[-1].tool_calls else "planner"
 
-
-# ============================================================
-# 快捷回答：不跑整张图
-# （原 modules/trip/guide/quick.py）
-# ============================================================
 
 def answer_weather(query):
     """查一次天气，返回给用户看的文字；查不到返回兜底句。

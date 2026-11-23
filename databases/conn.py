@@ -1,23 +1,12 @@
-"""数据库公共地基：PostgreSQL 连接与通用操作。
+"""PostgreSQL 连接和通用操作。
 
-从 SQLite 迁过来的原因（SaaS 需要）：
-  - SQLite 是单文件，写操作锁整个文件，多进程/多实例同时写会排队
-  - SQLite 没有 schema 概念，做不了租户隔离
-  - 云上部署时文件不持久，容器一重建数据就没了
+所有增删改查都走这里的 query / execute / transaction，不要另写一份开连接的代码。
 
-关于连接方式：
-  没有用 psycopg_pool。它在 Python 3.14 上退出时会有线程清理报错
-  （PythonFinalizationError: cannot join thread at interpreter shutdown），
-  我们的请求量很小，每个操作开一个短连接足够快，
-  PG 的建连开销约 1~3 毫秒，比维护连接池的复杂度划算。
-  以后并发上来了，再换回连接池并加显式生命周期管理。
+每个操作开一个短连接、用完就关，没有用连接池：请求量小，建连只要 1~3 毫秒，
+而 psycopg_pool 在 Python 3.14 退出时会报线程清理错误。并发上来了再换。
 
-关于 SQL 写法（跟 SQLite 的差异，写新代码时注意）：
-  占位符      ?              →  %s
-  自增主键    AUTOINCREMENT  →  GENERATED ALWAYS AS IDENTITY
-  当前时间    datetime('now') →  CURRENT_TIMESTAMP / NOW()
-  拿插入的 id lastrowid      →  INSERT ... RETURNING id
-  标识符      `col`          →  col（小写名不用引号）
+用 SQLite 时要注意的差异（这张表现在是 PG）：占位符用 %s 不是 ?，
+自增主键用 GENERATED ALWAYS AS IDENTITY，拿插入的 id 用 RETURNING id。
 """
 
 import os
