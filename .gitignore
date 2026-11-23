@@ -48,7 +48,10 @@ logs/
 *.rej
 
 # ============ 本地数据库导出 ============
+# *.sql 是为了忽略数据库导出的备份文件；
+# 但 databases/schema.sql 是建表脚本，属于代码，必须入库，所以单独放行。
 *.sql
+!databases/schema.sql
 *.sqlite
 *.sqlite3
 *.sqlite-wal

@@ -23,7 +23,8 @@ load_dotenv(_PROJECT_ROOT / ".env")
 MODULE_DIR = Path(__file__).resolve().parent.parent
 
 # 知识库源文档：放 .md 文件，按 ## 二级标题切块
-DOCS_DIR = MODULE_DIR / "data" / "docs"
+# 语料在项目根的 docs/corpus/ 下（不在客服模块里，因为它同时也是对外文档）
+DOCS_DIR = _PROJECT_ROOT / "docs" / "corpus"
 
 # Chroma 向量库落盘位置（运行产物，不入 git）
 CHROMA_DIR = MODULE_DIR / "data" / "chroma"

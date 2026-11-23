@@ -115,8 +115,6 @@
 图存在 `databases/images/{租户id}/`（和用户上传的图同一目录，不复制两份），
 登记进 `message_images`，前端统一走 `GET /chat/attachment/{id}` 取。
 
-细节见 [docs/frontend.md](docs/frontend.md) 第九节。
-
 ---
 
 ## 快速开始
@@ -271,8 +269,7 @@ ctOS2.0/
 │   ├── scripts/        前端脚本：接口契约检查、假后端、加版本号
 │   └── dist/           构建产物（npm run build 生成，不进 git）
 ├── docs/           文档
-│   ├── design-preview/ 界面定稿截图
-│   └── corpus/         客服知识库源文件
+│   └── corpus/         客服知识库源文件（RAG 语料）
 ├── scripts/        运维脚本
 │   └── check_online.ps1      检查线上是否可访问
 └── config/         配置
@@ -280,7 +277,7 @@ ctOS2.0/
     └── notice.json           更新公告
 ```
 
-**改前端看 [docs/frontend.md](docs/frontend.md)。**
+**改前端**：`cd web && npm run build`，源码在 `web/src/` 下按 `features/` + `shared/` 组织。
 
 ---
 
@@ -384,9 +381,8 @@ npm run check:api      # 前后端接口契约（要起后端）
 | `lint` | 出行模块 import 对话模块、shared 反向 import features |
 | `check:api` | 后端加了接口/事件但前端没跟上 |
 
-细节见 [docs/frontend.md](docs/frontend.md) 第五节。
-
 ---
+
 ```bash
 # 客服检索质量：跑 40 题题库
 python -X utf8 -m modules.customer.rag.rag_eval
@@ -467,9 +463,9 @@ curl -N -X POST http://127.0.0.1:8080/trip/chat \
 
 | 想看什么 | 去哪 |
 | --- | --- |
-| **前端怎么组织、改了怎么验证** | [docs/frontend.md](docs/frontend.md) |
 | 想在终端单独跑某个模块 | `cli/` 下六个入口，见本文「项目结构」 |
 | 每个文件做什么 | 本文「项目结构」一节 |
+| 客服知识库原文 | `docs/corpus/`（改完要重跑 `rag_ingest`） |
 
 ---
 
